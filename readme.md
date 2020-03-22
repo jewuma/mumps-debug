@@ -11,7 +11,6 @@ Maybe change Port in launch.json and in MDEBUG.m if Port 9000 isn't useable.
 
 Open a M-Program you want to debug in VS Code and start debugging via "F5"
 
-![Mock Debug](images/mock-debug.gif)
 
 ## Project Page:
 
