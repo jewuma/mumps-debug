@@ -15,4 +15,4 @@ Open a M-Program you want to debug in VS Code and start debugging via "F5"
 
 ## Project Page:
 
-[https://github.com/Microsoft/vscode-mock-debug.git](https://github.com/Microsoft/vscode-mock-debug.git)
+[https://github.com/jewuma/mumps-debug.git](https://github.com/jewuma/mumps-debug.git)
