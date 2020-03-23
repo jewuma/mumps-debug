@@ -1,7 +1,7 @@
 {
 	"name": "mumps-debug",
 	"displayName": "Mumps Debugger",
-	"version": "0.1.0",
+	"version": "0.1.2",
 	"publisher": "jewuma",
 	"description": "Debugger for Mumps (M) , GT.M, YottaDB",
 	"author": {
@@ -10,7 +10,10 @@
 	},
 	"license": "LGPL",
 	"keywords": [
-		"multi-root ready"
+		"mumps",
+		"gt.m",
+		"yottadb",
+		"debug"
 	],
 	"engines": {
 		"vscode": "^1.41.1"
@@ -32,7 +35,6 @@
 		"compile": "tsc -p ./src",
 		"tslint": "tslint ./src/**/*.ts",
 		"watch": "tsc -w -p ./src",
-		"test": "mocha -u tdd ./out/tests/",
 		"postinstall": "node ./node_modules/vscode/bin/install",
 		"package": "vsce package",
 		"publish": "vsce publish"
@@ -43,18 +45,15 @@
 	},
 	"devDependencies": {
 		"@types/node": "10.12.12",
-		"@types/mocha": "5.2.7",
 		"typescript": "3.5.3",
-		"mocha": "6.2.0",
 		"vscode": "1.1.36",
 		"vscode-debugadapter-testsupport": "1.37.0",
 		"tslint": "5.18.0",
 		"vsce": "1.66.0"
 	},
-	"main": "./out/extension",
+	"main": "./out/mumpsDebug.js",
 	"activationEvents": [
-		"onDebug",
-		"onCommand:extension.mumps-debug.getProgramName"
+		"onDebug"
 	],
 	"contributes": {
 		"breakpoints": [
@@ -65,7 +64,7 @@
 		"debuggers": [
 			{
 				"type": "mumps",
-				"label": "Mumps Debug",
+				"label": "Mumps Debugger",
 				"program": "./out/debugAdapter.js",
 				"runtime": "node",
 				"configurationAttributes": {

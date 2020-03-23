@@ -211,8 +211,8 @@ export class MumpsDebugSession extends LoggingDebugSession {
 
 		response.body = {
 			scopes: [
-				new Scope("System", this._variableHandles.create("system"), false),
-				new Scope("Local", this._variableHandles.create("local|0"), true)
+				new Scope("Local", this._variableHandles.create("local|0"), true),
+				new Scope("System", this._variableHandles.create("system"),false)
 			]
 		};
 		this.sendResponse(response);

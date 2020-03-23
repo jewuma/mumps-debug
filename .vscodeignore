@@ -5,3 +5,5 @@ appveyor.yml
 src/**/*
 out/tests/**/*
 **/*.js.map
+node_modules
+
