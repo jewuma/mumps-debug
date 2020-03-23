@@ -11,7 +11,7 @@ import {
 import { DebugProtocol } from 'vscode-debugprotocol';
 import { basename } from 'path';
 const { Subject } = require('await-notify');
-import { mconnect , MumpsBreakpoint} from './mconnect';
+import { MConnect , MumpsBreakpoint} from './mconnect';
 
 /**
  * This interface describes the mumps-debug specific launch attributes
@@ -33,7 +33,7 @@ interface LaunchRequestArguments extends DebugProtocol.LaunchRequestArguments {
 	localRoutinesPath: string;
 
 }
-interface varData {
+interface VarData {
 	name: string,
 	indexCount: number,
 	bases: Array<string>,
@@ -43,7 +43,7 @@ export class MumpsDebugSession extends LoggingDebugSession {
 
 	// we don't support multiple threads, so we can use a hardcoded ID for the default thread
 	private static THREAD_ID = 1;
-	private _mconnect: mconnect;
+	private _mconnect: MConnect;
 
 	private _variableHandles = new Handles<string>();
 
@@ -60,7 +60,7 @@ export class MumpsDebugSession extends LoggingDebugSession {
 		this.setDebuggerLinesStartAt1(false);
 		this.setDebuggerColumnsStartAt1(false);
 
-		this._mconnect = new mconnect();
+		this._mconnect = new MConnect();
 
 		// setup event handlers
 		this._mconnect.on('stopOnEntry', () => {
@@ -221,10 +221,10 @@ export class MumpsDebugSession extends LoggingDebugSession {
 	protected async variablesRequest(response: DebugProtocol.VariablesResponse, args: DebugProtocol.VariablesArguments, request?: DebugProtocol.Request) {
 
 		const variables: DebugProtocol.Variable[] = [];
-		var insertVariable: DebugProtocol.Variable | undefined;
+		let insertVariable: DebugProtocol.Variable | undefined;
 		const varId = this._variableHandles.get(args.variablesReference);
-		if (varId == "system") {
-			var varObject = this._mconnect.getVariables("system");
+		if (varId === "system") {
+			let varObject = this._mconnect.getVariables("system");
 			for (let varname in varObject) {
 				variables.push({
 					name: varname,
@@ -237,25 +237,25 @@ export class MumpsDebugSession extends LoggingDebugSession {
 			const varparts: string[] = varId.split("|");
 			const indexCount: number = parseInt(varparts.pop()!);
 			const varBase = varparts.join("|");
-			var varObject = this._mconnect.getVariables("local");
-			var lastVar: varData;
-			var firstTime: boolean = true;
-			var lastRef: string = "";
+			let varObject = this._mconnect.getVariables("local");
+			let lastVar: VarData;
+			let firstTime: boolean = true;
+			let lastRef: string = "";
 			for (let varname in varObject) {
-				var actualVar = this.varAnalyze(varname, varObject[varname]);
+				let actualVar = this.varAnalyze(varname, varObject[varname]);
 				if (firstTime) { //First Variable not processed
 					lastVar = actualVar;
 					firstTime = false;
 					continue;
 				}
 				if (insertVariable = this.checkVars(lastVar!, actualVar, indexCount, varBase, lastRef)) {
-					if (insertVariable.variablesReference != 0) lastRef = lastVar!.bases[indexCount];
+					if (insertVariable.variablesReference !== 0) {lastRef = lastVar!.bases[indexCount];}
 					variables.push(insertVariable);
 				}
 				lastVar = actualVar;
 			}
 			if (!firstTime) { // process Last Variable if there was minimum one
-				var dummyVar: varData = { name: "", "indexCount": 0, "bases": [], "content": "" }
+				const dummyVar: VarData = { name: "", "indexCount": 0, "bases": [], "content": "" }
 				if (insertVariable = this.checkVars(lastVar!, dummyVar, indexCount, varBase,lastRef)) {
 					variables.push(insertVariable);
 				}
@@ -267,14 +267,14 @@ export class MumpsDebugSession extends LoggingDebugSession {
 		this.sendResponse(response);
 	}
 	//checkVars checks if Variable has to be inserted in Var-Display and if it has descendants
-	private checkVars(lastVar: varData, actualVar: varData, indexCount: number, varBase: string, lastRef: string): DebugProtocol.Variable | undefined {
-		var returnVar: DebugProtocol.Variable | undefined = undefined;
-		var actualReference: number = 0;
-		if (indexCount==0 || (lastVar.bases[indexCount-1] == varBase && lastVar.indexCount > indexCount)) {
+	private checkVars(lastVar: VarData, actualVar: VarData, indexCount: number, varBase: string, lastRef: string): DebugProtocol.Variable | undefined {
+		let returnVar: DebugProtocol.Variable | undefined = undefined;
+		let actualReference: number = 0;
+		if (indexCount===0 || (lastVar.bases[indexCount-1] === varBase && lastVar.indexCount > indexCount)) {
 			if (lastVar.indexCount > indexCount + 1) {
 				if (lastRef !== lastVar.bases[indexCount]) {
-					var name = actualVar.bases[indexCount];
-					if (indexCount > 0) name += ")";
+					let name = actualVar.bases[indexCount];
+					if (indexCount > 0) {name += ")";}
 					returnVar = {
 						name,
 						type: 'string',
@@ -283,7 +283,9 @@ export class MumpsDebugSession extends LoggingDebugSession {
 					};
 				}
 			} else { //lastVar.indexCount==indexCount+1
-				if (lastVar.bases[indexCount] == actualVar.bases[indexCount]) actualReference = this._variableHandles.create(lastVar.bases[indexCount] + "|" + (indexCount + 1));
+				if (lastVar.bases[indexCount] === actualVar.bases[indexCount]) {
+					actualReference = this._variableHandles.create(lastVar.bases[indexCount] + "|" + (indexCount + 1));
+				}
 				returnVar = {
 					name: lastVar.name,
 					type: 'string',
@@ -339,7 +341,7 @@ export class MumpsDebugSession extends LoggingDebugSession {
 				}
 			}
 		}*/
-		if (args.context == "hover") {
+		if (args.context === "hover") {
 			reply = args.expression + ":= " + this._mconnect.getSingleVar(args.expression);
 		}
 		response.body = {
@@ -357,24 +359,24 @@ export class MumpsDebugSession extends LoggingDebugSession {
 		return new Source(basename(filePath), this.convertDebuggerPathToClient(filePath), undefined, undefined, 'mock-adapter-data');
 	}
 
-	private varAnalyze(varname: string, content: string): varData {
-		var indexcount = 1;
-		var bases: string[] = [];
-		var length = varname.length;
-		var klammerpos = varname.indexOf("(");
-		var countKomma = true;
-		//var lastKommaPos = varname.length;
+	private varAnalyze(varname: string, content: string): VarData {
+		let indexcount = 1;
+		let bases: string[] = [];
+		let length = varname.length;
+		let klammerpos = varname.indexOf("(");
+		let countKomma = true;
+		//let lastKommaPos = varname.length;
 		if (klammerpos > 0) {
 			bases.push(varname.substring(0, klammerpos));
 			indexcount++;
 			//lastKommaPos = klammerpos;
-			for (var i = klammerpos; i < length; i++) {
-				if (varname.substring(i, i + 1) == "," && countKomma) {
+			for (let i = klammerpos; i < length; i++) {
+				if (varname.substring(i, i + 1) === "," && countKomma) {
 					bases.push(varname.substring(0, i));
 					indexcount++;
 					//lastKommaPos = i;
 				}
-				if (varname.substring(i, i + 1) == '"') countKomma = !countKomma;
+				if (varname.substring(i, i + 1) === '"') {countKomma = !countKomma;}
 			}
 			bases.push(varname.substring(0, varname.length - 1));
 		} else {

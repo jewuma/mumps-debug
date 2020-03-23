@@ -8,7 +8,7 @@ export interface MumpsBreakpoint {
 	verified: boolean;
 }
 
-export class mconnect extends EventEmitter {
+export class MConnect extends EventEmitter {
 	private _socket: Socket;
 	private _connectState: string;
 	private _readedData: string;
@@ -37,14 +37,14 @@ export class mconnect extends EventEmitter {
 		this._breakPoints = [];
 		this.event.on('varsComplete', () => {
 			if (typeof (this._mVars["I"]) !== 'undefined') {
-				var internals = this._mVars["I"];
+				let internals = this._mVars["I"];
 				this.checkEvents(internals["$ZPOSITION"], internals["$ZSTATUS"]);
 			}
 		})
 	}
 
 	public async init(hostname: string, port: number, localRoutinesPath: string) {
-		var socket = new Socket();
+		const socket = new Socket();
 		this._localRoutinesPath = localRoutinesPath;
 		this._hostname = hostname;
 		this._port = port;
@@ -55,11 +55,11 @@ export class mconnect extends EventEmitter {
 				console.log("Debug-Server connected\n");
 				socket.on('data', (chunk) => {
 					this._readedData += chunk.toString();
-					var n = this._readedData.indexOf('\n');
-					while (n != -1) {
+					let n = this._readedData.indexOf('\n');
+					while (n !== -1) {
 						this.processLine(this._readedData.substring(0, n))
 						this._readedData = this._readedData.substring(n + 1);
-						var n = this._readedData.indexOf('\n');
+						n = this._readedData.indexOf('\n');
 					}
 				});
 				resolve(socket);
@@ -69,20 +69,20 @@ export class mconnect extends EventEmitter {
 		// Put a friendly message on the terminal of the server.
 	}
 	private _log(msg) {
-		if (this._logging) console.log(msg);
+		if (this._logging) {console.log(msg);}
 	}
 	processLine(line: string) {
-		var varname: string;
-		var value: string;
-		var vartype: string;
+		let varname: string;
+		let value: string;
+		let vartype: string;
 		switch (this._connectState) {
 			case "waitingforStart": {
-				if (line == "***STARTVAR") {
+				if (line === "***STARTVAR") {
 					this._connectState = "waitingforVars";
 					this._mStack = [];
 					this._mVars = {};
 				}
-				if (line == "***STARTBP") {
+				if (line === "***STARTBP") {
 					this._connectState = "waitingforBreakpoints"
 					this._activeBreakpoints = [];
 					this._log(line);
@@ -95,11 +95,11 @@ export class mconnect extends EventEmitter {
 					this.event.emit("varsComplete");
 				} else {
 					vartype = line.substring(0, 1); //I=internal,V=local Variable,S=Stackframe
-					if (vartype == "S") {
+					if (vartype === "S") {
 						this._mStack.push(line.substring(2));
 					}
 					varname = line.substring(2, line.indexOf('='));
-					while ((varname.split('"').length - 1) % 2 != 0) {
+					while ((varname.split('"').length - 1) % 2 !== 0) {
 						varname = line.substring(0, line.indexOf('=', varname.length + 1));
 					}
 					value = line.substring(varname.length + 3).replace(/^"/, "").replace(/"$/, "");
@@ -109,7 +109,7 @@ export class mconnect extends EventEmitter {
 				break;
 			}
 			case "waitingforBreakpoints": {
-				if (line == "***ENDBP") {
+				if (line === "***ENDBP") {
 					this._log(line);
 					this._connectState = "waitingforStart";
 					this.verifyBreakpoints();
@@ -139,11 +139,11 @@ export class mconnect extends EventEmitter {
 		}
 	}
 	private sendBreakpoint(file: string, line: number, onOff: boolean): void {
-		if (onOff) this.writeln("SETBP;" + file + ";" + line);
-		else this.writeln("CLEARBP;" + file + ";" + line);
+		if (onOff) {this.writeln("SETBP;" + file + ";" + line);}
+		else {this.writeln("CLEARBP;" + file + ";" + line);}
 	}
 	public start(file: string, stopAtStart: boolean): void {
-		if (stopAtStart) this.sendBreakpoint(file, 1, true);
+		if (stopAtStart) {this.sendBreakpoint(file, 1, true);}
 		this.requestBreakpoints();
 		this.writeln("START;" + file);
 	}
@@ -164,20 +164,20 @@ export class mconnect extends EventEmitter {
 	 * Fire events if line has a breakpoint or hs stopped beacause of a different reason
 	 */
 	private checkEvents(mumpsposition: string, mumpsstatus: string): void {
-		var parts = mumpsposition.split("^");
-		var position = parts[0];
-		var program = parts[1];
-		var file = this._localRoutinesPath + program + ".m";
+		const parts = mumpsposition.split("^");
+		const position = parts[0];
+		const program = parts[1];
+		const file = this._localRoutinesPath + program + ".m";
 		this.loadSource(file);
-		var startlabel = position.split("+")[0];
-		var offset = 0;
+		const startlabel = position.split("+")[0];
+		let offset = 0;
 		if (position.split("+")[1] !== "undefined") {
 			offset = parseInt(position.split("+")[1]);
 		}
-		var line = 0
-		if (startlabel != "") {
+		let line = 0
+		if (startlabel !== "") {
 			for (let ln = 0; ln < this._sourceLines.length; ln++) {
-				if (this._sourceLines[ln].substring(0, startlabel.length) == startlabel) {
+				if (this._sourceLines[ln].substring(0, startlabel.length) === startlabel) {
 					line = ln;
 					break;
 				}
@@ -265,39 +265,39 @@ export class mconnect extends EventEmitter {
 		let merk: boolean[] = [];
 		this._breakPoints.forEach(bp => {
 			bp.verified = false;
-			for (var i = 0; i < this._activeBreakpoints.length; i++) {
-				var internalBp = this.convertMumpsPosition(this._activeBreakpoints[i])
-				if (internalBp.file == bp.file && bp.line == internalBp.line) {
+			for (let i = 0; i < this._activeBreakpoints.length; i++) {
+				let internalBp = this.convertMumpsPosition(this._activeBreakpoints[i])
+				if (internalBp.file === bp.file && bp.line === internalBp.line) {
 					bp.verified = true;
 					this.sendEvent('breakpointValidated', bp);
 					merk[i] = true;
 					break;
 				}
 			}
-			if (!bp.verified) this.sendEvent('breakpointValidated', bp);
+			if (!bp.verified) {this.sendEvent('breakpointValidated', bp);}
 		});
-		for (var i = 0; i < this._activeBreakpoints.length; i++) {
+		for (let i = 0; i < this._activeBreakpoints.length; i++) {
 			if (!merk[i]) {
-				var internalBp = this.convertMumpsPosition(this._activeBreakpoints[i])
-				var bp: MumpsBreakpoint = { 'verified': true, 'file': internalBp.file, 'line': internalBp.line, 'id': this._breakpointId++ }
+				let internalBp = this.convertMumpsPosition(this._activeBreakpoints[i])
+				let bp: MumpsBreakpoint = { 'verified': true, 'file': internalBp.file, 'line': internalBp.line, 'id': this._breakpointId++ }
 				this.sendEvent('breakpointValidated', bp);
 			}
 		}
 	}
 
 	public getVariables(type: string) {
-		if (type == "system") {
+		if (type === "system") {
 			return this._mVars["I"];
-		} else if (type = "local") {
+		} else if (type === "local") {
 			return this._mVars["V"];
 		}
 	}
 
 	public getSingleVar(expression: string) {
-		if (expression.substring(0, 1) == "$") {
-			return (this._mVars["I"] != undefined) ? this._mVars["I"][expression] : undefined;
+		if (expression.substring(0, 1) === "$") {
+			return (this._mVars["I"] !== undefined) ? this._mVars["I"][expression] : undefined;
 		} else {
-			return (this._mVars["V"] != undefined) ? this._mVars["V"][expression] : undefined;
+			return (this._mVars["V"] !== undefined) ? this._mVars["V"][expression] : undefined;
 		}
 	}
 
@@ -311,20 +311,20 @@ export class mconnect extends EventEmitter {
 	}
 
 	private convertMumpsPosition(positionstring: string) {
-		var parts = positionstring.split("^");
-		var position = parts[0];
-		var program = parts[1].split(" ", 1)[0];
-		var file = this._localRoutinesPath + program + ".m";
-		var filecontent = readFileSync(file).toString().split('\n');
-		var startlabel = position.split("+")[0];
-		var offset = 0;
+		let parts = positionstring.split("^");
+		let position = parts[0];
+		let program = parts[1].split(" ", 1)[0];
+		let file = this._localRoutinesPath + program + ".m";
+		let filecontent = readFileSync(file).toString().split('\n');
+		let startlabel = position.split("+")[0];
+		let offset = 0;
 		if (position.split("+")[1] !== undefined) {
 			offset = parseInt(position.split("+")[1]);
 		}
-		var line = 0;
-		if (startlabel != "") {
+		let line = 0;
+		if (startlabel !== "") {
 			for (let ln = 0; ln < filecontent.length; ln++) {
-				if (filecontent[ln].substring(0, startlabel.length) == startlabel) {
+				if (filecontent[ln].substring(0, startlabel.length) === startlabel) {
 					line = ln;
 					break;
 				}

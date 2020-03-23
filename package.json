@@ -1,7 +1,7 @@
 {
 	"name": "mumps-debug",
 	"displayName": "Mumps Debugger",
-	"version": "0.1.2",
+	"version": "0.1.8",
 	"publisher": "jewuma",
 	"description": "Debugger for Mumps (M) , GT.M, YottaDB",
 	"author": {
@@ -37,21 +37,27 @@
 		"watch": "tsc -w -p ./src",
 		"postinstall": "node ./node_modules/vscode/bin/install",
 		"package": "vsce package",
-		"publish": "vsce publish"
+		"publish": "vsce publish",
+		"vscode:prepublish": "webpack --mode production",
+    "webpack": "webpack --mode development",
+    "webpack-dev": "webpack --mode development --watch"
 	},
 	"dependencies": {
 		"await-notify": "1.0.1",
 		"vscode-debugadapter": "1.38.0-pre.4"
 	},
 	"devDependencies": {
-		"@types/node": "10.12.12",
+		"@types/node": "^13.9.3",
+		"ts-loader": "^6.2.2",
+		"tslint": "5.18.0",
 		"typescript": "3.5.3",
+		"vsce": "1.66.0",
 		"vscode": "1.1.36",
 		"vscode-debugadapter-testsupport": "1.37.0",
-		"tslint": "5.18.0",
-		"vsce": "1.66.0"
+		"webpack": "^4.42.0",
+		"webpack-cli": "^3.3.11"
 	},
-	"main": "./out/mumpsDebug.js",
+	"main": "./dist/extension",
 	"activationEvents": [
 		"onDebug"
 	],
@@ -65,7 +71,7 @@
 			{
 				"type": "mumps",
 				"label": "Mumps Debugger",
-				"program": "./out/debugAdapter.js",
+				"program": "./dist/extension",
 				"runtime": "node",
 				"configurationAttributes": {
 					"launch": {
