@@ -2,7 +2,7 @@
 	"name": "mumps-debug",
 	"displayName": "Mumps Debugger",
 	"version": "0.1.0",
-	"publisher": "jewumaandreweinand",
+	"publisher": "jewuma",
 	"description": "Debugger for Mumps (M) , GT.M, YottaDB",
 	"author": {
 		"name": "Jens Wulf",
@@ -15,7 +15,7 @@
 	"engines": {
 		"vscode": "^1.41.1"
 	},
-	"icon": "images/mock-debug-icon.png",
+	"icon": "images/mumps-debug-icon.png",
 	"categories": [
 		"Debuggers"
 	],
