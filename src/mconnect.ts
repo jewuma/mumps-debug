@@ -26,6 +26,7 @@ export class MConnect extends EventEmitter {
 	private _breakpointId: number = 1;
 	private _commandQueue: string[];
 	private _logging: boolean=true;
+	private _singleVar: string="";
 	constructor() {
 		super();
 		this._connectState = "waitingforStart";
@@ -35,6 +36,7 @@ export class MConnect extends EventEmitter {
 		this._commandQueue = [];
 		this._activeBreakpoints = [];
 		this._breakPoints = [];
+		this._singleVar="";
 		this.event.on('varsComplete', () => {
 			if (typeof (this._mVars["I"]) !== 'undefined') {
 				let internals = this._mVars["I"];
@@ -83,9 +85,13 @@ export class MConnect extends EventEmitter {
 					this._mVars = {};
 				}
 				if (line === "***STARTBP") {
-					this._connectState = "waitingforBreakpoints"
+					this._connectState = "waitingforBreakpoints";
 					this._activeBreakpoints = [];
 					this._log(line);
+				}
+				if (line==="***SINGLEVAR") {
+					this._connectState ="waitingForSingleVar";
+					this._singleVar="";
 				}
 				break;
 			}
@@ -116,6 +122,15 @@ export class MConnect extends EventEmitter {
 				} else {
 					this._log(line);
 					this._activeBreakpoints.push(line);
+				}
+				break;
+			}
+			case "waitingForSingleVar": {
+				if (line=== "***SINGLEEND") {
+					this._connectState="waitingforStart";
+					this.event.emit('SingleVarReceived',this._singleVar);
+				} else {
+					this._singleVar+=line;
 				}
 				break;
 			}
@@ -293,12 +308,26 @@ export class MConnect extends EventEmitter {
 		}
 	}
 
-	public getSingleVar(expression: string) {
-		if (expression.substring(0, 1) === "$") {
-			return (this._mVars["I"] !== undefined) ? this._mVars["I"][expression] : undefined;
-		} else {
-			return (this._mVars["V"] !== undefined) ? this._mVars["V"][expression] : undefined;
-		}
+	public async getSingleVar(expression: string) {
+		return new Promise((resolve,reject)=>{
+			if (expression.substring(0, 1) === "$") {
+				resolve ((this._mVars["I"] !== undefined) ? this._mVars["I"][expression] : undefined);
+			} else {
+				if (this._mVars["V"] !== undefined) {
+					if (this._mVars["V"][expression]!==undefined) {
+						resolve(this._mVars["V"][expression]);
+					} else {
+						let listener=this.event.on('SingleVarReceived',(value)=>{
+							resolve(value);
+							listener.removeListener;
+						});
+						this.writeln("GETVAR;"+expression);
+					}
+				} else {
+					resolve(undefined);
+				}
+			}
+		});
 	}
 
 	// private methods

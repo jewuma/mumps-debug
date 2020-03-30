@@ -315,7 +315,7 @@ export class MumpsDebugSession extends LoggingDebugSession {
 		this._mconnect.step("OUTOF");
 	}
 
-	protected evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments): void {
+	protected async evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments) {
 
 		let reply: string = "";
 		/*
@@ -342,7 +342,7 @@ export class MumpsDebugSession extends LoggingDebugSession {
 			}
 		}*/
 		if (args.context === "hover") {
-			reply = args.expression + ":= " + this._mconnect.getSingleVar(args.expression);
+			reply = args.expression + ":= " + await this._mconnect.getSingleVar(args.expression);
 		}
 		response.body = {
 			result: reply,
