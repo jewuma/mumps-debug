@@ -157,7 +157,7 @@ export class MumpsDebugSession extends LoggingDebugSession {
 			this._mconnect.start(args.program, !!args.stopOnEntry);
 			this.sendResponse(response);
 		}).catch((error) => {
-			console.log(error);
+			console.error(error);
 		})
 	}
 	protected setBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments): void {

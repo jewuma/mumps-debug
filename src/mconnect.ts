@@ -25,7 +25,7 @@ export class MConnect extends EventEmitter {
 	private _localRoutinesPath: string;
 	private _breakpointId: number = 1;
 	private _commandQueue: string[];
-	private _logging: boolean=true;
+	private _logging: boolean=false;
 	private _singleVar: string="";
 	constructor() {
 		super();
@@ -54,7 +54,7 @@ export class MConnect extends EventEmitter {
 		return new Promise((resolve, reject) => {
 			socket.connect(this._port, this._hostname, () => {
 				this._socket = socket;
-				console.log("Debug-Server connected\n");
+				this._log("Debug-Server connected\n");
 				socket.on('data', (chunk) => {
 					this._readedData += chunk.toString();
 					let n = this._readedData.indexOf('\n');
@@ -135,14 +135,14 @@ export class MConnect extends EventEmitter {
 				break;
 			}
 			default: {
-				console.log("Unexpected Message: " + line);
+				console.error("Unexpected Message: " + line);
 			}
 		}
 	}
 	private writeln(message: string): void {
 		this._commandQueue.push(message);
 		if (this._commandQueue.length > 1000) {
-			console.log("Too many Commands in Queue Check Debugger Connection");
+			console.error("Too many Commands in Queue Check Debugger Connection");
 			throw new Error();
 		}
 		if (this._socket) {
@@ -317,9 +317,8 @@ export class MConnect extends EventEmitter {
 					if (this._mVars["V"][expression]!==undefined) {
 						resolve(this._mVars["V"][expression]);
 					} else {
-						let listener=this.event.on('SingleVarReceived',(value)=>{
+						this.event.on('SingleVarReceived',(value)=>{
 							resolve(value);
-							listener.removeListener;
 						});
 						this.writeln("GETVAR;"+expression);
 					}

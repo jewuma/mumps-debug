@@ -2,58 +2,58 @@ MDEBUG  ;Debugging Routine for M
 	S $ZSTEP="ZSHOW ""VIS"":^%MDEBUG($J) S %STEP=$$WAIT^MDEBUG($ZPOS) ZST:%STEP=""I"" INTO ZST:%STEP=""O"" OVER ZST:%STEP=""F"" OUTOF ZC:%STEP=""C""  H:%STEP=""H"""
 	D OPEN()
 RESTART ;
-	S %STEP=$$WAIT("")
+	S %STEP=$$WAIT("") G:%STEP["^" @%STEP
 	I %STEP["^" ZGOTO 1:RESTARTB
 	G RESTART
 RESTARTB	;
 	ZL $P(%STEP,"^",2)
 	G @%STEP
 	Q
-OPEN()    ;
-        N IO,DEV,PORT,SOCKET
-        S IO=$I,PORT=9000,DEV="|TCP|"_PORT_"|"_$J
-        O DEV:(ZLISTEN=PORT_":TCP":NODELIMITER:ATTACH="listener")::"SOCKET"
+OPEN()    	;Open TCP-Communication-Port
+        N %IO,%DEV,%PORT,%SOCKET
+        S %IO=$I,%PORT=9000,%DEV="|TCP|"_%PORT_"|"_$J
+        O %DEV:(ZLISTEN=%PORT_":TCP":NODELIMITER:ATTACH="listener")::"SOCKET"
 	E  Q
-        U DEV
+        U %DEV
         W /LISTEN(1)
         ; wait for connection, $KEY will be "CONNECT|socket_handle|remote_ipaddress"
         F  W /WAIT Q:$KEY]""
-        S SOCKET=$P($KEY,"|",2)
+        S %SOCKET=$P($KEY,"|",2)
         KILL ^%MDEBUG($J)
-	S ^%MDEBUG($J,"SOCKET")=SOCKET
-	S ^%MDEBUG($J,"DEV")=DEV
-	U IO
+	S ^%MDEBUG($J,"SOCKET")=%SOCKET
+	S ^%MDEBUG($J,"DEV")=%DEV
+	U %IO
 	Q
-WAIT(ZPOS)   ;
-        N DEV,IO,CMD,ACTION,CMDS,CMDLINE,SOCKET,LABEL,I,VAR
-        S CMDS="START;QUIT;EXIT;INTO;OUTOF;OVER;CONTINUE;SETBP;VARS;INTERNALS;CLEARBP;REQUESTBP;RESET;GETVAR"
-        S IO=$I
-        S DEV=^%MDEBUG($J,"DEV"),SOCKET=^%MDEBUG($J,"SOCKET")
-	U DEV:(SOCKET=SOCKET:DELIM=$C(10))
+WAIT(%ZPOS)   	;Wait for next Command from Editor
+        N %DEV,%IO,%CMD,%ACTION,%CMDS,%CMDLINE,%SOCKET,%LABEL,%I,%VAR
+        S %CMDS="START;QUIT;EXIT;INTO;OUTOF;OVER;CONTINUE;SETBP;VARS;INTERNALS;CLEARBP;REQUESTBP;RESET;GETVAR"
+        S %IO=$I
+        S %DEV=^%MDEBUG($J,"DEV"),%SOCKET=^%MDEBUG($J,"SOCKET")
+	U %DEV:(SOCKET=%SOCKET:DELIM=$C(10))
 	W "***STARTVAR",!
-	S I="" F  S I=$O(^%MDEBUG($J,"I",I)) Q:I=""  S VAR=^%MDEBUG($J,"I",I) S:VAR[$C(10) VAR=$$MTR(VAR,$C(10),"_$C(10)_") W "I:",VAR,!
-	S I="" F  S I=$O(^%MDEBUG($J,"V",I)) Q:I=""  S VAR=^%MDEBUG($J,"V",I) S:VAR[$C(10) VAR=$$MTR(VAR,$C(10),"_$C(10)_") W "V:",VAR,!
-	S I="" F  S I=$O(^%MDEBUG($J,"S",I)) Q:I=""  S VAR=^%MDEBUG($J,"S",I) W "S:",VAR,!
+	S %I="" F  S %I=$O(^%MDEBUG($J,"I",%I)) Q:%I=""  S %VAR=^%MDEBUG($J,"I",%I) S:%VAR[$C(10) %VAR=$$MTR(VAR,$C(10),"_$C(10)_") W "I:",%VAR,!
+	S %I="" F  S %I=$O(^%MDEBUG($J,"V",%I)) Q:%I=""  S %VAR=^%MDEBUG($J,"V",%I) S:%VAR[$C(10) %VAR=$$MTR(VAR,$C(10),"_$C(10)_") W "V:",%VAR,!
+	S %I="" F  S %I=$O(^%MDEBUG($J,"S",%I)) Q:%I=""  S %VAR=^%MDEBUG($J,"S",%I) W "S:",%VAR,!
         W "***ENDVAR",!
-READLOOP	;
-	U DEV:(SOCKET=SOCKET:DELIM=$C(10))
-        F  R CMDLINE S CMD=$P(CMDLINE,";",1) Q:$P(CMD,";",1)'=""&(CMDS[$TR(CMD,";"))
-	;D OUT(CMDLINE)
-	I CMD="REQUESTBP" W "***STARTBP",! ZSHOW "B" W "***ENDBP",! G READLOOP
-	I CMD="GETVAR" D GETVAR($P(CMDLINE,";",2,999)) G READLOOP
-        U IO
-        I CMD="INTO" Q:$D(^%MDEBUG($J,"BP",$$POSCONV(ZPOS))) "O" Q "I"
-        Q:CMD="INTO" "I"
-	Q:CMD="OUTOF" "F"
-	Q:CMD="OVER" "O"
-        Q:CMD="CONTINUE" "C"
-	Q:CMD="START" "^"_$$RNAME($P(CMDLINE,";",2))
-        I CMD="EXIT"!(CMD="QUIT") KILL ^%MDEBUG($J) C DEV Q "H"
-        I CMD="SETBP" D SETBP($P(CMDLINE,";",2),$P(CMDLINE,";",3)) G READLOOP
-        I CMD="CLEARBP" D CLEARBP($P(CMDLINE,";",2),$P(CMDLINE,";",3)) G READLOOP
-	I CMD="RESET" KILL ^%MDEBUG($J) C DEV ZGOTO 1:MDEBUG
-        Q ACTION
-SETBP(FILE,LINE)        ;
+READLOOP	;Wait for next Command from Editor
+	U %DEV:(SOCKET=%SOCKET:DELIM=$C(10))
+        F  R %CMDLINE S %CMD=$P(%CMDLINE,";",1) Q:$P(%CMD,";",1)'=""&(%CMDS[$TR(%CMD,";"))
+	;D OUT(%CMDLINE)
+	I %CMD="REQUESTBP" W "***STARTBP",! ZSHOW "B" W "***ENDBP",! G READLOOP
+	I %CMD="GETVAR" D GETVAR($P(%CMDLINE,";",2,999)) G READLOOP
+        U %IO
+        I %CMD="INTO" Q:$D(^%MDEBUG($J,"BP",$$POSCONV(%ZPOS))) "O" Q "I"
+        Q:%CMD="INTO" "I"
+	Q:%CMD="OUTOF" "F"
+	Q:%CMD="OVER" "O"
+        Q:%CMD="CONTINUE" "C"
+	Q:%CMD="START" "^"_$$RNAME($P(%CMDLINE,";",2))
+        I %CMD="EXIT"!(%CMD="QUIT") KILL ^%MDEBUG($J) C %DEV Q "H"
+        I %CMD="SETBP" D SETBP($P(%CMDLINE,";",2),$P(%CMDLINE,";",3)) G READLOOP
+        I %CMD="CLEARBP" D CLEARBP($P(%CMDLINE,";",2),$P(%CMDLINE,";",3)) G READLOOP
+	I %CMD="RESET" KILL ^%MDEBUG($J) C %DEV ZGOTO 1:MDEBUG
+        Q %ACTION
+SETBP(FILE,LINE)        ;Set Breakpoint
         N ROUTINE,ZBPOS,ZBCMD,IO,BP
 	S IO=$I
         S ROUTINE=$$RNAME(FILE)
@@ -61,10 +61,10 @@ SETBP(FILE,LINE)        ;
         S ZBPOS="+"_LINE_"^"_ROUTINE
 	S ZBCMD="ZB "_ZBPOS_":""ZSHOW """"VIS"""":^%MDEBUG($J) S %STEP=$$WAIT^MDEBUG($ZPOS) ZST:%STEP=""""I"""" INTO ZST:%STEP=""""O"""" OVER ZST:%STEP=""""F"""" OUTOF ZC:%STEP=""""C""""  H:%STEP=""""H"""""""
         D REFRESHBP
-	U IO
+	U %IO
         X ZBCMD
         Q
-CLEARBP(FILE,LINE)      ;
+CLEARBP(FILE,LINE)      ;Clear Breakpoint
         N ROUTINE,ZBPOS
         S ROUTINE=$$RNAME(FILE)
         I ROUTINE="" ZB -* D REFRESHBP Q     ;Clear all Breakpoints
@@ -72,19 +72,18 @@ CLEARBP(FILE,LINE)      ;
         ZB:$T(@$E(ZBPOS,2,99))'="" @ZBPOS
         D REFRESHBP
         Q
-GETVAR(VARNAME)	;Get Variable-Content an pass it to Editor
+GETVAR(%VARNAME)	;Get Variable-Content an pass it to Editor
 	N $ZT
 	S $ZT="G GETVAR1^"_$T(+0)
 	W "***SINGLEVAR",!
-	W $G(@VARNAME),!
+	W $G(@%VARNAME),!
 GETVAR1	W "***SINGLEEND",!
 	Q
-REFRESHBP       ;
-        N BP,BPPOS
+REFRESHBP       ;Remember Breakpoint-Positions to avoid Collisions between ZSTEP INTO and ZBREAK
+        N BP
         ZSHOW "B":^%MDEBUG($J)
         KILL ^%MDEBUG($J,"BP")
         S BP="" F  S BP=$O(^%MDEBUG($J,"B",BP)) Q:BP=""  D
-        .S BPPOS=^%MDEBUG($J,"B",BP)
         .S ^%MDEBUG($J,"BP",^%MDEBUG($J,"B",BP))=""
         KILL ^%MDEBUG($J,"B")
         Q
@@ -97,17 +96,17 @@ POSCONV(ZPOS)	;Convert Position in Form LABEL+n^ROUTINE TO +m^ROUTINE
 	S ROUTINE=$P(ZPOS,"^",2),LABELLEN=$L(LABEL)
 	F I=1:1 Q:$E($T(@("+"_I_"^"_ROUTINE)),1,LABELLEN)=LABEL
 	Q "+"_(I+OFFSET)_"^"_ROUTINE
-RNAME(FILE)	;
+RNAME(FILE)	;Get Routinename from filename
 	S FILE=$TR(FILE,"\","/")
 	Q $TR($P($P(FILE,"/",$L(FILE,"/")),".",1),"_","%")
-OUT(VAR)	;
-	N IO
-	S IO=$I
+OUT(VAR)	;DEBUG-Output
+	N %IO
+	S %IO=$I
 	U 0
 	W VAR,!
-	U IO
+	U %IO
 	Q
-MTR(VAR,SUCH,ERSETZ)	;ein Zeichen in VAR durch mehrere ersetzen
+MTR(VAR,SUCH,ERSETZ)	;Replace one Char in String by several chars
 	Q:SUCH="" VAR
 	N POS
 	S POS=0
