@@ -1,6 +1,8 @@
-/*---------------------------------------------------------
- * Copyright (C) Microsoft Corporation. All rights reserved.
- *--------------------------------------------------------*/
+/*
+	Implementation of DebugProtocol-Server for GT.M, Yottadb by Jens Wulf
+	based on Mock-Debug by Microsoft Corp.
+	License: LGPL
+*/
 
 import {
 	Logger, logger,
@@ -75,8 +77,8 @@ export class MumpsDebugSession extends LoggingDebugSession {
 		this._mconnect.on('stopOnDataBreakpoint', () => {
 			this.sendEvent(new StoppedEvent('data breakpoint', MumpsDebugSession.THREAD_ID));
 		});
-		this._mconnect.on('stopOnException', () => {
-			this.sendEvent(new StoppedEvent('exception', MumpsDebugSession.THREAD_ID));
+		this._mconnect.on('stopOnException', (errortext) => {
+			this.sendEvent(new StoppedEvent('exception', MumpsDebugSession.THREAD_ID,errortext));
 		});
 		this._mconnect.on('breakpointValidated', (bp: MumpsBreakpoint) => {
 			this.sendEvent(new BreakpointEvent('changed', <DebugProtocol.Breakpoint>{ verified: bp.verified, id: bp.id }));

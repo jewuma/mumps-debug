@@ -5,3 +5,8 @@
 * Small Fixes and Webpack config added
 ## 0.2.0
 * Better Hover-Handling for Variable Preview
+## 0.3.0
+* Improved Error-Handling
+## 0.3.1
+* Change in MDEBUG.m because of Problems when a Program do a KILL without Arguments
+

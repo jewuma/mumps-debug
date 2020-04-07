@@ -1,16 +1,13 @@
-MDEBUG  ;Debugging Routine for M
-	S $ZSTEP="ZSHOW ""VIS"":^%MDEBUG($J) S %STEP=$$WAIT^MDEBUG($ZPOS) ZST:%STEP=""I"" INTO ZST:%STEP=""O"" OVER ZST:%STEP=""F"" OUTOF ZC:%STEP=""C""  H:%STEP=""H"""
-	D OPEN()
+MDEBUG  ;Debugging Routine for M by Jens Wulf
+	;License: LGPL
+	S $ZSTEP="ZSHOW ""VIS"":^%MDEBUG($J) S %STEP=$$WAIT^MDEBUG($ZPOS) ZST:%STEP=""I"" INTO ZST:%STEP=""O"" OVER ZST:%STEP=""F"" OUTOF ZC:%STEP=""C"""
+	D INIT
 RESTART ;
-	S %STEP=$$WAIT("") G:%STEP["^" @%STEP
-	I %STEP["^" ZGOTO 1:RESTARTB
-	G RESTART
-RESTARTB	;
-	ZL $P(%STEP,"^",2)
-	G @%STEP
+	F  S %STEP=$$WAIT("") Q:%STEP["^"
+	D @%STEP X $ZSTEP
 	Q
-OPEN()    	;Open TCP-Communication-Port
-        N %IO,%DEV,%PORT,%SOCKET
+INIT    ;Open TCP-Communication-Port
+        N %IO,%DEV,%PORT,%SOCKET,%ZTFORM
         S %IO=$I,%PORT=9000,%DEV="|TCP|"_%PORT_"|"_$J
         O %DEV:(ZLISTEN=%PORT_":TCP":NODELIMITER:ATTACH="listener")::"SOCKET"
 	E  Q
@@ -22,6 +19,8 @@ OPEN()    	;Open TCP-Communication-Port
         KILL ^%MDEBUG($J)
 	S ^%MDEBUG($J,"SOCKET")=%SOCKET
 	S ^%MDEBUG($J,"DEV")=%DEV
+	S:$ZTRAP="B" $ZTRAP=$ZSTEP
+	S $ZSTATUS=""
 	U %IO
 	Q
 WAIT(%ZPOS)   	;Wait for next Command from Editor
@@ -30,6 +29,8 @@ WAIT(%ZPOS)   	;Wait for next Command from Editor
         S %IO=$I
         S %DEV=^%MDEBUG($J,"DEV"),%SOCKET=^%MDEBUG($J,"SOCKET")
 	U %DEV:(SOCKET=%SOCKET:DELIM=$C(10))
+        I %ZPOS[("^"_$T(+0)) W "***ENDPROGRAM",! G RESET
+	S:$ZTRAP="B" $ZTRAP=$ZSTEP
 	W "***STARTVAR",!
 	S %I="" F  S %I=$O(^%MDEBUG($J,"I",%I)) Q:%I=""  S %VAR=^%MDEBUG($J,"I",%I) S:%VAR[$C(10) %VAR=$$MTR(VAR,$C(10),"_$C(10)_") W "I:",%VAR,!
 	S %I="" F  S %I=$O(^%MDEBUG($J,"V",%I)) Q:%I=""  S %VAR=^%MDEBUG($J,"V",%I) S:%VAR[$C(10) %VAR=$$MTR(VAR,$C(10),"_$C(10)_") W "V:",%VAR,!
@@ -38,9 +39,11 @@ WAIT(%ZPOS)   	;Wait for next Command from Editor
 READLOOP	;Wait for next Command from Editor
 	U %DEV:(SOCKET=%SOCKET:DELIM=$C(10))
         F  R %CMDLINE S %CMD=$P(%CMDLINE,";",1) Q:$P(%CMD,";",1)'=""&(%CMDS[$TR(%CMD,";"))
-	;D OUT(%CMDLINE)
 	I %CMD="REQUESTBP" W "***STARTBP",! ZSHOW "B" W "***ENDBP",! G READLOOP
 	I %CMD="GETVAR" D GETVAR($P(%CMDLINE,";",2,999)) G READLOOP
+        I %CMD="SETBP" D SETBP($P(%CMDLINE,";",2),$P(%CMDLINE,";",3)) G READLOOP
+        I %CMD="CLEARBP" D CLEARBP($P(%CMDLINE,";",2),$P(%CMDLINE,";",3)) G READLOOP
+	I %CMD="RESET" G RESET
         U %IO
         I %CMD="INTO" Q:$D(^%MDEBUG($J,"BP",$$POSCONV(%ZPOS))) "O" Q "I"
         Q:%CMD="INTO" "I"
@@ -48,11 +51,9 @@ READLOOP	;Wait for next Command from Editor
 	Q:%CMD="OVER" "O"
         Q:%CMD="CONTINUE" "C"
 	Q:%CMD="START" "^"_$$RNAME($P(%CMDLINE,";",2))
-        I %CMD="EXIT"!(%CMD="QUIT") KILL ^%MDEBUG($J) C %DEV Q "H"
-        I %CMD="SETBP" D SETBP($P(%CMDLINE,";",2),$P(%CMDLINE,";",3)) G READLOOP
-        I %CMD="CLEARBP" D CLEARBP($P(%CMDLINE,";",2),$P(%CMDLINE,";",3)) G READLOOP
-	I %CMD="RESET" KILL ^%MDEBUG($J) C %DEV ZGOTO 1:MDEBUG
-        Q %ACTION
+        I %CMD="EXIT"!(%CMD="QUIT") KILL ^%MDEBUG($J) C %DEV HALT
+	;Shouldn't get here
+        HALT
 SETBP(FILE,LINE)        ;Set Breakpoint
         N ROUTINE,ZBPOS,ZBCMD,IO,BP
 	S IO=$I
@@ -79,6 +80,11 @@ GETVAR(%VARNAME)	;Get Variable-Content an pass it to Editor
 	W $G(@%VARNAME),!
 GETVAR1	W "***SINGLEEND",!
 	Q
+RESET   ; Clean up and wait for new Connection
+        KILL ^%MDEBUG($J)
+        C %DEV
+        ZGOTO 1:MDEBUG
+        Q
 REFRESHBP       ;Remember Breakpoint-Positions to avoid Collisions between ZSTEP INTO and ZBREAK
         N BP
         ZSHOW "B":^%MDEBUG($J)

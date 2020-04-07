@@ -1,3 +1,7 @@
+/*
+	Connector to MDEBUG-Server by Jens Wulf
+	License: LGPL
+*/
 import { Socket } from "net";
 import { EventEmitter } from 'events';
 import { readFileSync } from 'fs';
@@ -92,6 +96,9 @@ export class MConnect extends EventEmitter {
 				if (line==="***SINGLEVAR") {
 					this._connectState ="waitingForSingleVar";
 					this._singleVar="";
+				}
+				if (line==="***ENDPROGRAM") {
+					this.sendEvent("end");
 				}
 				break;
 			}
@@ -200,7 +207,7 @@ export class MConnect extends EventEmitter {
 		}
 		this._currentLine = line + offset;
 		if (mumpsstatus !== "") {
-			this.sendEvent('stopOnException');
+			this.sendEvent('stopOnException',mumpsstatus);
 		} else {
 			const bps = this._breakPoints.filter(bp => bp.file === this._sourceFile && bp.line === this._currentLine);
 			if (bps.length > 0) {
@@ -366,5 +373,4 @@ export class MConnect extends EventEmitter {
 			this.emit(event, ...args);
 		});
 	}
-	// Identify this client
 }
