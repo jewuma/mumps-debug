@@ -9,4 +9,6 @@
 * Improved Error-Handling
 ## 0.3.1
 * Change in MDEBUG.m because of Problems when a Program do a KILL without Arguments
+## 0.3.2
+* Change in README.md
 

@@ -13,6 +13,12 @@ This is a Beta Version of a Debugger for Mumps (M) running on Yottadb/GT.M
 
 * Open a M-Program you want to debug in VS Code and start debugging via "F5"
 
+## Project Page:
+
+[https://github.com/jewuma/mumps-debug.git](https://github.com/jewuma/mumps-debug.git)
+
+## launch.json:
+
 A possible `launch.json` could look like this:
 
 ```json
@@ -31,7 +37,3 @@ A possible `launch.json` could look like this:
     }
   ]
 }
-
-## Project Page:
-
-[https://github.com/jewuma/mumps-debug.git](https://github.com/jewuma/mumps-debug.git)

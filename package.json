@@ -1,7 +1,7 @@
 {
 	"name": "mumps-debug",
 	"displayName": "Mumps Debugger",
-	"version": "0.3.1",
+	"version": "0.3.2",
 	"publisher": "jewuma",
 	"description": "Debugger for Mumps (M) , GT.M, YottaDB",
 	"author": {
