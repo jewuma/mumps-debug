@@ -11,6 +11,12 @@ export interface MumpsBreakpoint {
 	line: number;
 	verified: boolean;
 }
+interface VarData {
+	name: string,
+	indexCount: number,
+	bases: Array<string>,
+	content: string
+}
 
 export class MConnect extends EventEmitter {
 	private _socket: Socket;
@@ -19,29 +25,34 @@ export class MConnect extends EventEmitter {
 	private _mVars: Object;
 	private _mStack: Array<string>;
 	private _activeBreakpoints: Array<string>;
-	private event = new EventEmitter();
+	private _event = new EventEmitter();
 	private _hostname: string;
 	private _port: number;
 	private _sourceFile: string;
 	private _sourceLines: string[];
 	private _currentLine = 0;
+	private _errorLines: string[];
 	private _breakPoints: MumpsBreakpoint[];
 	private _localRoutinesPath: string;
 	private _breakpointId: number = 1;
 	private _commandQueue: string[];
-	private _logging: boolean=false;
-	private _singleVar: string="";
+	private _logging: boolean = false;
+	private _singleVar: string = "";
+	private _singleVarContent: string = "";
 	constructor() {
 		super();
+		this._commandQueue = [];
+		this._socket = new Socket();
 		this._connectState = "waitingforStart";
 		this._readedData = "";
 		this._mVars = {};
 		this._mStack = [];
-		this._commandQueue = [];
 		this._activeBreakpoints = [];
 		this._breakPoints = [];
-		this._singleVar="";
-		this.event.on('varsComplete', () => {
+		this._errorLines = [];
+		this._singleVar = "";
+		this._singleVarContent="";
+		this._event.on('varsComplete', () => {
 			if (typeof (this._mVars["I"]) !== 'undefined') {
 				let internals = this._mVars["I"];
 				this.checkEvents(internals["$ZPOSITION"], internals["$ZSTATUS"]);
@@ -50,16 +61,14 @@ export class MConnect extends EventEmitter {
 	}
 
 	public async init(hostname: string, port: number, localRoutinesPath: string) {
-		const socket = new Socket();
 		this._localRoutinesPath = localRoutinesPath;
 		this._hostname = hostname;
 		this._port = port;
 
 		return new Promise((resolve, reject) => {
-			socket.connect(this._port, this._hostname, () => {
-				this._socket = socket;
+			this._socket.connect(this._port, this._hostname, () => {
 				this._log("Debug-Server connected\n");
-				socket.on('data', (chunk) => {
+				this._socket.on('data', (chunk) => {
 					this._readedData += chunk.toString();
 					let n = this._readedData.indexOf('\n');
 					while (n !== -1) {
@@ -68,14 +77,14 @@ export class MConnect extends EventEmitter {
 						n = this._readedData.indexOf('\n');
 					}
 				});
-				resolve(socket);
+				resolve(this._socket);
 			});
-			socket.on('error', (error) => { reject(error) });
+			this._socket.on('error', (error) => { reject(error) });
 		})
 		// Put a friendly message on the terminal of the server.
 	}
 	private _log(msg) {
-		if (this._logging) {console.log(msg);}
+		if (this._logging) { console.log(msg); }
 	}
 	processLine(line: string) {
 		let varname: string;
@@ -87,25 +96,35 @@ export class MConnect extends EventEmitter {
 					this._connectState = "waitingforVars";
 					this._mStack = [];
 					this._mVars = {};
+					break;
 				}
 				if (line === "***STARTBP") {
 					this._connectState = "waitingforBreakpoints";
 					this._activeBreakpoints = [];
 					this._log(line);
+					break;
 				}
-				if (line==="***SINGLEVAR") {
-					this._connectState ="waitingForSingleVar";
-					this._singleVar="";
+				if (line === "***SINGLEVAR") {
+					this._connectState = "waitingForSingleVar";
+					this._singleVar = "";
+					this._singleVarContent="";
+					break;
 				}
-				if (line==="***ENDPROGRAM") {
+				if (line === "***ENDPROGRAM") {
 					this.sendEvent("end");
+					break;
+				}
+				if (line === "***BEGINERRCHK") {
+					this._connectState = "waitingForErrorreport"
+					this._errorLines = [];
+					break;
 				}
 				break;
 			}
 			case "waitingforVars": {
 				if (line === "***ENDVAR") {
 					this._connectState = "waitingforStart";
-					this.event.emit("varsComplete");
+					this._event.emit("varsComplete");
 				} else {
 					vartype = line.substring(0, 1); //I=internal,V=local Variable,S=Stackframe
 					if (vartype === "S") {
@@ -133,11 +152,31 @@ export class MConnect extends EventEmitter {
 				break;
 			}
 			case "waitingForSingleVar": {
-				if (line=== "***SINGLEEND") {
-					this._connectState="waitingforStart";
-					this.event.emit('SingleVarReceived',this._singleVar);
+				if (line === "***SINGLEEND") {
+					this._connectState = "waitingforStart";
+					this._event.emit('SingleVarReceived', this._event, this._singleVar,this._singleVarContent);
+				} else if (line=== "***SINGLEVARCONTENT") {
+					this._connectState="waitingForSingleVarContent";
 				} else {
-					this._singleVar+=line;
+					this._singleVar += line;
+				}
+				break;
+			}
+			case "waitingForSingleVarContent": {
+				if (line === "***SINGLEEND") {
+					this._connectState = "waitingforStart";
+					this._event.emit('SingleVarReceived', this._event, this._singleVar,this._singleVarContent);
+				} else {
+					this._singleVarContent+=line;
+				}
+				break;
+			}
+			case "waitingForErrorreport": {
+				if (line === "***ENDERRCHK") {
+					this._connectState = "waitingforStart";
+					this._event.emit('ErrorreportReceived', this._event, this._errorLines);
+				} else {
+					this._errorLines.push(line);
 				}
 				break;
 			}
@@ -152,7 +191,7 @@ export class MConnect extends EventEmitter {
 			console.error("Too many Commands in Queue Check Debugger Connection");
 			throw new Error();
 		}
-		if (this._socket) {
+		if (this._socket && this._socket.writable) {
 			while (this._commandQueue.length) {
 				message = this._commandQueue.shift()!;
 				this._log(message);
@@ -161,11 +200,11 @@ export class MConnect extends EventEmitter {
 		}
 	}
 	private sendBreakpoint(file: string, line: number, onOff: boolean): void {
-		if (onOff) {this.writeln("SETBP;" + file + ";" + line);}
-		else {this.writeln("CLEARBP;" + file + ";" + line);}
+		if (onOff) { this.writeln("SETBP;" + file + ";" + line); }
+		else { this.writeln("CLEARBP;" + file + ";" + line); }
 	}
 	public start(file: string, stopAtStart: boolean): void {
-		if (stopAtStart) {this.sendBreakpoint(file, 1, true);}
+		if (stopAtStart) { this.sendBreakpoint(file, 1, true); }
 		this.requestBreakpoints();
 		this.writeln("START;" + file);
 	}
@@ -181,7 +220,9 @@ export class MConnect extends EventEmitter {
 	public requestBreakpoints(): void {
 		this.writeln("REQUESTBP");
 	}
-
+	public restart(file: string) {
+		this.writeln("RESTART;" + file);
+	}
 	/**
 	 * Fire events if line has a breakpoint or hs stopped beacause of a different reason
 	 */
@@ -207,7 +248,7 @@ export class MConnect extends EventEmitter {
 		}
 		this._currentLine = line + offset;
 		if (mumpsstatus !== "") {
-			this.sendEvent('stopOnException',mumpsstatus);
+			this.sendEvent('stopOnException', mumpsstatus);
 		} else {
 			const bps = this._breakPoints.filter(bp => bp.file === this._sourceFile && bp.line === this._currentLine);
 			if (bps.length > 0) {
@@ -274,13 +315,7 @@ export class MConnect extends EventEmitter {
 	 * Clear all breakpoints
 	 */
 	public clearBreakpoints(file: string): void {
-		let bps = this._breakPoints;
-		if (bps) {
-			bps.filter(bp => bp.file === file);
-			bps.forEach(bp => {
-				this.clearBreakPoint(file, bp.line);
-			});
-		}
+		this.writeln("CLEARBP;"+file);
 	}
 
 	private verifyBreakpoints(): void {
@@ -296,7 +331,7 @@ export class MConnect extends EventEmitter {
 					break;
 				}
 			}
-			if (!bp.verified) {this.sendEvent('breakpointValidated', bp);}
+			if (!bp.verified) { this.sendEvent('breakpointValidated', bp); }
 		});
 		for (let i = 0; i < this._activeBreakpoints.length; i++) {
 			if (!merk[i]) {
@@ -314,23 +349,41 @@ export class MConnect extends EventEmitter {
 			return this._mVars["V"];
 		}
 	}
-
+	public async checkRoutine(lines: string[]) {
+		return new Promise((resolve, reject) => {
+			this._event.on('ErrorreportReceived', function ErrorreportReceived(event:EventEmitter, errorLines:string[]) {
+				event.removeListener('ErrorreportReceived', ErrorreportReceived);
+				resolve(errorLines);
+			});
+			this.writeln("ERRCHK");
+			for (let i = 0; i < lines.length; i++) {
+				this.writeln(lines[i]);
+			}
+			this.writeln("***ENDPROGRAM");
+		})
+	}
 	public async getSingleVar(expression: string) {
-		return new Promise((resolve,reject)=>{
+		return new Promise((resolve, reject) => {
+			let reply:VarData={name: expression,indexCount: 0,content: "undefined",bases:[]}
 			if (expression.substring(0, 1) === "$") {
-				resolve ((this._mVars["I"] !== undefined) ? this._mVars["I"][expression] : undefined);
+				reply.content=(this._mVars["I"] !== undefined) ? this._mVars["I"][expression] : "undefined";
+				resolve(reply);
 			} else {
 				if (this._mVars["V"] !== undefined) {
-					if (this._mVars["V"][expression]!==undefined) {
-						resolve(this._mVars["V"][expression]);
+					if (this._mVars["V"][expression] !== undefined) {
+						reply.content=this._mVars["V"][expression];
+						resolve(reply);
 					} else {
-						this.event.on('SingleVarReceived',(value)=>{
-							resolve(value);
+						this._event.on('SingleVarReceived', function SingleVarReceived(event, singleVar, singleVarContent) {
+							event.removeListener('SingleVarReceived', SingleVarReceived);
+							reply.name=singleVar;
+							reply.content=singleVarContent;
+							resolve(reply);
 						});
-						this.writeln("GETVAR;"+expression);
+						this.writeln("GETVAR;" + expression);
 					}
 				} else {
-					resolve(undefined);
+					resolve(reply);
 				}
 			}
 		});

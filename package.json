@@ -1,7 +1,7 @@
 {
 	"name": "mumps-debug",
 	"displayName": "Mumps Debugger",
-	"version": "0.3.2",
+	"version": "0.4.0",
 	"publisher": "jewuma",
 	"description": "Debugger for Mumps (M) , GT.M, YottaDB",
 	"author": {
@@ -57,6 +57,7 @@
 	},
 	"main": "./dist/extension",
 	"activationEvents": [
+		"onLanguage:mumps",
 		"onDebug"
 	],
 	"contributes": {

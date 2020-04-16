@@ -12,3 +12,5 @@
 ## 0.3.2
 * Change in README.md
 
+## 0.4.0
+* Added Routine-Syntax-Check, Restart (with RELINK)-Option, Bugfixes

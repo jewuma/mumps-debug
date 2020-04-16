@@ -13,8 +13,10 @@ import {
 import { DebugProtocol } from 'vscode-debugprotocol';
 import { basename } from 'path';
 const { Subject } = require('await-notify');
-import { MConnect , MumpsBreakpoint} from './mconnect';
-
+import { MConnect, MumpsBreakpoint } from './mconnect';
+import * as vscode from 'vscode';
+import { readFileSync } from 'fs';
+const MUMPSDIAGNOSTICS = vscode.languages.createDiagnosticCollection("mumps");
 /**
  * This interface describes the mumps-debug specific launch attributes
  * The schema for these attributes lives in the package.json of the mumps-debug extension.
@@ -45,12 +47,15 @@ export class MumpsDebugSession extends LoggingDebugSession {
 
 	// we don't support multiple threads, so we can use a hardcoded ID for the default thread
 	private static THREAD_ID = 1;
-	private _mconnect: MConnect;
+	//private _mconnect: MConnect;
 
 	private _variableHandles = new Handles<string>();
 
 	private _configurationDone = new Subject();
 
+	private _program: string;
+
+	private _mconnect: MConnect;
 	/**
 	 * Creates a new debug adapter that is used for one debug session.
 	 * We configure the default implementation of a debug adapter here.
@@ -61,7 +66,7 @@ export class MumpsDebugSession extends LoggingDebugSession {
 		// this debugger uses zero-based lines and columns
 		this.setDebuggerLinesStartAt1(false);
 		this.setDebuggerColumnsStartAt1(false);
-
+		this._program = "";
 		this._mconnect = new MConnect();
 
 		// setup event handlers
@@ -78,7 +83,7 @@ export class MumpsDebugSession extends LoggingDebugSession {
 			this.sendEvent(new StoppedEvent('data breakpoint', MumpsDebugSession.THREAD_ID));
 		});
 		this._mconnect.on('stopOnException', (errortext) => {
-			this.sendEvent(new StoppedEvent('exception', MumpsDebugSession.THREAD_ID,errortext));
+			this.sendEvent(new StoppedEvent('exception', MumpsDebugSession.THREAD_ID, errortext));
 		});
 		this._mconnect.on('breakpointValidated', (bp: MumpsBreakpoint) => {
 			this.sendEvent(new BreakpointEvent('changed', <DebugProtocol.Breakpoint>{ verified: bp.verified, id: bp.id }));
@@ -125,6 +130,8 @@ export class MumpsDebugSession extends LoggingDebugSession {
 
 		// make VS Code send the breakpointLocations request
 		response.body.supportsBreakpointLocationsRequest = true;
+		response.body.supportsExceptionInfoRequest = true;
+		response.body.supportsRestartRequest = true;
 
 
 		// since this debug adapter can accept configuration requests like 'setBreakpoint' at any time,
@@ -156,11 +163,14 @@ export class MumpsDebugSession extends LoggingDebugSession {
 
 		// start the program in the runtime
 		this._mconnect.init(args.hostname, args.port, args.localRoutinesPath).then(async () => {
+			this.refreshDiagnostics(vscode.window.activeTextEditor!.document, MUMPSDIAGNOSTICS);
 			this._mconnect.start(args.program, !!args.stopOnEntry);
+			this._program = args.program;
 			this.sendResponse(response);
 		}).catch((error) => {
 			console.error(error);
 		})
+
 	}
 	protected setBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments): void {
 
@@ -176,11 +186,11 @@ export class MumpsDebugSession extends LoggingDebugSession {
 			return bp;
 		});
 		// send back the actual breakpoint positions
-		this._mconnect.requestBreakpoints();
 		response.body = {
 			breakpoints: actualBreakpoints
 		};
 		this.sendResponse(response);
+		this._mconnect.requestBreakpoints();
 	}
 
 	protected threadsRequest(response: DebugProtocol.ThreadsResponse): void {
@@ -214,7 +224,7 @@ export class MumpsDebugSession extends LoggingDebugSession {
 		response.body = {
 			scopes: [
 				new Scope("Local", this._variableHandles.create("local|0"), true),
-				new Scope("System", this._variableHandles.create("system"),false)
+				new Scope("System", this._variableHandles.create("system"), false)
 			]
 		};
 		this.sendResponse(response);
@@ -251,14 +261,14 @@ export class MumpsDebugSession extends LoggingDebugSession {
 					continue;
 				}
 				if (insertVariable = this.checkVars(lastVar!, actualVar, indexCount, varBase, lastRef)) {
-					if (insertVariable.variablesReference !== 0) {lastRef = lastVar!.bases[indexCount];}
+					if (insertVariable.variablesReference !== 0) { lastRef = lastVar!.bases[indexCount]; }
 					variables.push(insertVariable);
 				}
 				lastVar = actualVar;
 			}
 			if (!firstTime) { // process Last Variable if there was minimum one
 				const dummyVar: VarData = { name: "", "indexCount": 0, "bases": [], "content": "" }
-				if (insertVariable = this.checkVars(lastVar!, dummyVar, indexCount, varBase,lastRef)) {
+				if (insertVariable = this.checkVars(lastVar!, dummyVar, indexCount, varBase, lastRef)) {
 					variables.push(insertVariable);
 				}
 			}
@@ -272,16 +282,16 @@ export class MumpsDebugSession extends LoggingDebugSession {
 	private checkVars(lastVar: VarData, actualVar: VarData, indexCount: number, varBase: string, lastRef: string): DebugProtocol.Variable | undefined {
 		let returnVar: DebugProtocol.Variable | undefined = undefined;
 		let actualReference: number = 0;
-		if (indexCount===0 || (lastVar.bases[indexCount-1] === varBase && lastVar.indexCount > indexCount)) {
+		if (indexCount === 0 || (lastVar.bases[indexCount - 1] === varBase && lastVar.indexCount > indexCount)) {
 			if (lastVar.indexCount > indexCount + 1) {
 				if (lastRef !== lastVar.bases[indexCount]) {
-					let name = actualVar.bases[indexCount];
-					if (indexCount > 0) {name += ")";}
+					let name = lastVar.bases[indexCount];
+					if (indexCount > 0) { name += ")"; }
 					returnVar = {
 						name,
 						type: 'string',
 						value: 'undefined',
-						variablesReference: this._variableHandles.create(actualVar.bases[indexCount] + "|" + (indexCount + 1))
+						variablesReference: this._variableHandles.create(lastVar.bases[indexCount] + "|" + (indexCount + 1))
 					};
 				}
 			} else { //lastVar.indexCount==indexCount+1
@@ -318,41 +328,27 @@ export class MumpsDebugSession extends LoggingDebugSession {
 	}
 
 	protected async evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments) {
-
-		let reply: string = "";
-		/*
-		if (args.context === 'repl') {
-			// 'evaluate' supports to create and delete breakpoints from the 'repl':
-			const matches = /new +([0-9]+)/.exec(args.expression);
-			if (matches && matches.length === 2) {
-				const mbp = this._runtime.setBreakPoint(this._runtime.sourceFile, this.convertClientLineToDebugger(parseInt(matches[1])));
-				const bp = <DebugProtocol.Breakpoint>new Breakpoint(mbp.verified, this.convertDebuggerLineToClient(mbp.line), undefined, this.createSource(this._runtime.sourceFile));
-				bp.id = mbp.id;
-				this.sendEvent(new BreakpointEvent('new', bp));
-				reply = `breakpoint created`;
-			} else {
-				const matches = /del +([0-9]+)/.exec(args.expression);
-				if (matches && matches.length === 2) {
-					const mbp = this._runtime.clearBreakPoint(this._runtime.sourceFile, this.convertClientLineToDebugger(parseInt(matches[1])));
-					if (mbp) {
-						const bp = <DebugProtocol.Breakpoint>new Breakpoint(false);
-						bp.id = mbp.id;
-						this.sendEvent(new BreakpointEvent('removed', bp));
-						reply = `breakpoint deleted`;
-					}
-				}
-			}
-		}*/
 		if (args.context === "hover") {
-			reply = args.expression + ":= " + await this._mconnect.getSingleVar(args.expression);
+			this._mconnect.getSingleVar(args.expression).then((varReply: VarData) => {
+				response.body = {
+					result: varReply.name + " := " + varReply.content,
+					variablesReference: 0
+				};
+				this.sendResponse(response);
+			})
 		}
-		response.body = {
-			result: reply,
-			variablesReference: 0
-		};
-		this.sendResponse(response);
 	}
 
+	protected async restartRequest(args: DebugProtocol.RestartArguments) {
+		let sourceLines = readFileSync(this._program).toString().split('\n');
+		this._mconnect.checkRoutine(sourceLines).then((errorLines: string[]) => {
+			if (errorLines.length) {
+				vscode.window.showErrorMessage("File contains Problems - No Restart possible!");
+			} else {
+				this._mconnect.restart(this._program);
+			}
+		});
+	}
 	protected disconnectRequest(response: DebugProtocol.DisconnectResponse, args: DebugProtocol.DisconnectArguments, request?: DebugProtocol.Request): void {
 		this._mconnect.disconnect();
 		this.sendResponse(response);
@@ -378,12 +374,40 @@ export class MumpsDebugSession extends LoggingDebugSession {
 					indexcount++;
 					//lastKommaPos = i;
 				}
-				if (varname.substring(i, i + 1) === '"') {countKomma = !countKomma;}
+				if (varname.substring(i, i + 1) === '"') { countKomma = !countKomma; }
 			}
 			bases.push(varname.substring(0, varname.length - 1));
 		} else {
 			bases.push(varname);
 		}
 		return { "name": varname, "indexCount": indexcount, "bases": bases, content };
+	}
+	private refreshDiagnostics(doc: vscode.TextDocument | undefined, mumpsDiagnostics: vscode.DiagnosticCollection): void {
+		let diagnostics: vscode.Diagnostic[] = [];
+		if (doc) {
+			let lines: string[] = []
+			for (let lineIndex = 0; lineIndex < doc.lineCount; lineIndex++) {
+				const lineOfText = doc.lineAt(lineIndex);
+				lines.push(lineOfText.text);
+			}
+			this._mconnect.checkRoutine(lines).then((errLines: string[]) => {
+				for (let i = 0; i < errLines.length; i++) {
+					let errData = errLines[i].split(";");
+					let column = parseInt(errData[0]) - 1;
+					if (isNaN(column)) { column = 0 };
+					let line = parseInt(errData[1]) - 1;
+					if (isNaN(line)) { line = 0 };
+					let endColumn = doc.lineAt(line).text.length
+					if (line === 0 && column === 0) { endColumn = 0 };
+					let message = errData[2];
+					let range = new vscode.Range(line, column, line, endColumn);
+					let diagnostic = new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error);
+					diagnostic.code = message;
+					diagnostics.push(diagnostic);
+				}
+				mumpsDiagnostics.clear();
+				mumpsDiagnostics.set(doc.uri, diagnostics);
+			})
+		}
 	}
 }
