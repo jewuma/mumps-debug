@@ -6,24 +6,70 @@ Mumps-Debug-Extension for Visual Studio Code by Jens Wulf
 
 import * as vscode from 'vscode';
 import { WorkspaceFolder, ProviderResult, DebugConfiguration, CancellationToken } from 'vscode';
-import { MumpsDebugSession} from './mumpsDebug';
+import { MumpsDebugSession } from './mumpsDebug';
+import { MumpsHoverProvider } from './mumps-hover-provider'
+import { MumpsDefinitionProvider } from './mumps-definition-provider'
+import { MumpsSignatureHelpProvider } from './mumps-signature-help-provider'
+import { DocumentFunction } from './mumps-documenter'
+import { MumpsDocumentSymbolProvider } from './mumps-document';
+//import {CompletionItemProvider} from './mumps-completion-item-provider';
+import * as AutospaceFunction from './mumps-autospace'
+
+let entryRef: string | undefined = "";
 export async function activate(context: vscode.ExtensionContext) {
-
+	const MUMPS_MODE: vscode.DocumentFilter = { language: 'mumps', scheme: 'file' };
 	// register a configuration provider for 'mumps' debug type
-
-	context.subscriptions.push(vscode.debug.registerDebugConfigurationProvider('mumps', new MumpsConfigurationProvider()));
-	context.subscriptions.push(vscode.debug.registerDebugAdapterDescriptorFactory('mumps', new InlineDebugAdapterFactory()));
 	const mumpsDiagnostics = vscode.languages.createDiagnosticCollection("mumps");
+	context.subscriptions.push(
+		vscode.commands.registerCommand('mumps.getEntryRef', () => {
+			return vscode.window.showInputBox({
+				placeHolder: "Please enter the Entry-Reference to start Debugging",
+				value: entryRef
+			});
+		})
+	);
+	context.subscriptions.push(
+		mumpsDiagnostics,
+		vscode.commands.registerCommand("mumps.documentFunction", () => { DocumentFunction(); }),
+		vscode.commands.registerCommand("mumps.autoSpaceEnter", () => { AutospaceFunction.autoSpaceEnter(); }),
+		vscode.commands.registerCommand("mumps.autoSpaceTab", () => { AutospaceFunction.autoSpaceTab(); }),
+		vscode.languages.registerHoverProvider(MUMPS_MODE, new MumpsHoverProvider()),
+		vscode.languages.registerDefinitionProvider(MUMPS_MODE, new MumpsDefinitionProvider()),
+		vscode.languages.registerSignatureHelpProvider(MUMPS_MODE, new MumpsSignatureHelpProvider(), '(', ','),
+		vscode.languages.registerDocumentSymbolProvider(MUMPS_MODE, new MumpsDocumentSymbolProvider()),
+		//vscode.languages.registerCompletionItemProvider(MUMPS_MODE, new CompletionItemProvider()),
+		vscode.languages.registerDocumentFormattingEditProvider(MUMPS_MODE, {
+			provideDocumentFormattingEdits: (document, options, token) => {
+				let textEdits: vscode.TextEdit[] = []
+				for (var i = 0; i < document.lineCount; i++) {
+					let line = document.lineAt(i).text;
+					formatDocumentLine(line, i, textEdits);
+				}
+				return textEdits;
+			}
+		}),
+		vscode.languages.registerDocumentRangeFormattingEditProvider(MUMPS_MODE, {
+			provideDocumentRangeFormattingEdits: (document, range, options, token) => {
+				let textEdits: vscode.TextEdit[] = []
+				for (var i = range.start.line; i <= range.end.line; i++) {
+					let line = document.lineAt(i).text;
+					formatDocumentLine(line, i, textEdits);
+				}
+				return textEdits;
+			}
+		}),
+		vscode.debug.registerDebugConfigurationProvider('mumps', new MumpsConfigurationProvider()),
+		vscode.debug.registerDebugAdapterDescriptorFactory('mumps', new InlineDebugAdapterFactory())
+	);
 	//vscode.debug.onDidStartDebugSession(()=>refreshDiagnostics(vscode.window.activeTextEditor!.document, mumpsDiagnostics))
-	context.subscriptions.push(mumpsDiagnostics);
 	//subscribeToDocumentChanges(context, mumpsDiagnostics);
 	//vscode.languages.registerCodeActionsProvider({scheme:'file', language:'mumps'},new MumpsSpellChecker(),{providedCodeActionKinds:MumpsSpellChecker.providedCodeActionKinds})
-	vscode.languages.registerEvaluatableExpressionProvider({ scheme: 'file', language: 'mumps' }, {
+	vscode.languages.registerEvaluatableExpressionProvider(MUMPS_MODE, {
 		provideEvaluatableExpression(document: vscode.TextDocument, position: vscode.Position): vscode.ProviderResult<vscode.EvaluatableExpression> {
-			const diags:readonly vscode.Diagnostic[]|undefined=mumpsDiagnostics.get(document.uri);
+			const diags: readonly vscode.Diagnostic[] | undefined = mumpsDiagnostics.get(document.uri);
 			//If Position is inside Error-marked Area then no Check for Variables is performed
 			if (diags) {
-				const found=diags.find(diag=>diag.range.contains(position))
+				const found = diags.find(diag => diag.range.contains(position))
 				if (found) {
 					return undefined;
 				}
@@ -95,4 +141,24 @@ class InlineDebugAdapterFactory implements vscode.DebugAdapterDescriptorFactory 
 		return new vscode.DebugAdapterInlineImplementation(new MumpsDebugSession());
 	}
 }
-
+function formatDocumentLine(line: string, lineNumber, textEdits) {
+	let emptyLine = line.replace(/(\ |\t)/ig, "");
+	if (emptyLine.length == 0) {
+		textEdits.push(vscode.TextEdit.insert(new vscode.Position(lineNumber, 0), "\t;"))
+	}
+	if (line.endsWith(". ")) {
+		textEdits.push(vscode.TextEdit.insert(new vscode.Position(lineNumber, line.length), ";"))
+	} else if (line.endsWith(".")) {
+		textEdits.push(vscode.TextEdit.insert(new vscode.Position(lineNumber, line.length), " ;"))
+	}
+	if (line.startsWith(" ")) {
+		let endSpace: number;
+		console.log("start")
+		for (endSpace = 0; endSpace < line.length; endSpace++) {
+			if (line.charAt(endSpace) != " ") {
+				break;
+			}
+		}
+		textEdits.push(vscode.TextEdit.replace(new vscode.Range(new vscode.Position(lineNumber, 0), new vscode.Position(lineNumber, endSpace)), "\t"));
+	}
+}

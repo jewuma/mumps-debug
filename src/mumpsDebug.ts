@@ -61,7 +61,7 @@ export class MumpsDebugSession extends LoggingDebugSession {
 	 * We configure the default implementation of a debug adapter here.
 	 */
 	public constructor() {
-		super("mumps-debug.txt");
+		super();
 
 		// this debugger uses zero-based lines and columns
 		this.setDebuggerLinesStartAt1(false);
@@ -115,9 +115,6 @@ export class MumpsDebugSession extends LoggingDebugSession {
 		// make VS Code to use 'evaluate' when hovering over source
 		response.body.supportsEvaluateForHovers = true;
 
-		// make VS Code to show a 'step back' button
-		response.body.supportsStepBack = false;
-
 		// make VS Code to support data breakpoints
 		response.body.supportsDataBreakpoints = false;
 
@@ -168,7 +165,7 @@ export class MumpsDebugSession extends LoggingDebugSession {
 			this._program = args.program;
 			this.sendResponse(response);
 		}).catch((error) => {
-			console.error(error);
+			vscode.window.showErrorMessage("Connection to MDEBUG failed. \nPlease start MDEBUG first.");
 		})
 
 	}
@@ -328,7 +325,7 @@ export class MumpsDebugSession extends LoggingDebugSession {
 	}
 
 	protected async evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments) {
-		if (args.context === "hover") {
+		if (args.context === "hover" || args.context === "repl") {
 			this._mconnect.getSingleVar(args.expression).then((varReply: VarData) => {
 				response.body = {
 					result: varReply.name + " := " + varReply.content,

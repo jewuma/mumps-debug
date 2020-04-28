@@ -32,6 +32,7 @@ export class MConnect extends EventEmitter {
 	private _sourceLines: string[];
 	private _currentLine = 0;
 	private _errorLines: string[];
+	private _hints: string[];
 	private _breakPoints: MumpsBreakpoint[];
 	private _localRoutinesPath: string;
 	private _breakpointId: number = 1;
@@ -52,6 +53,7 @@ export class MConnect extends EventEmitter {
 		this._errorLines = [];
 		this._singleVar = "";
 		this._singleVarContent="";
+		this._hints=[];
 		this._event.on('varsComplete', () => {
 			if (typeof (this._mVars["I"]) !== 'undefined') {
 				let internals = this._mVars["I"];
@@ -79,14 +81,16 @@ export class MConnect extends EventEmitter {
 				});
 				resolve(this._socket);
 			});
-			this._socket.on('error', (error) => { reject(error) });
+			this._socket.on('error', (error) => {
+				reject(error);
+			});
 		})
 		// Put a friendly message on the terminal of the server.
 	}
 	private _log(msg) {
 		if (this._logging) { console.log(msg); }
 	}
-	processLine(line: string) {
+	private processLine(line: string) {
 		let varname: string;
 		let value: string;
 		let vartype: string;
@@ -112,11 +116,17 @@ export class MConnect extends EventEmitter {
 				}
 				if (line === "***ENDPROGRAM") {
 					this.sendEvent("end");
+					this._socket.end();
 					break;
 				}
 				if (line === "***BEGINERRCHK") {
-					this._connectState = "waitingForErrorreport"
+					this._connectState = "waitingForErrorreport";
 					this._errorLines = [];
+					break;
+				}
+				if (line=== "***STARTHINTS") {
+					this._connectState="waitingForHints";
+					this._hints=[];
 					break;
 				}
 				break;
@@ -180,6 +190,14 @@ export class MConnect extends EventEmitter {
 				}
 				break;
 			}
+			case "waitingForHints": {
+				if (line==="***ENDHINTS") {
+					this._connectState="waitingforStart";
+					this._event.emit('HintsReceived',this._event,this._hints);
+				} else {
+					this._hints.push(line);
+				}
+			}
 			default: {
 				console.error("Unexpected Message: " + line);
 			}
@@ -204,7 +222,14 @@ export class MConnect extends EventEmitter {
 		else { this.writeln("CLEARBP;" + file + ";" + line); }
 	}
 	public start(file: string, stopAtStart: boolean): void {
-		if (stopAtStart) { this.sendBreakpoint(file, 1, true); }
+		if (stopAtStart) {
+			if (file.indexOf("^")) {
+				//Stop direct at given Label not at first line
+				this.sendBreakpoint(file, 0, true);
+			} else {
+				this.sendBreakpoint(file, 1, true);
+			}
+		}
 		this.requestBreakpoints();
 		this.writeln("START;" + file);
 	}
@@ -216,6 +241,7 @@ export class MConnect extends EventEmitter {
 	}
 	public disconnect(): void {
 		this.writeln("RESET");
+		this._socket.end();
 	}
 	public requestBreakpoints(): void {
 		this.writeln("REQUESTBP");
@@ -348,6 +374,15 @@ export class MConnect extends EventEmitter {
 		} else if (type === "local") {
 			return this._mVars["V"];
 		}
+	}
+	public async requestHints(part:string) {
+		return new Promise((resolve, reject) => {
+			this._event.on('HintsReceived', function HintsReceived(event:EventEmitter, hints:string[]) {
+				event.removeListener('HintsReceived', HintsReceived);
+				resolve(hints);
+			});
+			this.writeln("GETHINTS;"+part);
+		})
 	}
 	public async checkRoutine(lines: string[]) {
 		return new Promise((resolve, reject) => {
