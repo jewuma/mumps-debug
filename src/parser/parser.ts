@@ -157,12 +157,12 @@ class Parser {
 		this.methods = [];
 		this.declarations = [];
 		this.tokens = [];
-		if (tokenizer) this.tokenizer = tokenizer;
+		if (tokenizer) { this.tokenizer = tokenizer; }
 	}
 
 	private next(): boolean {
 		this.activeToken = this.tokenizer.next().value;
-		if (this.activeToken) this.tokens.push(this.activeToken);
+		if (this.activeToken) { this.tokens.push(this.activeToken); }
 		return this.activeToken !== undefined;
 	}
 
@@ -171,7 +171,7 @@ class Parser {
 		while (this.next()) {
 			if (this.activeToken.isAlphanumeric()) {
 				let method = this.parseMethod();
-				if (!method) continue;
+				if (!method) { continue; }
 				this.methods.push(method);
 				this.activeMethod = method;
 			}
@@ -180,11 +180,11 @@ class Parser {
 				let tokenBuffer = this.loadTokenBuffer();
 				if (this.activeMethod && this.activeMethod.nextLine === lineNumber) {
 					let documentation = this.checkForDocumentation(tokenBuffer);
-					if (documentation) this.activeMethod.documentation = documentation;
+					if (documentation) { this.activeMethod.documentation = documentation; }
 				}
 			}
-			else if (this.activeToken.isNewLine()) continue;
-			else this.throwAwayTokensTil(Type.NewLine);
+			else if (this.activeToken.isNewLine()) { continue; }
+			else { this.throwAwayTokensTil(Type.NewLine); }
 		}
 		return {
 			declarations: this.declarations,
@@ -210,7 +210,7 @@ class Parser {
 	}
 
 	private loadTokenBuffer() {
-		let tokenBuffer:Token[] = []
+		let tokenBuffer: Token[] = []
 		while (this.next() && this.activeToken.type !== Type.NewLine) {
 			tokenBuffer.push(this.activeToken);
 		}
@@ -220,12 +220,12 @@ class Parser {
 	private parseMethod(): Method | undefined {
 		let method: Method = new Method();
 		do {
-			if (!this.activeToken) continue;
-			if (this.activeToken.isTab() || this.activeToken.isSpace()) continue;
-			else if (this.activeToken.isNewLine()) break;
+			if (!this.activeToken) { continue; }
+			if (this.activeToken.isTab() || this.activeToken.isSpace()) { continue; }
+			else if (this.activeToken.isNewLine()) { break; }
 			else if (this.activeToken.isOpenParen()) {
 				let processed = this.processParameters(method);
-				if (!processed) return undefined;
+				if (!processed) { return undefined; }
 				method.parameters = processed;
 				break;
 			}
@@ -234,13 +234,13 @@ class Parser {
 					method.line = this.activeToken.position.line;
 					method.prevLine = this.activeToken.position.line - 1;
 					method.nextLine = this.activeToken.position.line + 1;
-                    method.id = this.activeToken;
+					method.id = this.activeToken;
 				}
 			}
 			else if (this.activeToken.isLineCommentInit() || this.activeToken.isLineComment()) {
 				continue;
 			}
-			else if (this.activeToken.value === '\r') continue;
+			else if (this.activeToken.value === '\r') { continue; }
 			else if (this.activeToken.isCloseParen()) {
 				if (!method.closeParen) {
 					method.closeParen = this.activeToken;
@@ -259,8 +259,8 @@ class Parser {
 		if (this.activeMethod) {
 			this.activeMethod.endLine = method.id.position.line - 1;
 		}
-        this.activeMethod = method;
-        return method;
+		this.activeMethod = method;
+		return method;
 	}
 
 	private processParameters(method: Method): Parameter[] | undefined {
@@ -268,23 +268,23 @@ class Parser {
 		let param: Parameter | undefined;
 		let open = false;
 		while (this.next()) {
-			if (this.activeToken.isTab() || this.activeToken.isSpace() || this.activeToken.isNewLine()) continue;
+			if (this.activeToken.isTab() || this.activeToken.isSpace() || this.activeToken.isNewLine()) { continue; }
 			else if (this.activeToken.isOpenParen()) {
 				open = true;
-				if (!param) return undefined;
+				if (!param) { return undefined; }
 				continue;
 			}
 			else if (this.activeToken.isCloseParen()) {
 				open = false;
 				method.closeParen = this.activeToken;
 				method.nextLine = this.activeToken.position.line + 1;
-				if (!param) break;
+				if (!param) { break; }
 				args.push(param);
 				break;
 			}
 			else if (this.activeToken.isAlphanumeric()) {
-				if (!param) param = new Parameter();
-                param.id = this.activeToken;
+				if (!param) { param = new Parameter(); }
+				param.id = this.activeToken;
 			}
 			else if (this.activeToken.isLineComment()) {
 				if (param) {
@@ -295,12 +295,12 @@ class Parser {
 				}
 			}
 			else if (this.activeToken.isComma()) {
-				if (!param) return undefined;
+				if (!param) { return undefined; }
 				args.push(param)
 				param = undefined;
 			}
 		}
-		if (open) return undefined;
+		if (open) { return undefined; }
 		return args;
 	}
 

@@ -11,13 +11,13 @@ function DocumentFunction(){
 			//if the line is empty look down for the label
 			while(InsertPosition.line < document.lineCount){
 				let txt = editor.document.lineAt(InsertPosition.line).text
-				if (txt.replace(/\t|\ /i,"")==""){
+				if (txt.replace(/\t|\ /i,"")===""){
 					InsertPosition = InsertPosition.translate(1,0)
 				} else {
 					break;
 				}
 			}
-			if(InsertPosition.line == document.lineCount){
+			if(InsertPosition.line === document.lineCount){
 				InsertPosition = InsertPosition.translate(-1,0)
 			}
 			//start moving up the file looking for the label header
@@ -42,7 +42,7 @@ function DocumentFunction(){
  * @return {returns false if there is none, true otherwise}
  */
 function lineIsFunctionSig(text){
-  if(text.length ==0 || text.charAt(0)==" " || text.charAt(0)=='\t' || text.charAt(0)==';'){
+  if(text.length ===0 || text.charAt(0)===" " || text.charAt(0)==='\t' || text.charAt(0)===';'){
     return false;
   }
   return true
@@ -54,7 +54,7 @@ function makeSignature(labelLine:string){
   Signature+=DIVIDERLINE
   Signature+="\t; DESCRIPTION: \n"
   let parameters = labelLine.match(/\(.*\)/)
-  if(parameters != null && parameters.length> 0){
+  if(parameters !== null && parameters.length> 0){
     parameters = parameters[0].substring(1, parameters[0].length-1).split(",")
     if(parameters.length > 0){
       Signature+="\t; PARAMETERS: \n"
@@ -73,14 +73,14 @@ function makeSignature(labelLine:string){
 function getSigInfo(referredTo:MumpsLabel, definition, parametersByName){
 	if (referredTo.text) {
 		let description = referredTo.text.match(/DESCRIPTION:.*/i)
-		if(description!=null) definition.description = description[0];
+		if(description!==null) {definition.description = description[0];}
 		//console.log(definition.description)
 		//console.log(parametersByName)
 
-		for(var param in parametersByName){
+		for(let param in parametersByName){
 			//console.log(param)
 			let paramDescription = referredTo.text.match(new RegExp(param+"\\(.*\\):.*",'i'))
-			if(paramDescription != null) parametersByName[param].description=paramDescription
+			if(paramDescription !== null) {parametersByName[param].description=paramDescription}
 		};
 	}
 }

@@ -1,7 +1,7 @@
 {
 	"name": "mumps-debug",
-	"displayName": "Mumps Debugger",
-	"version": "0.4.0",
+	"displayName": "Mumps Language-Pack",
+	"version": "0.5.0",
 	"publisher": "jewuma",
 	"description": "Debugger for Mumps (M) , GT.M, YottaDB",
 	"author": {
@@ -58,75 +58,16 @@
 		"emcellent": "0.0.5",
 		"webpack-cli": "^3.3.11"
 	},
-	"main": "./out/extension",
+	"main": "./dist/extension",
 	"activationEvents": [
 		"onLanguage:mumps",
 		"onDebug"
 	],
 	"contributes": {
-		"themes": [
-			{
-					"label": "Mumps-Syntax-Higlight",
-					"uiTheme": "vs-dark",
-					"path": "./syntaxes/mumps.tmTheme"
-			}
-		],
-		"variables": {
-			"AskForProgramName": "extension.mumps-debug.getProgramName"
-		},
-		"languages": [
-      {
-        "id": "mumps",
-        "aliases": [
-          "MUMPS",
-          "mumps"
-        ],
-        "extensions": [
-          ".int",
-          ".m",
-          ".mps",
-          ".zwr"
-        ],
-        "configuration": "./language-configuration.json"
-      }
-		],
-    "grammars": [
-      {
-        "language": "mumps",
-        "scopeName": "source.mumps",
-        "path": "./syntaxes/mumps.tmLanguage"
-      }
-    ],
-    "keybindings": [
-      {
-        "command": "mumps.documentFunction",
-        "key": "ctrl+d",
-        "when": "editorLangId == mumps"
-      },
-      {
-        "command": "mumps.autoSpaceEnter",
-        "when": "editorLangId == mumps",
-        "key": "enter"
-      },
-      {
-        "command": "mumps.autoSpaceTab",
-        "when": "editorLangId == mumps && !suggestWidgetVisible",
-        "key": "tab"
-      }
-    ],
-    "configurationDefaults": {
-      "[mumps]": {
-        "editor.insertSpaces": false,
-        "editor.formatOnSave": true
-      }
-    },
-		"breakpoints": [{
-			"language": "mumps"
-		}],
 		"debuggers": [{
 			"type": "mumps",
 			"label": "Mumps Debugger",
-			"program": "./out/extension",
+			"program": "./dist/extension",
 			"runtime": "node",
 			"languages": ["mumps"],
 			"configurationAttributes": {
@@ -205,6 +146,58 @@
 					}
 				}
 			]
+		}],
+		"variables": {
+			"AskForProgramName": "extension.mumps-debug.getProgramName"
+		},
+		"languages": [
+      {
+        "id": "mumps",
+        "aliases": [
+          "MUMPS",
+          "mumps"
+        ],
+        "extensions": [
+          ".int",
+          ".m",
+          ".mps",
+          ".zwr"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+		],
+    "grammars": [
+      {
+        "language": "mumps",
+        "scopeName": "source.mumps",
+        "path": "./syntaxes/mumps.tmLanguage"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "mumps.documentFunction",
+        "key": "ctrl+d",
+        "when": "editorLangId == mumps"
+      },
+      {
+        "command": "mumps.autoSpaceEnter",
+        "when": "editorLangId == mumps",
+        "key": "enter"
+      },
+      {
+        "command": "mumps.autoSpaceTab",
+        "when": "editorLangId == mumps && !suggestWidgetVisible",
+        "key": "tab"
+      }
+    ],
+    "configurationDefaults": {
+      "[mumps]": {
+        "editor.insertSpaces": false,
+        "editor.formatOnSave": true
+      }
+    },
+		"breakpoints": [{
+			"language": "mumps"
 		}]
 	}
 }

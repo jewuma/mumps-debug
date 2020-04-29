@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 //let Location = vscode.Location;
 //let Position = vscode.Position;
-interface itemHint {
+interface ItemHint {
 	lineStatus: string,
 	startstring: string
 }
@@ -19,16 +19,11 @@ export class CompletionItemProvider {
 		let line = document.getText(new vscode.Range(new vscode.Position(position.line, 0), position))
 		console.log(getLineStatus(line, position.character));
 		let clean: Array<vscode.CompletionItem> = [];
-		clean.push({ label: 'DOU^KFILE', detail: 'Delete Open Use' });
-		clean.push({ label: 'DATA^KTEST' });
-		clean.push({ label: '123' });
-		clean.push({ label: '456' });
-		clean.push({ label: '789' });
 		return clean;
 	}
 }
 
-function getLineStatus(line: string | undefined, position: number):itemHint {
+function getLineStatus(line: string | undefined, position: number):ItemHint {
 	let lineStatus = 'lineStart';
 	let lookPosition = 0;
 	let lastCommand = '';

@@ -41,7 +41,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.languages.registerDocumentFormattingEditProvider(MUMPS_MODE, {
 			provideDocumentFormattingEdits: (document, options, token) => {
 				let textEdits: vscode.TextEdit[] = []
-				for (var i = 0; i < document.lineCount; i++) {
+				for (let i = 0; i < document.lineCount; i++) {
 					let line = document.lineAt(i).text;
 					formatDocumentLine(line, i, textEdits);
 				}
@@ -51,7 +51,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.languages.registerDocumentRangeFormattingEditProvider(MUMPS_MODE, {
 			provideDocumentRangeFormattingEdits: (document, range, options, token) => {
 				let textEdits: vscode.TextEdit[] = []
-				for (var i = range.start.line; i <= range.end.line; i++) {
+				for (let i = range.start.line; i <= range.end.line; i++) {
 					let line = document.lineAt(i).text;
 					formatDocumentLine(line, i, textEdits);
 				}
@@ -143,7 +143,7 @@ class InlineDebugAdapterFactory implements vscode.DebugAdapterDescriptorFactory 
 }
 function formatDocumentLine(line: string, lineNumber, textEdits) {
 	let emptyLine = line.replace(/(\ |\t)/ig, "");
-	if (emptyLine.length == 0) {
+	if (emptyLine.length === 0) {
 		textEdits.push(vscode.TextEdit.insert(new vscode.Position(lineNumber, 0), "\t;"))
 	}
 	if (line.endsWith(". ")) {
@@ -153,9 +153,9 @@ function formatDocumentLine(line: string, lineNumber, textEdits) {
 	}
 	if (line.startsWith(" ")) {
 		let endSpace: number;
-		console.log("start")
+		//console.log("start")
 		for (endSpace = 0; endSpace < line.length; endSpace++) {
-			if (line.charAt(endSpace) != " ") {
+			if (line.charAt(endSpace) !== " ") {
 				break;
 			}
 		}

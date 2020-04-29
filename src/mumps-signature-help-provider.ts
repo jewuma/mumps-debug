@@ -50,8 +50,8 @@ function createSignatureInformation(definition) {
     let signature = new SignatureInformation(definition.functionSignature, definition.description);
     if (definition.parameters) {
         signature.parameters = [];
-        for (var parameter of definition.parameters) {
-            var description = parameter.optional ? '(optional) ' : '';
+        for (let parameter of definition.parameters) {
+            let description = parameter.optional ? '(optional) ' : '';
             description += parameter.description || parameter.name;
             signature.parameters.push(new ParameterInformation(parameter.name, description));
         }
@@ -62,7 +62,7 @@ function createSignatureInformation(definition) {
 function calculateActiveParameter(lineText, parametersStartIndex, insertIndex) {
     let active = 0;
     let depth = 0;
-    for (var i = parametersStartIndex + 1; i < insertIndex; i++) {
+    for (let i = parametersStartIndex + 1; i < insertIndex; i++) {
         let char = lineText.charAt(i);
         if (char === '(') {
             depth++;

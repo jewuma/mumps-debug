@@ -1,6 +1,7 @@
 # Debugger for Yottadb / GT.M
 
 This is a Beta Version of a Debugger for Mumps (M) running on Yottadb/GT.M
+It now includes Syntax-Highlighting by David Silin with some minor improvements
 
 ## Using mumps-debug
 

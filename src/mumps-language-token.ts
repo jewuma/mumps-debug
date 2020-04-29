@@ -43,7 +43,7 @@ class MumpsToken {
         if (!this.surroundWord) {
             return false;
         }
-        var lastChar = this.surroundWord.charAt(this.surroundWord.length - 1);
+        let lastChar = this.surroundWord.charAt(this.surroundWord.length - 1);
         return (isWhitespace(this.surroundWord.charAt(0)) ||this.surroundWord.charAt(0)===".") &&
             (lastChar === ':' ||
                 isWhitespace(lastChar) ||
@@ -92,7 +92,7 @@ class MumpsToken {
             this._definition = false;
             let matches = definitions[this.word.toUpperCase()];
             if (matches) {
-                for (var definition of matches) {
+                for (let definition of matches) {
                     if (this.isFunctionCall && definition.type !== 'function') {
                         continue;
                     }
@@ -141,7 +141,7 @@ function withoutFirstCharacter(string) {
 function formatFunctionSignature(definition) {
     let signature = definition.name + '(';
     if (definition.parameters) {
-        for (var i = 0; i < definition.parameters.length; i++) {
+        for (let i = 0; i < definition.parameters.length; i++) {
             signature += formatParameter(definition.parameters[i], i === 0);
         }
     }
@@ -170,7 +170,7 @@ function addDefinition(name, definition) {
     }
 }
 
-for (var definition of definitionsArray) {
+for (let definition of definitionsArray) {
     addDefinition(definition.name, definition);
     if (definition.abbreviation) {
         addDefinition(definition.abbreviation, definition);

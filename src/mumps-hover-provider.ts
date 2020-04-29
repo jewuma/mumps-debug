@@ -12,7 +12,7 @@ class MumpsHoverProvider {
 
         if (token.definition) {
             let definition = token.definition;
-            var snippet = { language: 'typescript', value: definition.functionSignature || definition.name };
+            let snippet = { language: 'typescript', value: definition.functionSignature || definition.name };
             return new Hover([snippet, definition.description]);
         }
     }

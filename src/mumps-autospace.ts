@@ -13,14 +13,14 @@ async function autoSpaceEnter() {
 		let newLine = '';
 		if (pos.character !== 0) {
 			//check for removing a trailing .
-			if ((parsed[0].lineRoutines == null || parsed[0].lineRoutines.length == 0) && currentLine.indexOf(";") == -1 && parsed[0].lineIndentationArray != null && parsed[0].lineIndentationArray.length > 0) {
+			if ((parsed[0].lineRoutines === undefined || parsed[0].lineRoutines.length === 0) && currentLine.indexOf(";") === -1 && parsed[0].lineIndentationArray !== undefined && parsed[0].lineIndentationArray.length > 0) {
 				parsed[0].lineIndentationArray.splice(-1)
 				editor.edit((editBuilder) => {
 					editBuilder.replace(new vscode.Range(pos.with(pos.line, 0), pos.with(pos.line, currentLine.length)), em.render(parsed))
 				})
 				//check for adding indentation to the new line
 			} else {
-				if (parsed[0].lineIndentationArray == null) {
+				if (parsed[0].lineIndentationArray === undefined) {
 					parsed[0].lineIndentationArray = []
 				}
 				if (lineContainsNoParamDo(parsed[0])) {
@@ -62,10 +62,10 @@ async function autoSpaceTab() {
 		//	console.log(test);
 		//});
 
-		if ((parsed[0].lineRoutines == null || parsed[0].lineRoutines.length == 0) && currentLine.indexOf(";") == -1 && parsed[0].lineIndentationArray != null && parsed[0].lineIndentationArray.length > 0) {
+		if ((parsed[0].lineRoutines === null || parsed[0].lineRoutines.length === 0) && currentLine.indexOf(";") === -1 && parsed[0].lineIndentationArray !== null && parsed[0].lineIndentationArray.length > 0) {
 			parsed[0].lineIndentationArray.push(" ")
 			editor.edit((editBuilder) => {
-				if (currentLine.charAt(pos.character - 1) == " ") {
+				if (currentLine.charAt(pos.character - 1) === " ") {
 					editBuilder.insert(pos.with(pos.line, pos.character), ". ")
 				} else {
 					editBuilder.insert(pos.with(pos.line, pos.character), " . ")

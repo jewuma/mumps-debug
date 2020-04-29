@@ -14,3 +14,7 @@
 
 ## 0.4.0
 * Added Routine-Syntax-Check, Restart (with RELINK)-Option, Bugfixes
+
+## 0.5.0
+* Included and improved Syntax-Highliting from Syntax-Highlighter by David Silin
+

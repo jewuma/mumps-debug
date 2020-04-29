@@ -7,83 +7,84 @@ let Uri = vscode.Uri;
 
 const EXTENSIONS = ['.M', '.INT', '.ZWR', '.m', '.int', '.zwr'];
 
-let cache:any = {};
+let cache: any = {};
 
-function lookupLabelReference(token):MumpsLabel{
-    console.log("here")
-    let uri = token.labelProgram ?
-        siblingUri(token.document, token.labelProgram) :
-        token.document.uri;
-    let referredTo = findReferredToLabel(getText(uri, token.document), token.label);
-    console.log(referredTo)
-    if (referredTo) {
-        referredTo.position = new Position(referredTo.line + (token.labelOffset || 0), 0);
-    } else {
-        referredTo = {
-						text: '',
-            position: new Position(0, 0)
-        };
-    }
-    referredTo.uri = uri;
-    return referredTo;
+function lookupLabelReference(token): MumpsLabel {
+	//console.log("here")
+	let uri = token.labelProgram ?
+		siblingUri(token.document, token.labelProgram) :
+		token.document.uri;
+	let referredTo = findReferredToLabel(getText(uri, token.document), token.label);
+	//console.log(referredTo)
+	if (referredTo) {
+		referredTo.position = new Position(referredTo.line + (token.labelOffset || 0), 0);
+	} else {
+		referredTo = {
+			text: '',
+			position: new Position(0, 0)
+		};
+	}
+	referredTo.uri = uri;
+	return referredTo;
 }
 
 function siblingUri(document, fileName) {
-    let siblingPath = path.resolve(document.uri.fsPath, '../' + fileName);
-    if (!fs.existsSync(siblingPath)) {
-        if (fileName.charAt(0) === '%') {
-            return siblingUri(document, '_' + fileName.substring(1));
-        }
+	let siblingPath = path.resolve(document.uri.fsPath, '../' + fileName);
+	if (!fs.existsSync(siblingPath)) {
+		if (fileName.charAt(0) === '%') {
+			return siblingUri(document, '_' + fileName.substring(1));
+		}
 
-        for (var extension of EXTENSIONS) {
-            let extendedPath = siblingPath + extension;
-            if (fs.existsSync(extendedPath)) {
-                siblingPath = extendedPath;
-                break;
-            }
-        }
-    }
-    return Uri.file(siblingPath);
+		for (let extension of EXTENSIONS) {
+			let extendedPath = siblingPath + extension;
+			if (fs.existsSync(extendedPath)) {
+				siblingPath = extendedPath;
+				break;
+			}
+		}
+	}
+	return Uri.file(siblingPath);
 }
 
 function getText(uri, document) {
-    if (uri === document.uri) {
-        return document.getText();
-    }
-    if (uri.fsPath === cache.fsPath) {
-        return cache.text;
-    }
-    try {
-        cache.text = fs.readFileSync(uri.fsPath, 'utf8');
-        cache.fsPath = uri.fsPath;
-        return cache.text;
-    } catch (e) {
-        return '';
-    }
+	if (uri === document.uri) {
+		return document.getText();
+	}
+	if (uri.fsPath === cache.fsPath) {
+		return cache.text;
+	}
+	try {
+		cache.text = fs.readFileSync(uri.fsPath, 'utf8');
+		cache.fsPath = uri.fsPath;
+		return cache.text;
+	} catch (e) {
+		return '';
+	}
 }
 
-function findReferredToLabel(text:string, label):MumpsLabel|undefined {
-    let lines = text.split("\n");
-    let commentText = "";
-    for(var i = 0; i<lines.length;i++){
-        if(lines[i].match("^"+label)!=null){
-            commentText+=lines[i]+"\n";
-            for(var j = i-1; j> 0; j--){
-                if(lines[j].length == 0 || lines[j].charAt(1) == ";"){
-                    commentText+=lines[j]+"\n"
-                }else {
-                    break;
-                }
-            }
-            break;
-        }
-    }
-    if (commentText.length > 0) {
-        return {
-            text: commentText,
-            line: i
-        };
-    }
+function findReferredToLabel(text: string, label): MumpsLabel | undefined {
+	let lines = text.split("\n");
+	let commentText = "";
+	let i=0;
+	for (i = 0; i < lines.length; i++) {
+		if (lines[i].match("^" + label) !== null) {
+			commentText += lines[i] + "\n";
+			for (let j = i - 1; j > 0; j--) {
+				if (lines[j].length === 0 || lines[j].charAt(1) === ";") {
+					commentText += lines[j] + "\n"
+				} else {
+					break;
+				}
+			}
+			break;
+		}
+	}
+	if (commentText.length > 0) {
+		return {
+			text: commentText,
+			line: i
+		};
+	}
 }
 /*
 function countLines(text, index) {
@@ -99,37 +100,37 @@ function countLines(text, index) {
     return line;
 }
 */
-function createDefinitionForLabelReference(referredTo:MumpsLabel) {
-    console.log("CreateLabel")
-    if (!referredTo.text) {
-        return;
-    }
+function createDefinitionForLabelReference(referredTo: MumpsLabel) {
+	//console.log("CreateLabel")
+	if (!referredTo.text) {
+		return;
+	}
 
-    let definitionRegex = /^([%A-Z][A-Z0-9]*)(\((,?[%A-Z][A-Z0-9]*)+\))?/i;
-    let result = definitionRegex.exec(referredTo.text);
-    if (!result) {
-        return;
-    }
+	let definitionRegex = /^([%A-Z][A-Z0-9]*)(\((,?[%A-Z][A-Z0-9]*)+\))?/i;
+	let result = definitionRegex.exec(referredTo.text);
+	if (!result) {
+		return;
+	}
 
-    let parameters:any = result[2].substring(1, result[2].length - 1).split(',');
-    let parametersByName = {};
-    for (var i = 0; i < parameters.length; i++) {
-        parameters[i] = {
-            name: parameters[i],
-            type: 'any'
-        };
-        parametersByName[parameters[i].name] = parameters[i];
-    }
-    let definition = {
-        name: result[1],
-        type: 'function',
-        parameters: parameters
-    };
+	let parameters: any = result[2].substring(1, result[2].length - 1).split(',');
+	let parametersByName = {};
+	for (let i = 0; i < parameters.length; i++) {
+		parameters[i] = {
+			name: parameters[i],
+			type: 'any'
+		};
+		parametersByName[parameters[i].name] = parameters[i];
+	}
+	let definition = {
+		name: result[1],
+		type: 'function',
+		parameters: parameters
+	};
 
-    //extractDescriptionFromComments(referredTo, definition, parametersByName);
-    autoDoc.getSigInfo(referredTo,definition,parametersByName);
+	//extractDescriptionFromComments(referredTo, definition, parametersByName);
+	autoDoc.getSigInfo(referredTo, definition, parametersByName);
 
-    return definition;
+	return definition;
 }
 /*
 function extractDescriptionFromComments(referredTo:MumpsLabel, definition, parametersByName) {
@@ -147,7 +148,7 @@ function extractDescriptionFromComments(referredTo:MumpsLabel, definition, param
     let newlineResult = /\n/m.exec(commentText);
     if (newlineResult) {
         let additionalLines = commentText.substring(newlineResult.index + 1);
-        for (var name in parametersByName) {
+        for (let name in parametersByName) {
             let parameterRegex = new RegExp('^((input|output|input/output)[ \t:\\-]+)?' + name + '[ \t:\\-]+(.+)\n', 'm');
             let result = parameterRegex.exec(additionalLines);
             if (result) {
@@ -164,5 +165,5 @@ function extractDescriptionFromComments(referredTo:MumpsLabel, definition, param
     definition.description = commentText;
 }
 */
-interface MumpsLabel{text:string,line?:number,position?:vscode.Position,uri?:string}
-export {lookupLabelReference,createDefinitionForLabelReference,MumpsLabel};
+interface MumpsLabel { text: string, line?: number, position?: vscode.Position, uri?: string }
+export { lookupLabelReference, createDefinitionForLabelReference, MumpsLabel };

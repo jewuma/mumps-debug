@@ -1,4 +1,4 @@
-MDEBUG  ;Debugging Routine for M by Jens Wulf
+MDEBUG  			;Debugging Routine for M by Jens Wulf
 	;License: LGPL
 	W "Debugger starts!",!
 	S $ZSTEP="ZSHOW ""VIS"":^%MDEBUG($J) S %STEP=$$WAIT^MDEBUG($ZPOS) ZST:%STEP=""I"" INTO ZST:%STEP=""O"" OVER ZST:%STEP=""F"" OUTOF ZC:%STEP=""C"""
@@ -6,17 +6,19 @@ MDEBUG  ;Debugging Routine for M by Jens Wulf
 	F  S %STEP=$$WAIT("") Q:%STEP["^"
 	D RELINK(%STEP)
 	Q
-RELINK(%PROG)	;LINK Sourcefile again and Start over
+RELINK(%PROG)			;LINK Sourcefile again and Start over
 	S %PROGNAME=%PROG
 	K (%PROGNAME)
 	ZGOTO 1:RELINK1
-RELINK1	D REFRESHBP
+RELINK1				;Entry after Stack-Clearance
+	D REFRESHBP
 	ZLINK $TR(%PROGNAME,"^")
 	D BPRESET
 	D @%PROGNAME X $ZSTEP
 	Q
-INIT    ;Open TCP-Communication-Port
+INIT    			;Open TCP-Communication-Port
 	N %IO,%DEV,%PORT,%SOCKET,%ZTFORM
+	;J REFRESHALLLABELS
 	S %IO=$I,%PORT=9000,%DEV="|TCP|"_%PORT_"|"_$J
 	O %DEV:(ZLISTEN=%PORT_":TCP":NODELIMITER:ATTACH="listener")::"SOCKET"
 	E  Q
@@ -33,9 +35,9 @@ INIT    ;Open TCP-Communication-Port
 	S $ZSTATUS=""
 	U %IO
 	Q
-WAIT(%ZPOS)   	;Wait for next Command from Editor
+WAIT(%ZPOS)   			;Wait for next Command from Editor
 	N %DEV,%IO,%CMD,%ACTION,%CMDS,%CMDLINE,%SOCKET,%LABEL,%I,%VAR
-	S %CMDS="START;QUIT;EXIT;INTO;OUTOF;OVER;CONTINUE;SETBP;VARS;INTERNALS;CLEARBP;REQUESTBP;RESET;GETVAR;ERRCHK;RESTART"
+	S %CMDS="START;QUIT;EXIT;INTO;OUTOF;OVER;CONTINUE;SETBP;VARS;INTERNALS;CLEARBP;REQUESTBP;RESET;GETVAR;ERRCHK;RESTART;GETHINT"
 	S %IO=$I
 	S %DEV=^%MDEBUG($J,"DEV"),%SOCKET=^%MDEBUG($J,"SOCKET")
 	U %DEV:(SOCKET=%SOCKET:DELIM=$C(10))
@@ -46,12 +48,13 @@ WAIT(%ZPOS)   	;Wait for next Command from Editor
 	S %I="" F  S %I=$O(^%MDEBUG($J,"V",%I)) Q:%I=""  S %VAR=^%MDEBUG($J,"V",%I) S:%VAR[$C(10) %VAR=$$MTR(VAR,$C(10),"_$C(10)_") W "V:",%VAR,!
 	S %I="" F  S %I=$O(^%MDEBUG($J,"S",%I)) Q:%I=""  S %VAR=^%MDEBUG($J,"S",%I) W "S:",%VAR,!
 	W "***ENDVAR",!
-READLOOP	;Wait for next Command from Editor
+READLOOP			;Wait for next Command from Editor
 	U %DEV:(SOCKET=%SOCKET:DELIM=$C(10))
 	F  R %CMDLINE S %CMD=$P(%CMDLINE,";",1) Q:$P(%CMD,";",1)'=""&(%CMDS[$TR(%CMD,";"))
 	;D OUT(%CMDLINE)
 	I %CMD="REQUESTBP" W "***STARTBP",! ZSHOW "B" W "***ENDBP",! G READLOOP
 	I %CMD="GETVAR" D GETVAR($P(%CMDLINE,";",2,999)) G READLOOP
+	I %CMD="GETHINT" D GETHINT($P(%CMDLINE,";",2)) G READLOOP
 	I %CMD="SETBP" D SETBP($P(%CMDLINE,";",2),$P(%CMDLINE,";",3)) G READLOOP
 	I %CMD="CLEARBP" D CLEARBP($P(%CMDLINE,";",2),$P(%CMDLINE,";",3)) G READLOOP
 	I %CMD="RESET" G RESET
@@ -68,7 +71,7 @@ READLOOP	;Wait for next Command from Editor
 	I %CMD="EXIT"!(%CMD="QUIT") KILL ^%MDEBUG($J) C %DEV HALT
 	;Shouldn't get here
 	HALT
-SETBP(FILE,LINE)        ;Set Breakpoint
+SETBP(FILE,LINE)        	;Set Breakpoint
 	N ROUTINE,ZBPOS,ZBCMD,IO,BP,$ZTRAP
 	S IO=$I
 	I FILE'["/"&(FILE'["\") S ZBPOS=$P($P(FILE,"^",1)_"+"_LINE_"^"_$P(FILE,"^",2),"(",1)
@@ -79,7 +82,7 @@ SETBP(FILE,LINE)        ;Set Breakpoint
 	S $ZTRAP="B"
 	X ZBCMD
 	Q
-CLEARBP(FILE,LINE)      ;Clear Breakpoint
+CLEARBP(FILE,LINE)      	;Clear Breakpoint
 	N ROUTINE,ZBPOS,BP
 	S ROUTINE=$$RNAME(FILE)
 	I ROUTINE="" ZB -* D REFRESHBP Q     ;Clear all Breakpoints
@@ -92,21 +95,33 @@ CLEARBP(FILE,LINE)      ;Clear Breakpoint
 	ZB:$T(@$E(ZBPOS,2,99))'="" @ZBPOS
 	D REFRESHBP
 	Q
-GETVAR(%VARNAME)	;Get Variable-Content an pass it to Editor
+GETVAR(%VARNAME)		;Get Variable-Content an pass it to Editor
 	N $ZT
 	S $ZT="G GETVAR1^"_$T(+0)
 	W "***SINGLEVAR",!
 	W $NA(@%VARNAME),!
 	W "***SINGLEVARCONTENT",!
 	W $G(@%VARNAME),!
-GETVAR1	W "***SINGLEEND",!
+GETVAR1				;Continue-Label if something fails
+	W "***SINGLEEND",!
 	Q
-RESET   ; Clean up and wait for new Connection
+GETHINT(PART)			;Send Label-Suggestions to Editor
+	W "***STARTHINTS",!
+	I PART'="" S SEARCH=PART D
+	. F  S SEARCH=$O(^%MDEBUG("LABELS",SEARCH)) Q:SEARCH=""!($E(SEARCH,1,$L(PART))'=PART)  D
+	. . W SEARCH,";",^%MDEBUG("LABELS",SEARCH),!
+	. I $E(PART,1)="^" S SEARCH=PART D
+	. . F  S SEARCH=$O(^%MDEBUG("ROUTINES",SEARCH)) Q:SEARCH=""!($E(SEARCH,1,$L(PART))'=PART)  D
+	. . . S LABEL="" F  S LABEL=$O(^%MDEBUG("ROUTINES",SEARCH,LABEL)) Q:LABEL=""  D
+	. . . . W LABEL,";",$G(^%MDEBUG("LABELS",LABEL)),!
+	W "***ENDHINTS",!
+	Q
+RESET   			;Clean up and wait for new Connection
 	KILL ^%MDEBUG($J)
 	C %DEV
 	ZGOTO 1:MDEBUG
 	Q
-REFRESHBP       ;Remember Breakpoint-Positions to avoid Collisions between ZSTEP INTO and ZBREAK
+REFRESHBP       		;Remember Breakpoint-Positions to avoid Collisions between ZSTEP INTO and ZBREAK
 	N BP
 	ZSHOW "B":^%MDEBUG($J)
 	KILL ^%MDEBUG($J,"BP")
@@ -114,7 +129,7 @@ REFRESHBP       ;Remember Breakpoint-Positions to avoid Collisions between ZSTEP
 	.S ^%MDEBUG($J,"BP",^%MDEBUG($J,"B",BP))=""
 	KILL ^%MDEBUG($J,"B")
 	Q
-BPRESET		;Set BPs again after Recompile
+BPRESET				;Set BPs again after Recompile
 	N BP,ZBCMD
 	ZB -*
 	S BP="" F  S BP=$O(^%MDEBUG($J,"BP",BP)) Q:BP=""  D
@@ -122,7 +137,7 @@ BPRESET		;Set BPs again after Recompile
 	.X ZBCMD
 	D REFRESHBP
 	Q
-POSCONV(ZPOS)	;Convert Position in Form LABEL+n^ROUTINE TO +m^ROUTINE
+POSCONV(ZPOS)			;Convert Position in Form LABEL+n^ROUTINE TO +m^ROUTINE
 	Q:$E(ZPOS,1)="+" ZPOS
 	N OFFSET,LINE,LABEL,ROUTINE,LABELLEN,I
 	S LABEL=$P(ZPOS,"+",1)
@@ -131,17 +146,17 @@ POSCONV(ZPOS)	;Convert Position in Form LABEL+n^ROUTINE TO +m^ROUTINE
 	S ROUTINE=$P(ZPOS,"^",2),LABELLEN=$L(LABEL)
 	F I=1:1 Q:$E($T(@("+"_I_"^"_ROUTINE)),1,LABELLEN)=LABEL
 	Q "+"_(I+OFFSET)_"^"_ROUTINE
-RNAME(FILE)	;Get Routinename from filename
+RNAME(FILE)			;Get Routinename from filename
 	S FILE=$TR(FILE,"\","/")
 	Q $TR($P($P(FILE,"/",$L(FILE,"/")),".",1),"_","%")
-OUT(VAR)	;DEBUG-Output
+OUT(VAR)			;DEBUG-Output
 	N IO
 	S IO=$I
 	U 0
 	W VAR,!
 	U IO
 	Q
-MTR(VAR,SUCH,ERSETZ)	;Replace one Char in String by several chars
+MTR(VAR,SUCH,ERSETZ)		;Replace one Char in String by several chars
 	Q:SUCH="" VAR
 	N POS
 	S POS=0
@@ -150,7 +165,7 @@ MTR(VAR,SUCH,ERSETZ)	;Replace one Char in String by several chars
 	.S VAR=$E(VAR,1,POS-1)_ERSETZ_$E(VAR,POS+$L(SUCH),$L(VAR))
 	.S POS=POS+$L(ERSETZ)
 	Q VAR
-ERRCHK()        ;Read Lines and try to Compile
+ERRCHK()        		;Read Lines and try to Compile
 	N LINE,LINES,I,RESULT
 	F I=10000:1 R LINE:5 Q:'$T  Q:LINE="***ENDPROGRAM"  D
 	.S LINES(I)=LINE
@@ -159,7 +174,7 @@ ERRCHK()        ;Read Lines and try to Compile
 	S I="" F  S I=$O(RESULT(I)) Q:I=""  W RESULT(I),!
 	W "***ENDERRCHK",!
 	Q
-LINECOMPILE(LINES,RESULT)               ; Create temporary Mumps-File from given lines
+LINECOMPILE(LINES,RESULT)	;Create temporary Mumps-File from given lines
 	; Result is passed by Reference and gives back: Array of Column;Line;Error-Message
 	N LINE,LINENR,DEV,IO
 	S IO=$I
@@ -172,7 +187,7 @@ LINECOMPILE(LINES,RESULT)               ; Create temporary Mumps-File from given
 	O DEV C DEV:DELETE
 	U IO
 	Q
-TESTCOMPILE(FILE,RESULT)       ; Compile FILE (no Object File created and return possible Errors in .RESULT
+TESTCOMPILE(FILE,RESULT)       	;Compile FILE (no Object File created and return possible Errors in .RESULT
 	N IO,PIPE,I
 	S IO=$IO
 	S PIPE="PIPE"
@@ -187,7 +202,7 @@ TESTCOMPILE(FILE,RESULT)       ; Compile FILE (no Object File created and return
 	U IO
 	Q
 	;
-REFRESHALLLABELS	;Refresh all Labels in Debug Database
+REFRESHALLLABELS		;Refresh all Labels in Debug Database
 	N RLIST,FILE,ROUTINE,DATE
 	D GETROUTINELIST(.RLIST)
 	Q:'$D(RLIST)
@@ -199,7 +214,7 @@ REFRESHALLLABELS	;Refresh all Labels in Debug Database
 	. D REFRESHLABELS(FILE) S ^%MDEBUG("ROUTINES",ROUTINE,"***DATE")=DATE
 	QUIT
 	;
-REFRESHLABELS(FILE)	;
+REFRESHLABELS(FILE)		;Refresh all Labels of the given .m-file
 	N ROUTINE,LABELS,LABEL
 	S ROUTINE=$$RNAME(FILE)
 	Q:ROUTINE=""
@@ -213,14 +228,14 @@ REFRESHLABELS(FILE)	;
 	. S ^%MDEBUG("LABELS",LABEL_"^"_ROUTINE)=LABELS(LABEL)
 	;
 	Q
-GETALLLABELS(LABELLIST)	;Get all Labels in all routines
+GETALLLABELS(LABELLIST)		;Get all Labels in all routines
 	KILL LABELLIST
 	N LIST,FILE,RNAME,LINE,CHAR,LABEL,I
 	D GETROUTINELIST(.LIST)
 	S FILE="" F  S FILE=$O(LIST(FILE)) Q:FILE=""  D
 	.D GETLABELS(FILE,.LABELS)
 	Q
-GETLABELS(FILE,LABELS)	;Get all Labels from a single M-File
+GETLABELS(FILE,LABELS)		;Get all Labels from a single M-File
 	N LINE,LABEL,I,CHAR
 	KILL LABELS
 	O FILE:READONLY U FILE
@@ -232,7 +247,7 @@ GETLABELS(FILE,LABELS)	;Get all Labels from a single M-File
 	C FILE
 	Q
 	;
-GETROUTINELIST(LIST)	;Get Routinenames and there last Change-Date
+GETROUTINELIST(LIST)		;Get Routinenames and there last Change-Date
 	N DIRS,J,CMD,DEV,ZEILE,NAME,TIME
 	D PARSEZRO(.DIRS)
 	KILL LIST
@@ -245,7 +260,7 @@ GETROUTINELIST(LIST)	;Get Routinenames and there last Change-Date
 	..S LIST(NAME)=TIME
 	.C DEV
 	Q
-PARSEZRO(DIR) ; GET all Sourcedirectories
+PARSEZRO(DIR) 			;GET all Sourcedirectories
 	N ZRO,PIECE,I,CNT
 	S ZRO=$ZROUTINES
 	S CNT=1
