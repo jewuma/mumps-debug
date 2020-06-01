@@ -12,8 +12,9 @@ import { MumpsDefinitionProvider } from './mumps-definition-provider'
 import { MumpsSignatureHelpProvider } from './mumps-signature-help-provider'
 import { DocumentFunction } from './mumps-documenter'
 import { MumpsDocumentSymbolProvider } from './mumps-document';
-//import {CompletionItemProvider} from './mumps-completion-item-provider';
+import {CompletionItemProvider} from './mumps-completion-item-provider';
 import * as AutospaceFunction from './mumps-autospace'
+const fs = require('fs');
 
 let entryRef: string | undefined = "";
 export async function activate(context: vscode.ExtensionContext) {
@@ -28,6 +29,11 @@ export async function activate(context: vscode.ExtensionContext) {
 			});
 		})
 	);
+	let storage = context.storagePath;
+	if (!fs.existsSync(storage)) {
+		fs.mkdirSync(storage);
+	}
+	const dbfile = storage + "/labeldb.json";
 	context.subscriptions.push(
 		mumpsDiagnostics,
 		vscode.commands.registerCommand("mumps.documentFunction", () => { DocumentFunction(); }),
@@ -37,7 +43,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.languages.registerDefinitionProvider(MUMPS_MODE, new MumpsDefinitionProvider()),
 		vscode.languages.registerSignatureHelpProvider(MUMPS_MODE, new MumpsSignatureHelpProvider(), '(', ','),
 		vscode.languages.registerDocumentSymbolProvider(MUMPS_MODE, new MumpsDocumentSymbolProvider()),
-		//vscode.languages.registerCompletionItemProvider(MUMPS_MODE, new CompletionItemProvider()),
+		vscode.languages.registerCompletionItemProvider(MUMPS_MODE, new CompletionItemProvider(dbfile)),
 		vscode.languages.registerDocumentFormattingEditProvider(MUMPS_MODE, {
 			provideDocumentFormattingEdits: (document, options, token) => {
 				let textEdits: vscode.TextEdit[] = []

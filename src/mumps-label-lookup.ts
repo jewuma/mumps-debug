@@ -111,7 +111,10 @@ function createDefinitionForLabelReference(referredTo: MumpsLabel) {
 	if (!result) {
 		return;
 	}
-
+	let commentText='';
+	if (referredTo.text.indexOf(';')) {
+		commentText=referredTo.text.substring(referredTo.text.indexOf(';')+1);
+	}
 	let parameters: any = result[2].substring(1, result[2].length - 1).split(',');
 	let parametersByName = {};
 	for (let i = 0; i < parameters.length; i++) {
@@ -124,7 +127,8 @@ function createDefinitionForLabelReference(referredTo: MumpsLabel) {
 	let definition = {
 		name: result[1],
 		type: 'function',
-		parameters: parameters
+		parameters,
+		commentText
 	};
 
 	//extractDescriptionFromComments(referredTo, definition, parametersByName);

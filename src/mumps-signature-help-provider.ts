@@ -54,7 +54,8 @@ function createSignatureInformation(definition) {
             let description = parameter.optional ? '(optional) ' : '';
             description += parameter.description || parameter.name;
             signature.parameters.push(new ParameterInformation(parameter.name, description));
-        }
+				}
+				signature.documentation=definition.commentText;
     }
     return signature;
 }

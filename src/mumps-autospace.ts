@@ -62,7 +62,9 @@ async function autoSpaceTab() {
 		//	console.log(test);
 		//});
 
-		if ((parsed[0].lineRoutines === null || parsed[0].lineRoutines.length === 0) && currentLine.indexOf(";") === -1 && parsed[0].lineIndentationArray !== null && parsed[0].lineIndentationArray.length > 0) {
+		if ((parsed[0].lineRoutines === undefined || parsed[0].lineRoutines.length === 0) &&
+			currentLine.indexOf(";") === -1 && parsed[0].lineIndentationArray !== undefined &&
+			parsed[0].lineIndentationArray.length > 0) {
 			parsed[0].lineIndentationArray.push(" ")
 			editor.edit((editBuilder) => {
 				if (currentLine.charAt(pos.character - 1) === " ") {

@@ -1,12 +1,12 @@
 # Debugger for Yottadb / GT.M
 
 This is a Beta Version of a Debugger for Mumps (M) running on Yottadb/GT.M
-It now includes Syntax-Highlighting by David Silin with some minor improvements
+It also includes Syntax-Highlighting by David Silin with some minor improvements
 
 ## Using mumps-debug
 
 * Install the **mumps-debug** extension in VS Code.
-* Put the MDEBUG.m Routine in your M-Program-Directoty and start it.
+* Put the MDEBUG.m Routine in your M-Program-Directory and start it.
 * Edit the launch.json and set hostname of the host MDEBUG runs on.
 * Maybe change Port in launch.json and in MDEBUG.m if Port 9000 isn't useable.
 
