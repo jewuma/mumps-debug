@@ -12,10 +12,13 @@ import { MumpsDefinitionProvider } from './mumps-definition-provider'
 import { MumpsSignatureHelpProvider } from './mumps-signature-help-provider'
 import { DocumentFunction } from './mumps-documenter'
 import { MumpsDocumentSymbolProvider } from './mumps-document';
-import {CompletionItemProvider} from './mumps-completion-item-provider';
+import { CompletionItemProvider } from './mumps-completion-item-provider';
 import * as AutospaceFunction from './mumps-autospace'
-const fs = require('fs');
+import { MumpsLineParser } from './mumpsLineParser';
+const parser = new MumpsLineParser;
 
+const fs = require('fs');
+let timeout: ReturnType<typeof setTimeout> | undefined;
 let entryRef: string | undefined = "";
 export async function activate(context: vscode.ExtensionContext) {
 	const MUMPS_MODE: vscode.DocumentFilter = { language: 'mumps', scheme: 'file' };
@@ -65,10 +68,12 @@ export async function activate(context: vscode.ExtensionContext) {
 			}
 		}),
 		vscode.debug.registerDebugConfigurationProvider('mumps', new MumpsConfigurationProvider()),
-		vscode.debug.registerDebugAdapterDescriptorFactory('mumps', new InlineDebugAdapterFactory())
+		vscode.debug.registerDebugAdapterDescriptorFactory('mumps', new InlineDebugAdapterFactory()),
+		vscode.window.onDidChangeActiveTextEditor(editor => { if (editor) {triggerUpdateDiagnostics(editor.document, mumpsDiagnostics)} }),
+		vscode.workspace.onDidChangeTextDocument(editor => { if (editor) {triggerUpdateDiagnostics(editor.document, mumpsDiagnostics)} })
 	);
 	//vscode.debug.onDidStartDebugSession(()=>refreshDiagnostics(vscode.window.activeTextEditor!.document, mumpsDiagnostics))
-	//subscribeToDocumentChanges(context, mumpsDiagnostics);
+	//vscode.(context, mumpsDiagnostics);
 	//vscode.languages.registerCodeActionsProvider({scheme:'file', language:'mumps'},new MumpsSpellChecker(),{providedCodeActionKinds:MumpsSpellChecker.providedCodeActionKinds})
 	vscode.languages.registerEvaluatableExpressionProvider(MUMPS_MODE, {
 		provideEvaluatableExpression(document: vscode.TextDocument, position: vscode.Position): vscode.ProviderResult<vscode.EvaluatableExpression> {
@@ -167,4 +172,30 @@ function formatDocumentLine(line: string, lineNumber, textEdits) {
 		}
 		textEdits.push(vscode.TextEdit.replace(new vscode.Range(new vscode.Position(lineNumber, 0), new vscode.Position(lineNumber, endSpace)), "\t"));
 	}
+}
+function updateDiagnostics(document: vscode.TextDocument, collection: vscode.DiagnosticCollection): void {
+	if (document) {
+		collection.clear();
+		for (let i = 0; i < document.lineCount; i++) {
+			let line = document.lineAt(i);
+			let diag = parser.checkLine(line.text);
+			if (diag.text !== '') {
+				collection.set(document.uri, [{
+					code: '',
+					message: diag.text,
+					range: new vscode.Range(new vscode.Position(i, diag.position), new vscode.Position(i, line.text.length)),
+					severity: vscode.DiagnosticSeverity.Error,
+					source: '',
+				}]);
+
+			}
+		}
+	}
+}
+function triggerUpdateDiagnostics(document: vscode.TextDocument, collection: vscode.DiagnosticCollection) {
+	if (timeout) {
+		clearTimeout(timeout);
+		timeout = undefined;
+	}
+	timeout = setTimeout(()=>updateDiagnostics(document, collection), 500);
 }

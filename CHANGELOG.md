@@ -16,6 +16,9 @@
 ## 0.5.0
 * Included and improved Syntax-Highliting from Syntax-Highlighter by David Silin
 ## 0.5.1
-* Fixed a Bug which stopped <TAB> from working
+* Fixed a Bug which stopped TAB from working
+## 0.6.0
+* Added immediate syntax-check
+
 
 
