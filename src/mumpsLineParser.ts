@@ -2165,7 +2165,13 @@ export class MumpsLineParser {
           break;
       }
       if (arg[result.position] === ',') {
-        result.position++;
+				result.position++;
+				if (result.position === arg.length) {
+
+					if (argFormat !== '' && argFormat[0] !== '[') {
+						return { text: 'Argument for command ' + code.mCommand + " required", position: result.position }
+					}
+				}
         continue;
       } else if (arg[result.position] !== undefined) {
         result.text = 'Unexpected Character "' + arg[result.position] + '"';

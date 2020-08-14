@@ -115,14 +115,17 @@ function createDefinitionForLabelReference(referredTo: MumpsLabel) {
 	if (referredTo.text.indexOf(';')) {
 		commentText=referredTo.text.substring(referredTo.text.indexOf(';')+1);
 	}
-	let parameters: any = result[2].substring(1, result[2].length - 1).split(',');
+	let parameters:any = [];
 	let parametersByName = {};
-	for (let i = 0; i < parameters.length; i++) {
-		parameters[i] = {
-			name: parameters[i],
-			type: 'any'
-		};
-		parametersByName[parameters[i].name] = parameters[i];
+	if (result[2] !== undefined) {
+		parameters = result[2].substring(1, result[2].length - 1).split(',');
+		for (let i = 0; i < parameters.length; i++) {
+			parameters[i] = {
+				name: parameters[i],
+				type: 'any'
+			};
+			parametersByName[parameters[i].name] = parameters[i];
+		}
 	}
 	let definition = {
 		name: result[1],

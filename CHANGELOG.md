@@ -19,6 +19,11 @@
 * Fixed a Bug which stopped TAB from working
 ## 0.6.0
 * Added immediate syntax-check
-
+## 0.6.1
+* Updated some sub-packages
+## 0.6.2
+* Language fix by Alexander Kozharsky and fixed Call of %-Routines
+## 0.6.3
+* Minor Stability Fixes
 
 

@@ -114,6 +114,12 @@
 			<string>$$^routine</string>
 			<key>match</key>
 			<string>\$\$\^([%A-Za-z][A-Za-z0-9]*)</string>
+		</dict>
+    <dict>
+			<key>comment</key>
+			<string>&amp;xcmod.xcall</string>
+			<key>match</key>
+			<string>&amp;([A-Za-z][A-Za-z0-9]*)(\.[%A-Za-z][A-Za-z0-9]*)</string>
 			<key>name</key>
 			<string>support.function.user</string>
 		</dict>

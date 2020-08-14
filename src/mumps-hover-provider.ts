@@ -5,7 +5,7 @@ let MumpsToken = require('./mumps-language-token').MumpsToken;
 class MumpsHoverProvider {
     provideHover(document, position) {
         let token = new MumpsToken(document, position);
-
+				if (!token.range) {return}
         if (!token.mayBeCommand && !token.isIntrinsic && !token.isLabelReference) {
             return;
         }

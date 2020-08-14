@@ -72,9 +72,6 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.window.onDidChangeActiveTextEditor(editor => { if (editor) {triggerUpdateDiagnostics(editor.document, mumpsDiagnostics)} }),
 		vscode.workspace.onDidChangeTextDocument(editor => { if (editor) {triggerUpdateDiagnostics(editor.document, mumpsDiagnostics)} })
 	);
-	//vscode.debug.onDidStartDebugSession(()=>refreshDiagnostics(vscode.window.activeTextEditor!.document, mumpsDiagnostics))
-	//vscode.(context, mumpsDiagnostics);
-	//vscode.languages.registerCodeActionsProvider({scheme:'file', language:'mumps'},new MumpsSpellChecker(),{providedCodeActionKinds:MumpsSpellChecker.providedCodeActionKinds})
 	vscode.languages.registerEvaluatableExpressionProvider(MUMPS_MODE, {
 		provideEvaluatableExpression(document: vscode.TextDocument, position: vscode.Position): vscode.ProviderResult<vscode.EvaluatableExpression> {
 			const diags: readonly vscode.Diagnostic[] | undefined = mumpsDiagnostics.get(document.uri);

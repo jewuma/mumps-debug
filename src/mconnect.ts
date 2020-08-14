@@ -260,7 +260,7 @@ export class MConnect extends EventEmitter {
 		this.loadSource(file);
 		const startlabel = position.split("+")[0];
 		let offset = 0;
-		if (position.split("+")[1] !== "undefined") {
+		if (position.split("+")[1] !== undefined) {
 			offset = parseInt(position.split("+")[1]);
 		}
 		let line = 0
@@ -427,6 +427,7 @@ export class MConnect extends EventEmitter {
 	// private methods
 
 	private loadSource(file: string) {
+		file=file.replace("%","_");
 		if (this._sourceFile !== file) {
 			this._sourceFile = file;
 			this._sourceLines = readFileSync(this._sourceFile).toString().split('\n');
@@ -437,7 +438,7 @@ export class MConnect extends EventEmitter {
 		let parts = positionstring.split("^");
 		let position = parts[0];
 		let program = parts[1].split(" ", 1)[0];
-		let file = this._localRoutinesPath + program + ".m";
+		let file = (this._localRoutinesPath + program + ".m").replace("%","_");
 		let filecontent = readFileSync(file).toString().split('\n');
 		let startlabel = position.split("+")[0];
 		let offset = 0;
@@ -457,8 +458,11 @@ export class MConnect extends EventEmitter {
 	}
 
 	private sendEvent(event: string, ...args: any[]) {
+		this.emit(event,...args);
+		/*
 		setImmediate(_ => {
 			this.emit(event, ...args);
 		});
+		*/
 	}
 }
