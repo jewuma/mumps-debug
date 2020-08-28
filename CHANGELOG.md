@@ -25,5 +25,6 @@
 * Language fix by Alexander Kozharsky and fixed Call of %-Routines
 ## 0.6.3
 * Minor Stability Fixes
-
+## 0.7.0
+* Fixed autocomplete-bug, Improved Syntax-Highlighting
 

@@ -86,6 +86,19 @@
 		</dict>
 		<dict>
 			<key>name</key>
+			<string>Mumps Functions</string>
+			<key>scope</key>
+			<string>support.function.mumps</string>
+			<key>settings</key>
+			<dict>
+				<key>fontStyle</key>
+				<string></string>
+				<key>foreground</key>
+				<string>#11ebeb</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
 			<string>Special Variable</string>
 			<key>scope</key>
 			<string>variable.language.special</string>
@@ -95,6 +108,32 @@
 				<string></string>
 				<key>foreground</key>
 				<string>#11CCCC</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Local Variable</string>
+			<key>scope</key>
+			<string>variable.language.local</string>
+			<key>settings</key>
+			<dict>
+				<key>fontStyle</key>
+				<string></string>
+				<key>foreground</key>
+				<string>#11CCFF</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>name</key>
+			<string>Global Variable</string>
+			<key>scope</key>
+			<string>variable.language.global</string>
+			<key>settings</key>
+			<dict>
+				<key>fontStyle</key>
+				<string></string>
+				<key>foreground</key>
+				<string>#11FFFF</string>
 			</dict>
 		</dict>
 		<dict>

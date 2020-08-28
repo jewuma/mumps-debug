@@ -41,7 +41,8 @@ export class CompletionItemProvider {
 		let clean: Array<vscode.CompletionItem> = [];
 
 		if (this._labelsReady && status.lineStatus === 'jumplabel' && status.startstring.length > 1) {
-			clean = this._findLabel(status.startstring, clean);
+			let replaceRange=new vscode.Range(new vscode.Position(position.line,position.character-status.startstring.length),position)
+			clean = this._findLabel(status.startstring, clean, replaceRange);
 		}
 		return clean;
 	}
@@ -118,7 +119,7 @@ export class CompletionItemProvider {
 			this._checkReady(true);
 		});
 	}
-	private _findLabel(startstring, list: Array<vscode.CompletionItem>) {
+	private _findLabel(startstring, list: Array<vscode.CompletionItem>, replaceRange:vscode.Range) {
 		//let hits = 0;
 		let hitlist: LabelItem[];
 		let sortText='';
@@ -145,6 +146,9 @@ export class CompletionItemProvider {
 		for (let i = 0; i < hitlist.length; i++) {
 			let item = hitlist[i];
 			let label = item.label + '^' + item.routine;
+			if (label === startstring ) {
+				continue;
+			}
 			if (item.label==="*FL") {
 				if (!startstring.startsWith('^')) {
 					continue;
@@ -162,7 +166,7 @@ export class CompletionItemProvider {
 				detail += item.line.substring(item.line.indexOf(';') + 1);
 			}
 			if (detail.length>0 && sortText!=='100') {sortText='099';}
-			list.push({ label, detail, sortText });
+			list.push({ label, detail, sortText, range:replaceRange });
 		}
 		return list;
 	}

@@ -15,6 +15,7 @@ import { MumpsDocumentSymbolProvider } from './mumps-document';
 import { CompletionItemProvider } from './mumps-completion-item-provider';
 import * as AutospaceFunction from './mumps-autospace'
 import { MumpsLineParser } from './mumpsLineParser';
+import { MumpsHighlighter, SemanticTokens } from './mumps-highlighter';
 const parser = new MumpsLineParser;
 
 const fs = require('fs');
@@ -47,6 +48,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.languages.registerSignatureHelpProvider(MUMPS_MODE, new MumpsSignatureHelpProvider(), '(', ','),
 		vscode.languages.registerDocumentSymbolProvider(MUMPS_MODE, new MumpsDocumentSymbolProvider()),
 		vscode.languages.registerCompletionItemProvider(MUMPS_MODE, new CompletionItemProvider(dbfile)),
+		vscode.languages.registerDocumentSemanticTokensProvider(MUMPS_MODE, MumpsHighlighter, SemanticTokens),
 		vscode.languages.registerDocumentFormattingEditProvider(MUMPS_MODE, {
 			provideDocumentFormattingEdits: (document, options, token) => {
 				let textEdits: vscode.TextEdit[] = []
@@ -173,19 +175,23 @@ function formatDocumentLine(line: string, lineNumber, textEdits) {
 function updateDiagnostics(document: vscode.TextDocument, collection: vscode.DiagnosticCollection): void {
 	if (document) {
 		collection.clear();
+		let diags:Array<vscode.Diagnostic>=[];
 		for (let i = 0; i < document.lineCount; i++) {
 			let line = document.lineAt(i);
 			let diag = parser.checkLine(line.text);
 			if (diag.text !== '') {
-				collection.set(document.uri, [{
+				diags.push({
 					code: '',
 					message: diag.text,
 					range: new vscode.Range(new vscode.Position(i, diag.position), new vscode.Position(i, line.text.length)),
 					severity: vscode.DiagnosticSeverity.Error,
 					source: '',
-				}]);
+				});
 
 			}
+		}
+		if (diags) {
+			collection.set(document.uri, diags);
 		}
 	}
 }
