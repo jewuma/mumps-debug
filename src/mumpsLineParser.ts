@@ -1022,12 +1022,28 @@ export class MumpsLineParser {
 		}
 		return linetokens;
 	}
+	private _splitLabelAndParameters(label:string) {
+		if (label.indexOf('(')===-1) {
+			this.tokens.push({ name: label, position: 0, type: TokenType.label });
+		} else {
+			let labelparts=label.split('(');
+			let labeltext=labelparts[0];
+			this.tokens.push({ name: labeltext, position: 0, type: TokenType.label });
+			let parameters=labelparts[1].split(')')[0];
+			let parameterVars=parameters.split(',');
+			let position=labeltext.length+1		// Position = lengths of Label + trailing "("
+			for (let i=0;i<parameterVars.length;i++) {
+				this.tokens.push({ name: parameterVars[i], position, type: TokenType.local });
+				position+=parameterVars[i].length+1
+			}
+		}
+	}
 	public checkLine(line: string): ErrorInformation {
 		this.tokens = [];
 		this.linePosition = 0;
 		let parsed = this.parseLine(line);
 		if (parsed.lineLabel) {
-			this.tokens.push({ name: parsed.lineLabel, position: 0, type: TokenType.label });
+			this._splitLabelAndParameters(parsed.lineLabel);
 		}
 		if (parsed.lineComment) {
 			this.tokens.push({ name: parsed.lineComment.comment, position: parsed.lineComment.position, type: TokenType.comment });
@@ -2163,7 +2179,25 @@ export class MumpsLineParser {
 		return result;
 	}
 }
-/*
+/*let dir="y:\\";
+let test=new MumpsLineParser();
+let erg:Array<ErrorInformation>=[];
+fs.readdir(dir, function (err, files) {
+    //handling error
+    if (err) {
+        return console.log('Unable to scan directory: ' + err);
+    }
+    //listing all files using forEach
+    files.forEach(function (file:string) {
+			if (file.substring(file.length-2,file.length)===".m")
+				erg=test.checkFile(dir+file);
+				if (erg.length) {
+					console.log(file);
+					console.log(erg);
+				}
+    });
+});
+
 let test=new MumpsLineParser();
 
 let result=test.checkLine('		F  S BILD=$$ZSEARCH(PFAD_"*") Q:BILD=""  D');

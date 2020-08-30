@@ -25,9 +25,6 @@ const MumpsHighlighter: vscode.DocumentSemanticTokensProvider = {
 				if (type==="exfunction") {
 					t.position-=2;			//Correct Position because of leading $$
 					t.name="$$"+t.name;
-				} else if (type==="comment") {
-					t.position--;			 //Correct Position because of leading ';'
-					t.name=";"+t.name;
 				}
 				if (t.position<0) {
 					console.log(tokens);

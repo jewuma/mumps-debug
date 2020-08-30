@@ -27,4 +27,6 @@
 * Minor Stability Fixes
 ## 0.7.0
 * Fixed autocomplete-bug, Improved Syntax-Highlighting
+## 0.7.1
+* Small fixes
 
