@@ -39,7 +39,6 @@ export async function activate(context: vscode.ExtensionContext) {
 	}
 	const dbfile = storage + "/labeldb.json";
 	context.subscriptions.push(
-		mumpsDiagnostics,
 		vscode.commands.registerCommand("mumps.documentFunction", () => { DocumentFunction(); }),
 		vscode.commands.registerCommand("mumps.autoSpaceEnter", () => { AutospaceFunction.autoSpaceEnter(); }),
 		vscode.commands.registerCommand("mumps.autoSpaceTab", () => { AutospaceFunction.autoSpaceTab(); }),
@@ -173,7 +172,7 @@ function formatDocumentLine(line: string, lineNumber, textEdits) {
 	}
 }
 function updateDiagnostics(document: vscode.TextDocument, collection: vscode.DiagnosticCollection): void {
-	if (document) {
+	if (document  && document.languageId==='mumps') {
 		collection.clear();
 		let diags:Array<vscode.Diagnostic>=[];
 		for (let i = 0; i < document.lineCount; i++) {

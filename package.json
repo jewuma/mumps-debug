@@ -1,7 +1,7 @@
 {
 	"name": "mumps-debug",
 	"displayName": "Mumps Language-Pack",
-	"version": "0.7.1",
+	"version": "0.7.2",
 	"publisher": "jewuma",
 	"description": "Debugger for Mumps (M) , GT.M, YottaDB",
 	"author": {
@@ -16,7 +16,7 @@
 		"debug"
 	],
 	"engines": {
-		"vscode": "^1.48.2"
+		"vscode": "^1.50.0"
 	},
 	"icon": "images/mumps-debug-icon.png",
 	"categories": [
@@ -48,14 +48,14 @@
 		"vscode-debugadapter": "1.38.0-pre.4"
 	},
 	"devDependencies": {
-		"@types/node": "^13.13.15",
-		"@types/vscode": "^1.48.0",
+		"@types/node": "^13.13.28",
+		"@types/vscode": "^1.50.0",
 		"emcellent": "0.0.5",
 		"ts-loader": "^6.2.2",
 		"tslint": "5.18.0",
 		"typescript": "3.5.3",
-		"vsce": "^1.79.3",
-		"webpack": "^4.44.1",
+		"vsce": "^1.81.1",
+		"webpack": "^4.44.2",
 		"webpack-cli": "^3.3.12"
 	},
 	"main": "./dist/extension",

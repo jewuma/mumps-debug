@@ -29,4 +29,6 @@
 * Fixed autocomplete-bug, Improved Syntax-Highlighting
 ## 0.7.1
 * Small fixes
+## 0.7.2
+* Stops Diagnostic of non-Mumps-Documents
 
