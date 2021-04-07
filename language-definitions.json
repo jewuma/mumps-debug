@@ -152,5 +152,13 @@
     { "name": "OLD", "type": "string", "description": "Characters in VALUE to replace" },
     { "name": "NEW", "type": "string", "optional": true, "description": "Characters to replace OLD characters with; if not provided then OLD characters will be removed" }
 ], "returns": { "type": "string" } },
-{ "name": "$VIEW", "type": "function", "abbreviation": "$V", "description": "Implementation defined" }
+{ "name": "$VIEW", "type": "function", "abbreviation": "$V", "description": "Implementation defined" },
+{"name":"$ZAHANDLE","type":"function","abbreviation":"$ZAH","description":"Returns unique identifier for a name or an alias container","parameters":[
+	{ "name": "VAR", "type": "reference", "description": "The variable to find the handle for e.g" }
+	], "returns": { "type": "string" }
+},
+{"name":"$ZASCII","type":"function","abbreviation":"$ZA","description":"ASCII numeric code of a 8-bit character","parameters":[
+	{ "name": "VALUE", "type": "string", "description": "A string to get a code from" },
+	{ "name": "POS", "type": "number", "optional": true, "description": "The 1-based position of the byte in VALUE; defaults to 1" }
+]}
 ]

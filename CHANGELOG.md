@@ -31,4 +31,8 @@
 * Small fixes
 ## 0.7.2
 * Stops Diagnostic of non-Mumps-Documents
+## 0.7.3
+* Fixed Argument Validation for $QL and $QS
+## 0.8.0
+* Added toggling between long and short M Commands
 

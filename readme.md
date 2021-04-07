@@ -13,6 +13,7 @@ It includes a debugger, syntax check and the syntax-highlighting module by David
 * Also set the localRoutinesPath to map the directory on your VS Code machine to the machine where MDEBUG.m runs.
 
 * Open a M-Program you want to debug in VS Code and start debugging via "F5"
+* New in Version 0.8.0: Press Ctrl-E to toggle between long and short Command-Format
 
 ## Project Page:
 

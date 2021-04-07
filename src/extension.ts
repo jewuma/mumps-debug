@@ -16,6 +16,7 @@ import { CompletionItemProvider } from './mumps-completion-item-provider';
 import * as AutospaceFunction from './mumps-autospace'
 import { MumpsLineParser } from './mumpsLineParser';
 import { MumpsHighlighter, SemanticTokens } from './mumps-highlighter';
+import { expandCompress } from './mumpsCompExp';
 const parser = new MumpsLineParser;
 
 const fs = require('fs');
@@ -33,20 +34,22 @@ export async function activate(context: vscode.ExtensionContext) {
 			});
 		})
 	);
-	let storage = context.storagePath;
+	let storage = context.storageUri!.fsPath;
 	if (!fs.existsSync(storage)) {
 		fs.mkdirSync(storage);
 	}
-	const dbfile = storage + "/labeldb.json";
+	const dbFile = storage + "/labeldb.json";
+	const wsState = context.workspaceState;
 	context.subscriptions.push(
 		vscode.commands.registerCommand("mumps.documentFunction", () => { DocumentFunction(); }),
 		vscode.commands.registerCommand("mumps.autoSpaceEnter", () => { AutospaceFunction.autoSpaceEnter(); }),
 		vscode.commands.registerCommand("mumps.autoSpaceTab", () => { AutospaceFunction.autoSpaceTab(); }),
+		vscode.commands.registerCommand("mumps.toggleExpandedCommands", () => { expandCompress(wsState) }),
 		vscode.languages.registerHoverProvider(MUMPS_MODE, new MumpsHoverProvider()),
 		vscode.languages.registerDefinitionProvider(MUMPS_MODE, new MumpsDefinitionProvider()),
 		vscode.languages.registerSignatureHelpProvider(MUMPS_MODE, new MumpsSignatureHelpProvider(), '(', ','),
 		vscode.languages.registerDocumentSymbolProvider(MUMPS_MODE, new MumpsDocumentSymbolProvider()),
-		vscode.languages.registerCompletionItemProvider(MUMPS_MODE, new CompletionItemProvider(dbfile)),
+		vscode.languages.registerCompletionItemProvider(MUMPS_MODE, new CompletionItemProvider(dbFile)),
 		vscode.languages.registerDocumentSemanticTokensProvider(MUMPS_MODE, MumpsHighlighter, SemanticTokens),
 		vscode.languages.registerDocumentFormattingEditProvider(MUMPS_MODE, {
 			provideDocumentFormattingEdits: (document, options, token) => {
@@ -70,8 +73,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		}),
 		vscode.debug.registerDebugConfigurationProvider('mumps', new MumpsConfigurationProvider()),
 		vscode.debug.registerDebugAdapterDescriptorFactory('mumps', new InlineDebugAdapterFactory()),
-		vscode.window.onDidChangeActiveTextEditor(editor => { if (editor) {triggerUpdateDiagnostics(editor.document, mumpsDiagnostics)} }),
-		vscode.workspace.onDidChangeTextDocument(editor => { if (editor) {triggerUpdateDiagnostics(editor.document, mumpsDiagnostics)} })
+		vscode.window.onDidChangeActiveTextEditor(editor => { if (editor) { triggerUpdateDiagnostics(editor.document, mumpsDiagnostics) } }),
+		vscode.workspace.onDidChangeTextDocument(editor => { if (editor) { triggerUpdateDiagnostics(editor.document, mumpsDiagnostics) } })
 	);
 	vscode.languages.registerEvaluatableExpressionProvider(MUMPS_MODE, {
 		provideEvaluatableExpression(document: vscode.TextDocument, position: vscode.Position): vscode.ProviderResult<vscode.EvaluatableExpression> {
@@ -172,9 +175,9 @@ function formatDocumentLine(line: string, lineNumber, textEdits) {
 	}
 }
 function updateDiagnostics(document: vscode.TextDocument, collection: vscode.DiagnosticCollection): void {
-	if (document  && document.languageId==='mumps') {
+	if (document && document.languageId === 'mumps') {
 		collection.clear();
-		let diags:Array<vscode.Diagnostic>=[];
+		let diags: Array<vscode.Diagnostic> = [];
 		for (let i = 0; i < document.lineCount; i++) {
 			let line = document.lineAt(i);
 			let diag = parser.checkLine(line.text);
@@ -199,5 +202,5 @@ function triggerUpdateDiagnostics(document: vscode.TextDocument, collection: vsc
 		clearTimeout(timeout);
 		timeout = undefined;
 	}
-	timeout = setTimeout(()=>updateDiagnostics(document, collection), 500);
+	timeout = setTimeout(() => updateDiagnostics(document, collection), 500);
 }

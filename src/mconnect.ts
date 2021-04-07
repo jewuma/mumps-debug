@@ -37,7 +37,7 @@ export class MConnect extends EventEmitter {
 	private _localRoutinesPath: string;
 	private _breakpointId: number = 1;
 	private _commandQueue: string[];
-	private _logging: boolean = false;
+	private _logging: boolean = true;
 	private _singleVar: string = "";
 	private _singleVarContent: string = "";
 	constructor() {
@@ -52,8 +52,8 @@ export class MConnect extends EventEmitter {
 		this._breakPoints = [];
 		this._errorLines = [];
 		this._singleVar = "";
-		this._singleVarContent="";
-		this._hints=[];
+		this._singleVarContent = "";
+		this._hints = [];
 		this._event.on('varsComplete', () => {
 			if (typeof (this._mVars["I"]) !== 'undefined') {
 				let internals = this._mVars["I"];
@@ -74,7 +74,8 @@ export class MConnect extends EventEmitter {
 					this._readedData += chunk.toString();
 					let n = this._readedData.indexOf('\n');
 					while (n !== -1) {
-						this.processLine(this._readedData.substring(0, n))
+						let data = this._readedData.substring(0, n);
+						this.processLine(data)
 						this._readedData = this._readedData.substring(n + 1);
 						n = this._readedData.indexOf('\n');
 					}
@@ -91,6 +92,8 @@ export class MConnect extends EventEmitter {
 		if (this._logging) { console.log(msg); }
 	}
 	private processLine(line: string) {
+		this._log("Line:  " + line);
+
 		let varname: string;
 		let value: string;
 		let vartype: string;
@@ -111,7 +114,7 @@ export class MConnect extends EventEmitter {
 				if (line === "***SINGLEVAR") {
 					this._connectState = "waitingForSingleVar";
 					this._singleVar = "";
-					this._singleVarContent="";
+					this._singleVarContent = "";
 					break;
 				}
 				if (line === "***ENDPROGRAM") {
@@ -124,9 +127,9 @@ export class MConnect extends EventEmitter {
 					this._errorLines = [];
 					break;
 				}
-				if (line=== "***STARTHINTS") {
-					this._connectState="waitingForHints";
-					this._hints=[];
+				if (line === "***STARTHINTS") {
+					this._connectState = "waitingForHints";
+					this._hints = [];
 					break;
 				}
 				break;
@@ -164,9 +167,9 @@ export class MConnect extends EventEmitter {
 			case "waitingForSingleVar": {
 				if (line === "***SINGLEEND") {
 					this._connectState = "waitingforStart";
-					this._event.emit('SingleVarReceived', this._event, this._singleVar,this._singleVarContent);
-				} else if (line=== "***SINGLEVARCONTENT") {
-					this._connectState="waitingForSingleVarContent";
+					this._event.emit('SingleVarReceived', this._event, this._singleVar, this._singleVarContent);
+				} else if (line === "***SINGLEVARCONTENT") {
+					this._connectState = "waitingForSingleVarContent";
 				} else {
 					this._singleVar += line;
 				}
@@ -175,9 +178,9 @@ export class MConnect extends EventEmitter {
 			case "waitingForSingleVarContent": {
 				if (line === "***SINGLEEND") {
 					this._connectState = "waitingforStart";
-					this._event.emit('SingleVarReceived', this._event, this._singleVar,this._singleVarContent);
+					this._event.emit('SingleVarReceived', this._event, this._singleVar, this._singleVarContent);
 				} else {
-					this._singleVarContent+=line;
+					this._singleVarContent += line;
 				}
 				break;
 			}
@@ -191,9 +194,9 @@ export class MConnect extends EventEmitter {
 				break;
 			}
 			case "waitingForHints": {
-				if (line==="***ENDHINTS") {
-					this._connectState="waitingforStart";
-					this._event.emit('HintsReceived',this._event,this._hints);
+				if (line === "***ENDHINTS") {
+					this._connectState = "waitingforStart";
+					this._event.emit('HintsReceived', this._event, this._hints);
 				} else {
 					this._hints.push(line);
 				}
@@ -212,7 +215,7 @@ export class MConnect extends EventEmitter {
 		if (this._socket && this._socket.writable) {
 			while (this._commandQueue.length) {
 				message = this._commandQueue.shift()!;
-				this._log(message);
+				//this._log("out: " + message);
 				this._socket.write(message + "\n");
 			}
 		}
@@ -341,7 +344,7 @@ export class MConnect extends EventEmitter {
 	 * Clear all breakpoints
 	 */
 	public clearBreakpoints(file: string): void {
-		this.writeln("CLEARBP;"+file);
+		this.writeln("CLEARBP;" + file);
 	}
 
 	private verifyBreakpoints(): void {
@@ -375,18 +378,18 @@ export class MConnect extends EventEmitter {
 			return this._mVars["V"];
 		}
 	}
-	public async requestHints(part:string) {
+	public async requestHints(part: string) {
 		return new Promise((resolve, reject) => {
-			this._event.on('HintsReceived', function HintsReceived(event:EventEmitter, hints:string[]) {
+			this._event.on('HintsReceived', function HintsReceived(event: EventEmitter, hints: string[]) {
 				event.removeListener('HintsReceived', HintsReceived);
 				resolve(hints);
 			});
-			this.writeln("GETHINTS;"+part);
+			this.writeln("GETHINTS;" + part);
 		})
 	}
 	public async checkRoutine(lines: string[]) {
 		return new Promise((resolve, reject) => {
-			this._event.on('ErrorreportReceived', function ErrorreportReceived(event:EventEmitter, errorLines:string[]) {
+			this._event.on('ErrorreportReceived', function ErrorreportReceived(event: EventEmitter, errorLines: string[]) {
 				event.removeListener('ErrorreportReceived', ErrorreportReceived);
 				resolve(errorLines);
 			});
@@ -399,20 +402,20 @@ export class MConnect extends EventEmitter {
 	}
 	public async getSingleVar(expression: string) {
 		return new Promise((resolve, reject) => {
-			let reply:VarData={name: expression,indexCount: 0,content: "undefined",bases:[]}
+			let reply: VarData = { name: expression, indexCount: 0, content: "undefined", bases: [] }
 			if (expression.substring(0, 1) === "$") {
-				reply.content=(this._mVars["I"] !== undefined) ? this._mVars["I"][expression] : "undefined";
+				reply.content = (this._mVars["I"] !== undefined) ? this._mVars["I"][expression] : "undefined";
 				resolve(reply);
 			} else {
 				if (this._mVars["V"] !== undefined) {
 					if (this._mVars["V"][expression] !== undefined) {
-						reply.content=this._mVars["V"][expression];
+						reply.content = this._mVars["V"][expression];
 						resolve(reply);
 					} else {
 						this._event.on('SingleVarReceived', function SingleVarReceived(event, singleVar, singleVarContent) {
 							event.removeListener('SingleVarReceived', SingleVarReceived);
-							reply.name=singleVar;
-							reply.content=singleVarContent;
+							reply.name = singleVar;
+							reply.content = singleVarContent;
 							resolve(reply);
 						});
 						this.writeln("GETVAR;" + expression);
@@ -427,10 +430,15 @@ export class MConnect extends EventEmitter {
 	// private methods
 
 	private loadSource(file: string) {
-		file=file.replace("%","_");
+		file = file.replace("%", "_");
 		if (this._sourceFile !== file) {
 			this._sourceFile = file;
-			this._sourceLines = readFileSync(this._sourceFile).toString().split('\n');
+			try {
+				this._sourceLines = readFileSync(this._sourceFile).toString().split('\n');
+			} catch {
+				console.log("Could not read Sourcefile " + file)
+			}
+			console.log("OK");
 		}
 	}
 
@@ -438,31 +446,31 @@ export class MConnect extends EventEmitter {
 		let parts = positionstring.split("^");
 		let position = parts[0];
 		let program = parts[1].split(" ", 1)[0];
-		let file = (this._localRoutinesPath + program + ".m").replace("%","_");
-		let filecontent = readFileSync(file).toString().split('\n');
-		let startlabel = position.split("+")[0];
-		let offset = 0;
-		if (position.split("+")[1] !== undefined) {
-			offset = parseInt(position.split("+")[1]);
-		}
-		let line = 0;
-		if (startlabel !== "") {
-			for (let ln = 0; ln < filecontent.length; ln++) {
-				if (filecontent[ln].substring(0, startlabel.length) === startlabel) {
-					line = ln;
-					break;
+		let file = (this._localRoutinesPath + program + ".m").replace("%", "_");
+		try {
+			let filecontent = readFileSync(file).toString().split('\n');
+			let startlabel = position.split("+")[0];
+			let offset = 0;
+			if (position.split("+")[1] !== undefined) {
+				offset = parseInt(position.split("+")[1]);
+			}
+			let line = 0;
+			if (startlabel !== "") {
+				for (let ln = 0; ln < filecontent.length; ln++) {
+					if (filecontent[ln].substring(0, startlabel.length) === startlabel) {
+						line = ln;
+						break;
+					}
 				}
 			}
+			return { "file": file, "line": line + offset - 1 };
+		} catch {
+			console.log("Could not read Sourcefile " + file)
+			return { "file": file, "line": 1 };
 		}
-		return { "file": file, "line": line + offset - 1 };
 	}
 
 	private sendEvent(event: string, ...args: any[]) {
-		this.emit(event,...args);
-		/*
-		setImmediate(_ => {
-			this.emit(event, ...args);
-		});
-		*/
+		this.emit(event, ...args);
 	}
 }
