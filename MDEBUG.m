@@ -1,27 +1,34 @@
-MDEBUG  			;Debugging Routine for M by Jens Wulf
+MDEBUG  ;Debugging Routine for GT.M/YottaDB by Jens Wulf
+	;Version 0.8.1
+	;2021-04-25
 	;License: LGPL
-	W "Debugger starts!",!
-	S $ZSTEP="ZSHOW ""VIS"":^%MDEBUG($J) S %STEP=$$WAIT^MDEBUG($ZPOS) ZST:%STEP=""I"" INTO ZST:%STEP=""O"" OVER ZST:%STEP=""F"" OUTOF ZC:%STEP=""C"""
+	;Usage on your own Risk - No garanties
+	;
+	;
+	;Do Initialization and start Loop to Wait for Debugger-Commands
+	S $ZSTEP="ZSHOW ""VIS"":^%MDEBUG($J,""VARS"") S %STEP=$$WAIT^MDEBUG($ZPOS) ZST:%STEP=""I"" INTO ZST:%STEP=""O"" OVER ZST:%STEP=""F"" OUTOF ZC:%STEP=""C"""
 	D INIT
 	F  S %STEP=$$WAIT("") Q:%STEP["^"
+	;Relink and recognize Source-Changes
 	D RELINK(%STEP)
 	Q
 RELINK(%PROG)			;LINK Sourcefile again and Start over
 	S %PROGNAME=%PROG
-	K (%PROGNAME)
-	ZGOTO 1:RELINK1
+	K (%PROGNAME)		;Clean-Up Variables
+	ZGOTO 1:RELINK1		;Clean-Up Stack
 RELINK1				;Entry after Stack-Clearance
-	D REFRESHBP
+	D REFRESHBP		;Remember Breakpoints
+	I $P(%PROGNAME,"^",2)=$T(+0) G ENDPROGRAM	;Debugging of this Program not possible
 	ZLINK $TR(%PROGNAME,"^")
-	D BPRESET
-	D @%PROGNAME X $ZSTEP
+	D BPRESET		;Set Breakpoints again after Relink
+	D @%PROGNAME X $ZSTEP	;Start Program and get back into Wait-Loop
 	Q
 INIT    			;Open TCP-Communication-Port
 	N %IO,%DEV,%PORT,%SOCKET,%ZTFORM
-	;J REFRESHALLLABELS
+	USE $P:(EXCEPTION="D BYE":CTRAP=$C(3))	;Ensure Clean-Up when Ctrl-C is pressed
 	S %IO=$I,%PORT=9000,%DEV="|TCP|"_%PORT_"|"_$J
-	O %DEV:(ZLISTEN=%PORT_":TCP":NODELIMITER:ATTACH="listener")::"SOCKET"
-	E  Q
+	O %DEV:(ZLISTEN=%PORT_":TCP":NODELIMITER:ATTACH="listener"):5:"SOCKET"
+	E  U 0 W "DEBUG-Port could not be opened.",! HALT
 	U %DEV
 	W /LISTEN(1)
 	; wait for connection, $KEY will be "CONNECT|socket_handle|remote_ipaddress"
@@ -31,52 +38,67 @@ INIT    			;Open TCP-Communication-Port
 	S ^%MDEBUG($J,"SOCKET")=%SOCKET
 	S ^%MDEBUG($J,"DEV")=%DEV
 	D OUT("Debugger connected")
+	;If there's no explicit Error-Handling show Errors in Debugger
 	S:$ZTRAP="B" $ZTRAP=$ZSTEP
 	S $ZSTATUS=""
+	;Set IO back to origin IO
 	U %IO
 	Q
 WAIT(%ZPOS)   			;Wait for next Command from Editor
-	N %DEV,%IO,%CMD,%ACTION,%CMDS,%CMDLINE,%SOCKET,%LABEL,%I,%VAR
+	N %DEV,%IO,%CMD,%ACTION,%CMDS,%CMDLINE,%SOCKET,%LABEL,%I,%VAR,%MI
+	;possible Debugger-Commands
 	S %CMDS="START;QUIT;EXIT;INTO;OUTOF;OVER;CONTINUE;SETBP;VARS;INTERNALS;CLEARBP;REQUESTBP;RESET;GETVAR;ERRCHK;RESTART;GETHINT"
 	S %IO=$I
 	S %DEV=^%MDEBUG($J,"DEV"),%SOCKET=^%MDEBUG($J,"SOCKET")
-	U %DEV:(SOCKET=%SOCKET:DELIM=$C(10))
-	I %ZPOS[("^"_$T(+0)) W "***ENDPROGRAM",! G RESET
-	S:$ZTRAP="B" $ZTRAP=$ZSTEP
-	W "***STARTVAR",!
-	S %I="" F  S %I=$O(^%MDEBUG($J,"I",%I)) Q:%I=""  S %VAR=^%MDEBUG($J,"I",%I) S:%VAR[$C(10) %VAR=$$MTR(VAR,$C(10),"_$C(10)_") W "I:",%VAR,!
-	S %I="" F  S %I=$O(^%MDEBUG($J,"V",%I)) Q:%I=""  S %VAR=^%MDEBUG($J,"V",%I) S:%VAR[$C(10) %VAR=$$MTR(VAR,$C(10),"_$C(10)_") W "V:",%VAR,!
-	S %I="" F  S %I=$O(^%MDEBUG($J,"S",%I)) Q:%I=""  S %VAR=^%MDEBUG($J,"S",%I) W "S:",%VAR,!
-	W "***ENDVAR",!
+	U %DEV:(SOCKET=%SOCKET:DELIM=$C(10):EXCEPTION="HALT")
+	S:$ZTRAP="B" $ZTRAP=$ZSTEP	;Error-Handling by Debugger if not set by Debuggee
+	;D OUT(%ZPOS_" "_$J_" "_^%MDEBUG($J,"DEV"))
+	I %ZPOS[("^"_$T(+0))&($ZSTATUS'="") D   ;Prevent Debugger from jumping into this Program
+	. S %I="" F  S %I=$O(^%MDEBUG($J,"VARS","I",%I)) Q:%I=""  D
+	. . S %VAR=^%MDEBUG($J,"VARS","I",%I) S:$E(%VAR,1,10)="$ZPOSITION" %MI=%I
+	. . S:$E(%VAR,1,8)="$ZSTATUS" ^%MDEBUG($J,"VARS","I",%MI)="$ZPOSITION="""_$P(%VAR,",",2)_""""
+	I $D(^%MDEBUG($J,"VARS","I")) D	;Sending internal, local Variables and Stack to Debugger
+	.W "***STARTVAR",!
+	.;D OUT("Sending Vars")
+	.S %I="" F  S %I=$O(^%MDEBUG($J,"VARS","I",%I)) Q:%I=""  S %VAR=^%MDEBUG($J,"VARS","I",%I) S:%VAR[$C(10) %VAR=$$MTR(VAR,$C(10),"_$C(10)_") W "I:",%VAR,!
+	.S %I="" F  S %I=$O(^%MDEBUG($J,"VARS","V",%I)) Q:%I=""  S %VAR=^%MDEBUG($J,"VARS","V",%I) S:%VAR[$C(10) %VAR=$$MTR(VAR,$C(10),"_$C(10)_") W "V:",%VAR,!
+	.S %I="" F  S %I=$O(^%MDEBUG($J,"VARS","S",%I)) Q:%I=""  S %VAR=^%MDEBUG($J,"VARS","S",%I) W:%VAR'[("^"_$T(+0)) "S:",%VAR,!
+	.W "***ENDVAR",!
 READLOOP			;Wait for next Command from Editor
 	U %DEV:(SOCKET=%SOCKET:DELIM=$C(10))
 	F  R %CMDLINE S %CMD=$P(%CMDLINE,";",1) Q:$P(%CMD,";",1)'=""&(%CMDS[$TR(%CMD,";"))
 	;D OUT(%CMDLINE)
-	I %CMD="REQUESTBP" W "***STARTBP",! ZSHOW "B" W "***ENDBP",! G READLOOP
-	I %CMD="GETVAR" D GETVAR($P(%CMDLINE,";",2,999)) G READLOOP
-	I %CMD="GETHINT" D GETHINT($P(%CMDLINE,";",2)) G READLOOP
-	I %CMD="SETBP" D SETBP($P(%CMDLINE,";",2),$P(%CMDLINE,";",3)) G READLOOP
-	I %CMD="CLEARBP" D CLEARBP($P(%CMDLINE,";",2),$P(%CMDLINE,";",3)) G READLOOP
-	I %CMD="RESET" G RESET
-	I %CMD="ERRCHK" D ERRCHK G READLOOP
+	I %CMD="REQUESTBP" W "***STARTBP",! ZSHOW "B" W "***ENDBP",! G READLOOP	;Transmit Breakpoints to Debugger
+	I %CMD="GETVAR" D GETVAR($P(%CMDLINE,";",2,999)) G READLOOP	;Transmit Variables
+	I %CMD="GETHINT" D GETHINT($P(%CMDLINE,";",2)) G READLOOP	;Get Hints for Label-Completion
+	I %CMD="SETBP" D SETBP($P(%CMDLINE,";",2),$P(%CMDLINE,";",3)) G READLOOP	;Set a new Breakpoint
+	I %CMD="CLEARBP" D CLEARBP($P(%CMDLINE,";",2),$P(%CMDLINE,";",3)) G READLOOP	;Clear a Breakpoint
+	I %CMD="RESET" G RESET						; Reset States and wait for a new Connection
+	I %CMD="ERRCHK" D ERRCHK G READLOOP				; Check following Lines if it's legal Mumps-Code
 	U %IO
-	I %CMD="INTO" Q:$D(^%MDEBUG($J,"BP",$$POSCONV(%ZPOS))) "O" Q "I"
+	I %CMD="INTO" Q:$D(^%MDEBUG($J,"BP",$$POSCONV(%ZPOS))) "O" Q "I"	;Prevent Double-Stop if it's ZSTEP INTO and Breakpoint
 	Q:%CMD="INTO" "I"
 	Q:%CMD="OUTOF" "F"
 	Q:%CMD="OVER" "O"
 	Q:%CMD="CONTINUE" "C"
-	Q:%CMD="START"&(%CMDLINE'["/"&(%CMDLINE'["\")) $P(%CMDLINE,";",2)
-	Q:%CMD="START" "^"_$$RNAME($P(%CMDLINE,";",2))
-	D:%CMD="RESTART" RELINK("^"_$$RNAME($P(%CMDLINE,";",2)))
-	I %CMD="EXIT"!(%CMD="QUIT") KILL ^%MDEBUG($J) C %DEV HALT
+	Q:%CMD="START"&(%CMDLINE'["/"&(%CMDLINE'["\")) $P(%CMDLINE,";",2)	;Start M-Program when in Format ^Routine
+	Q:%CMD="START" "^"_$$RNAME($P(%CMDLINE,";",2))				;Start M-Program when given as File-Path
+	D:%CMD="RESTART" RELINK("^"_$$RNAME($P(%CMDLINE,";",2)))		;Do a new Link and start over
+	I %CMD="EXIT"!(%CMD="QUIT") G BYE					;End of Debugging
 	;Shouldn't get here
 	HALT
+BYE	;Clean Up and end Program
+	S %DEV=$G(^%MDEBUG($J,"DEV"))
+	C:%DEV'="" %DEV
+	K ^%MDEBUG($J)
+	H
 SETBP(FILE,LINE)        	;Set Breakpoint
 	N ROUTINE,ZBPOS,ZBCMD,IO,BP,$ZTRAP
 	S IO=$I
 	I FILE'["/"&(FILE'["\") S ZBPOS=$P($P(FILE,"^",1)_"+"_LINE_"^"_$P(FILE,"^",2),"(",1)
 	E  S ROUTINE=$$RNAME(FILE) Q:ROUTINE=""  S ZBPOS="+"_LINE_"^"_ROUTINE
-	S ZBCMD="ZB "_ZBPOS_":""ZSHOW """"VIS"""":^%MDEBUG($J) S %STEP=$$WAIT^MDEBUG($ZPOS) ZST:%STEP=""""I"""" INTO ZST:%STEP=""""O"""" OVER ZST:%STEP=""""F"""" OUTOF ZC:%STEP=""""C""""  H:%STEP=""""H"""""""
+	Q:ZBPOS[("^"_$T(+0))
+	S ZBCMD="ZB "_ZBPOS_":""ZSHOW """"VIS"""":^%MDEBUG($J,""""VARS"""") S %STEP=$$WAIT^MDEBUG($ZPOS) ZST:%STEP=""""I"""" INTO ZST:%STEP=""""O"""" OVER ZST:%STEP=""""F"""" OUTOF ZC:%STEP=""""C""""  H:%STEP=""""H"""""""
 	D REFRESHBP
 	U IO
 	S $ZTRAP="B"
@@ -105,35 +127,32 @@ GETVAR(%VARNAME)		;Get Variable-Content an pass it to Editor
 GETVAR1				;Continue-Label if something fails
 	W "***SINGLEEND",!
 	Q
-GETHINT(PART)			;Send Label-Suggestions to Editor
-	W "***STARTHINTS",!
-	I PART'="" S SEARCH=PART D
-	. F  S SEARCH=$O(^%MDEBUG("LABELS",SEARCH)) Q:SEARCH=""!($E(SEARCH,1,$L(PART))'=PART)  D
-	. . W SEARCH,";",^%MDEBUG("LABELS",SEARCH),!
-	. I $E(PART,1)="^" S SEARCH=PART D
-	. . F  S SEARCH=$O(^%MDEBUG("ROUTINES",SEARCH)) Q:SEARCH=""!($E(SEARCH,1,$L(PART))'=PART)  D
-	. . . S LABEL="" F  S LABEL=$O(^%MDEBUG("ROUTINES",SEARCH,LABEL)) Q:LABEL=""  D
-	. . . . W LABEL,";",$G(^%MDEBUG("LABELS",LABEL)),!
-	W "***ENDHINTS",!
+ENDPROGRAM			;Stop the Debugge and wait for new Debugger-Connection
+	N %DEV
+	S %DEV=$G(^%MDEBUG($J,"DEV")),%SOCKET=$G(^%MDEBUG($J,"SOCKET"))
+	I %DEV'="" D
+	.U %DEV:(SOCKET=%SOCKET:DELIM=$C(10))
+	.W "***ENDPROGRAM",!
+	D RESET
 	Q
 RESET   			;Clean up and wait for new Connection
-	KILL ^%MDEBUG($J)
-	C %DEV
+	S %DEV=$G(^%MDEBUG($J,"DEV"))
+	KILL ^%MDEBUG($J,"VARS")
+	C:%DEV'="" %DEV
 	ZGOTO 1:MDEBUG
 	Q
 REFRESHBP       		;Remember Breakpoint-Positions to avoid Collisions between ZSTEP INTO and ZBREAK
-	N BP
-	ZSHOW "B":^%MDEBUG($J)
+	N BP,BPS
+	ZSHOW "B":BPS
 	KILL ^%MDEBUG($J,"BP")
-	S BP="" F  S BP=$O(^%MDEBUG($J,"B",BP)) Q:BP=""  D
-	.S ^%MDEBUG($J,"BP",^%MDEBUG($J,"B",BP))=""
-	KILL ^%MDEBUG($J,"B")
+	S BP="" F  S BP=$O(BPS("B",BP)) Q:BP=""  D
+	.S ^%MDEBUG($J,"BP",BPS("B",BP))=""
 	Q
 BPRESET				;Set BPs again after Recompile
 	N BP,ZBCMD
 	ZB -*
 	S BP="" F  S BP=$O(^%MDEBUG($J,"BP",BP)) Q:BP=""  D
-	.S ZBCMD="ZB "_BP_":""ZSHOW """"VIS"""":^%MDEBUG($J) S %STEP=$$WAIT^MDEBUG($ZPOS) ZST:%STEP=""""I"""" INTO ZST:%STEP=""""O"""" OVER ZST:%STEP=""""F"""" OUTOF ZC:%STEP=""""C""""  H:%STEP=""""H"""""""
+	.S ZBCMD="ZB "_BP_":""ZSHOW """"VIS"""":^%MDEBUG($J,""""VARS"""") S %STEP=$$WAIT^MDEBUG($ZPOS) ZST:%STEP=""""I"""" INTO ZST:%STEP=""""O"""" OVER ZST:%STEP=""""F"""" OUTOF ZC:%STEP=""""C""""  H:%STEP=""""H"""""""
 	.X ZBCMD
 	D REFRESHBP
 	Q
@@ -148,6 +167,7 @@ POSCONV(ZPOS)			;Convert Position in Form LABEL+n^ROUTINE TO +m^ROUTINE
 	Q "+"_(I+OFFSET)_"^"_ROUTINE
 RNAME(FILE)			;Get Routinename from filename
 	S FILE=$TR(FILE,"\","/")
+	S:$P(FILE,".",$L(FILE,"."))'="m" FILE=""
 	Q $TR($P($P(FILE,"/",$L(FILE,"/")),".",1),"_","%")
 OUT(VAR)			;DEBUG-Output
 	N IO
@@ -204,6 +224,7 @@ TESTCOMPILE(FILE,RESULT)       	;Compile FILE (no Object File created and return
 	;
 REFRESHALLLABELS		;Refresh all Labels in Debug Database
 	N RLIST,FILE,ROUTINE,DATE
+	L +^%MDEBUG("ROUTINES"):1 E  QUIT	;The Refresh should start once only
 	D GETROUTINELIST(.RLIST)
 	Q:'$D(RLIST)
 	S FILE="" F  S FILE=$O(RLIST(FILE)) Q:FILE=""  D
@@ -212,6 +233,7 @@ REFRESHALLLABELS		;Refresh all Labels in Debug Database
 	. I '$D(^%MDEBUG("ROUTINES",ROUTINE)) D REFRESHLABELS(FILE) S ^%MDEBUG("ROUTINES",ROUTINE,"***DATE")=DATE Q
 	. Q:DATE'>^%MDEBUG("ROUTINES",ROUTINE,"***DATE")
 	. D REFRESHLABELS(FILE) S ^%MDEBUG("ROUTINES",ROUTINE,"***DATE")=DATE
+	L -^%MDEBUG("ROUTINES")
 	QUIT
 	;
 REFRESHLABELS(FILE)		;Refresh all Labels of the given .m-file
@@ -253,7 +275,7 @@ GETROUTINELIST(LIST)		;Get Routinenames and there last Change-Date
 	KILL LIST
 	S J="" F  S J=$O(DIRS(J)) Q:J=""  D
 	.S DEV="PIPE",CMD=" ls -l --time-style=+""%Y%M%d %H%M%S"" "_DIRS(J)_"/*.m -gG"
-	.O DEV:(COMMMAND=CMD:READONLY)::"PIPE" U DEV
+	.O DEV:(COMMAND=CMD:READONLY)::"PIPE" U DEV
 	.F  R ZEILE Q:$DEVICE  D
 	..S TIME=$E(ZEILE,22,36)
 	..S NAME=$E(ZEILE,38,999)

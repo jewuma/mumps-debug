@@ -5,9 +5,8 @@
 */
 
 import {
-	Logger, logger,
-	LoggingDebugSession,
-	InitializedEvent, TerminatedEvent, StoppedEvent, BreakpointEvent, OutputEvent,
+	DebugSession,
+	InitializedEvent, TerminatedEvent, StoppedEvent, BreakpointEvent,
 	Thread, StackFrame, Scope, Source, Handles, Breakpoint
 } from 'vscode-debugadapter';
 import { DebugProtocol } from 'vscode-debugprotocol';
@@ -35,7 +34,8 @@ interface LaunchRequestArguments extends DebugProtocol.LaunchRequestArguments {
 	hostname: string;
 	/**Map Local-Routines to Host-Routines */
 	localRoutinesPath: string;
-
+	/**Flag if internal Database for M-Labels should be build up */
+	buildLabelDb?: boolean;
 }
 interface VarData {
 	name: string,
@@ -43,11 +43,10 @@ interface VarData {
 	bases: Array<string>,
 	content: string
 }
-export class MumpsDebugSession extends LoggingDebugSession {
+export class MumpsDebugSession extends DebugSession {
 
 	// we don't support multiple threads, so we can use a hardcoded ID for the default thread
 	private static THREAD_ID = 1;
-	//private _mconnect: MConnect;
 
 	private _variableHandles = new Handles<string>();
 
@@ -82,19 +81,13 @@ export class MumpsDebugSession extends LoggingDebugSession {
 		this._mconnect.on('stopOnDataBreakpoint', () => {
 			this.sendEvent(new StoppedEvent('data breakpoint', MumpsDebugSession.THREAD_ID));
 		});
-		this._mconnect.on('stopOnException', (errortext) => {
-			this.sendEvent(new StoppedEvent('exception', MumpsDebugSession.THREAD_ID, errortext));
+		this._mconnect.on('stopOnException', () => {
+			this.sendEvent(new StoppedEvent('exception', MumpsDebugSession.THREAD_ID));
 		});
 		this._mconnect.on('breakpointValidated', (bp: MumpsBreakpoint) => {
 			this.sendEvent(new BreakpointEvent('changed', <DebugProtocol.Breakpoint>{ verified: bp.verified, id: bp.id }));
 		});
-		this._mconnect.on('output', (text, filePath, line, column) => {
-			const e: DebugProtocol.OutputEvent = new OutputEvent(`${text}\n`);
-			e.body.source = this.createSource(filePath);
-			e.body.line = this.convertDebuggerLineToClient(line);
-			e.body.column = this.convertDebuggerColumnToClient(column);
-			this.sendEvent(e);
-		});
+
 		this._mconnect.on('end', () => {
 			this.sendEvent(new TerminatedEvent());
 		});
@@ -153,7 +146,7 @@ export class MumpsDebugSession extends LoggingDebugSession {
 	protected async launchRequest(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments) {
 
 		// make sure to 'Stop' the buffered logging if 'trace' is not set
-		logger.setup(args.trace ? Logger.LogLevel.Verbose : Logger.LogLevel.Stop, false);
+		//logger.setup(args.trace ? Logger.LogLevel.Verbose : Logger.LogLevel.Stop, false);
 
 		// wait until configuration has finished (and configurationDoneRequest has been called)
 		await this._configurationDone.wait(1000);
@@ -167,7 +160,6 @@ export class MumpsDebugSession extends LoggingDebugSession {
 		}).catch((error) => {
 			vscode.window.showErrorMessage("Connection to MDEBUG failed. \nPlease start MDEBUG first.");
 		})
-
 	}
 	protected setBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments): void {
 
@@ -208,7 +200,6 @@ export class MumpsDebugSession extends LoggingDebugSession {
 		const endFrame = startFrame + maxLevels;
 
 		const stk = this._mconnect.stack(startFrame, endFrame);
-
 		response.body = {
 			stackFrames: stk.frames.map(f => new StackFrame(f.index, f.name, this.createSource(f.file), this.convertDebuggerLineToClient(f.line))),
 			totalFrames: stk.count
@@ -322,6 +313,7 @@ export class MumpsDebugSession extends LoggingDebugSession {
 
 	protected stepOutRequest(response: DebugProtocol.StepOutResponse, args: DebugProtocol.StepOutArguments, request?: DebugProtocol.Request): void {
 		this._mconnect.step("OUTOF");
+		this.sendResponse(response);
 	}
 
 	protected async evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments) {
@@ -336,7 +328,7 @@ export class MumpsDebugSession extends LoggingDebugSession {
 		}
 	}
 
-	protected async restartRequest(args: DebugProtocol.RestartArguments) {
+	protected async restartRequest(response: DebugProtocol.RestartResponse, args: DebugProtocol.RestartArguments) {
 		let sourceLines = readFileSync(this._program).toString().split('\n');
 		this._mconnect.checkRoutine(sourceLines).then((errorLines: string[]) => {
 			if (errorLines.length) {
@@ -345,15 +337,29 @@ export class MumpsDebugSession extends LoggingDebugSession {
 				this._mconnect.restart(this._program);
 			}
 		});
+		this.sendResponse(response);
 	}
 	protected disconnectRequest(response: DebugProtocol.DisconnectResponse, args: DebugProtocol.DisconnectArguments, request?: DebugProtocol.Request): void {
 		this._mconnect.disconnect();
 		this.sendResponse(response);
 	};
 	private createSource(filePath: string): Source {
-		return new Source(basename(filePath), this.convertDebuggerPathToClient(filePath), undefined, undefined, 'mock-adapter-data');
+		return new Source(basename(filePath), this.convertDebuggerPathToClient(filePath), undefined, undefined, 'mumps-adapter-data');
 	}
-
+	protected async exceptionInfoRequest(response: DebugProtocol.ExceptionInfoResponse, args: DebugProtocol.ExceptionInfoArguments) {
+		const statVariable: any = await this._mconnect.getSingleVar("$ZSTATUS");
+		const status = statVariable.content.split(",");
+		response.body = {
+			exceptionId: status[2],
+			description: status[3],
+			breakMode: 'always',
+			details: {
+				message: 'Line :' + status[1],
+				typeName: 'ErrorException',
+			}
+		}
+		this.sendResponse(response);
+	}
 	private varAnalyze(varname: string, content: string): VarData {
 		let indexcount = 1;
 		let bases: string[] = [];
@@ -379,6 +385,7 @@ export class MumpsDebugSession extends LoggingDebugSession {
 		}
 		return { "name": varname, "indexCount": indexcount, "bases": bases, content };
 	}
+
 	private refreshDiagnostics(doc: vscode.TextDocument | undefined, mumpsDiagnostics: vscode.DiagnosticCollection): void {
 		let diagnostics: vscode.Diagnostic[] = [];
 		if (doc) {

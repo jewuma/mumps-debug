@@ -35,4 +35,6 @@
 * Fixed Argument Validation for $QL and $QS
 ## 0.8.0
 * Added toggling between long and short M Commands
+## 0.8.1
+* Improved Error-Handling
 

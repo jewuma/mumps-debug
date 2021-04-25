@@ -17,7 +17,12 @@ interface VarData {
 	bases: Array<string>,
 	content: string
 }
-
+interface FrameInfo {
+	index: number,
+	name: string,
+	file: string,
+	line: number
+}
 export class MConnect extends EventEmitter {
 	private _socket: Socket;
 	private _connectState: string;
@@ -37,7 +42,7 @@ export class MConnect extends EventEmitter {
 	private _localRoutinesPath: string;
 	private _breakpointId: number = 1;
 	private _commandQueue: string[];
-	private _logging: boolean = true;
+	private _logging: boolean = false;
 	private _singleVar: string = "";
 	private _singleVarContent: string = "";
 	constructor() {
@@ -57,7 +62,7 @@ export class MConnect extends EventEmitter {
 		this._event.on('varsComplete', () => {
 			if (typeof (this._mVars["I"]) !== 'undefined') {
 				let internals = this._mVars["I"];
-				this.checkEvents(internals["$ZPOSITION"], internals["$ZSTATUS"]);
+				this.checkEvents(internals);
 			}
 		})
 	}
@@ -255,7 +260,9 @@ export class MConnect extends EventEmitter {
 	/**
 	 * Fire events if line has a breakpoint or hs stopped beacause of a different reason
 	 */
-	private checkEvents(mumpsposition: string, mumpsstatus: string): void {
+	private checkEvents(internals: Array<string>): void {
+		const mumpsposition = internals["$ZPOSITION"];
+		const mumpsstatus = internals["$ZSTATUS"];
 		const parts = mumpsposition.split("^");
 		const position = parts[0];
 		const program = parts[1];
@@ -276,8 +283,9 @@ export class MConnect extends EventEmitter {
 			}
 		}
 		this._currentLine = line + offset;
-		if (mumpsstatus !== "") {
+		if (mumpsstatus !== "" && internals["$ZTRAP"] === internals["$ZSTEP"]) {
 			this.sendEvent('stopOnException', mumpsstatus);
+			this._log(mumpsstatus);
 		} else {
 			const bps = this._breakPoints.filter(bp => bp.file === this._sourceFile && bp.line === this._currentLine);
 			if (bps.length > 0) {
@@ -293,7 +301,7 @@ export class MConnect extends EventEmitter {
 	 */
 	public stack(startFrame: number, endFrame: number): any {
 
-		const frames = new Array<any>();
+		const frames = new Array<FrameInfo>();
 
 		for (let i = startFrame; i < this._mStack.length; i++) {
 			const position = this._mStack[i];
@@ -378,6 +386,11 @@ export class MConnect extends EventEmitter {
 			return this._mVars["V"];
 		}
 	}
+	/*
+	public buildLabelDb() {
+		this.writeln("BUILDLABELDB");
+	}
+
 	public async requestHints(part: string) {
 		return new Promise((resolve, reject) => {
 			this._event.on('HintsReceived', function HintsReceived(event: EventEmitter, hints: string[]) {
@@ -387,6 +400,7 @@ export class MConnect extends EventEmitter {
 			this.writeln("GETHINTS;" + part);
 		})
 	}
+	*/
 	public async checkRoutine(lines: string[]) {
 		return new Promise((resolve, reject) => {
 			this._event.on('ErrorreportReceived', function ErrorreportReceived(event: EventEmitter, errorLines: string[]) {
@@ -438,7 +452,6 @@ export class MConnect extends EventEmitter {
 			} catch {
 				console.log("Could not read Sourcefile " + file)
 			}
-			console.log("OK");
 		}
 	}
 

@@ -1,6 +1,3 @@
-/*
-Mumps-Debug-Extension for Visual Studio Code by Jens Wulf
-*/
 
 'use strict';
 
@@ -26,14 +23,6 @@ export async function activate(context: vscode.ExtensionContext) {
 	const MUMPS_MODE: vscode.DocumentFilter = { language: 'mumps', scheme: 'file' };
 	// register a configuration provider for 'mumps' debug type
 	const mumpsDiagnostics = vscode.languages.createDiagnosticCollection("mumps");
-	context.subscriptions.push(
-		vscode.commands.registerCommand('mumps.getEntryRef', () => {
-			return vscode.window.showInputBox({
-				placeHolder: "Please enter the Entry-Reference to start Debugging",
-				value: entryRef
-			});
-		})
-	);
 	let storage = context.storageUri!.fsPath;
 	if (!fs.existsSync(storage)) {
 		fs.mkdirSync(storage);
@@ -45,6 +34,12 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand("mumps.autoSpaceEnter", () => { AutospaceFunction.autoSpaceEnter(); }),
 		vscode.commands.registerCommand("mumps.autoSpaceTab", () => { AutospaceFunction.autoSpaceTab(); }),
 		vscode.commands.registerCommand("mumps.toggleExpandedCommands", () => { expandCompress(wsState) }),
+		vscode.commands.registerCommand('mumps.getEntryRef', () => {
+			return vscode.window.showInputBox({
+				placeHolder: "Please enter the Entry-Reference to start Debugging",
+				value: entryRef
+			})
+		}),
 		vscode.languages.registerHoverProvider(MUMPS_MODE, new MumpsHoverProvider()),
 		vscode.languages.registerDefinitionProvider(MUMPS_MODE, new MumpsDefinitionProvider()),
 		vscode.languages.registerSignatureHelpProvider(MUMPS_MODE, new MumpsSignatureHelpProvider(), '(', ','),
@@ -132,9 +127,9 @@ class MumpsConfigurationProvider implements vscode.DebugConfigurationProvider {
 				config.request = 'launch';
 				config.program = '${file}';
 				config.stopOnEntry = true;
-				config.hostname = '127.0.0.1';
-				config.localRoutinesPath = 'y:\\',
-					config.port = 9000
+				config.hostname = '192.168.0.1';
+				config.localRoutinesPath = 'y:\\';
+				config.port = 9000;
 			}
 		}
 
@@ -204,3 +199,4 @@ function triggerUpdateDiagnostics(document: vscode.TextDocument, collection: vsc
 	}
 	timeout = setTimeout(() => updateDiagnostics(document, collection), 500);
 }
+

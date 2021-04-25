@@ -39,9 +39,8 @@ export class CompletionItemProvider {
 		let line = document.getText(new vscode.Range(new vscode.Position(position.line, 0), position))
 		let status = getLineStatus(line, position.character);
 		let clean: Array<vscode.CompletionItem> = [];
-
-		if (this._labelsReady && status.lineStatus === 'jumplabel' && status.startstring.length > 1) {
-			let replaceRange=new vscode.Range(new vscode.Position(position.line,position.character-status.startstring.length),position)
+		if (this._labelsReady && status.lineStatus === 'jumplabel') {
+			let replaceRange = new vscode.Range(new vscode.Position(position.line, position.character - status.startstring.length), position)
 			clean = this._findLabel(status.startstring, clean, replaceRange);
 		}
 		return clean;
@@ -62,24 +61,24 @@ export class CompletionItemProvider {
 					this._filesToCheck = files.length;
 					for (let i = 0; i < files.length; i++) {
 						let path = files[i].fsPath;
-							fs.stat(path, false, (err, stats) => {
-								if (!err) {
-									let ms = this._labelDB.routines[path];
-									if (ms === undefined || stats.mtimeMs > ms) {
-										this._labelDB.routines[path] = stats.mtimeMs;
-										dbChanged = true;
-										if (stats.size < 50000) {  //parse only Files <50K
-											this._refreshFileLabels(path);
-										} else {
-											this._checkReady(dbChanged);
-										}
+						fs.stat(path, false, (err, stats) => {
+							if (!err) {
+								let ms = this._labelDB.routines[path];
+								if (ms === undefined || stats.mtimeMs > ms) {
+									this._labelDB.routines[path] = stats.mtimeMs;
+									dbChanged = true;
+									if (stats.size < 50000) {  //parse only Files <50K
+										this._refreshFileLabels(path);
 									} else {
 										this._checkReady(dbChanged);
 									}
 								} else {
 									this._checkReady(dbChanged);
 								}
-							})
+							} else {
+								this._checkReady(dbChanged);
+							}
+						})
 					}
 					this._labelsReady = true;
 				});
@@ -100,16 +99,16 @@ export class CompletionItemProvider {
 	private _refreshFileLabels(path) {  // Refresh all Labels of a changed .m File
 		let routine = path.replace('\\', '/').split('/').pop();
 		routine = routine!.split('.')[0].replace('_', '%');
-		fs.readFile(path, 'utf8',(err,content)=>{
+		fs.readFile(path, 'utf8', (err, content) => {
 			if (!err) {
-				let lines=content.split('\n');
+				let lines = content.split('\n');
 				let label = '';
 				this._labelDB.labels = this._labelDB.labels.filter((label) => {
 					return label.routine !== routine;
 				})
 				for (let i = 0; i < lines.length; i++) {
-					if (i===0) {
-						this._labelDB.labels.push({label:'*FL',routine,line:lines[0]});
+					if (i === 0) {
+						this._labelDB.labels.push({ label: '*FL', routine, line: lines[0] });
 					}
 					if (label = lines[i].match(/^[%A-Za-z0-9][A-Za-z0-9]{0,31}/)) {
 						this._labelDB.labels.push({ label: label[0], routine, line: lines[i] })
@@ -119,21 +118,21 @@ export class CompletionItemProvider {
 			this._checkReady(true);
 		});
 	}
-	private _findLabel(startstring, list: Array<vscode.CompletionItem>, replaceRange:vscode.Range) {
+	private _findLabel(startstring, list: Array<vscode.CompletionItem>, replaceRange: vscode.Range) {
 		//let hits = 0;
 		let hitlist: LabelItem[];
-		let sortText='';
+		let sortText = '';
 		if (startstring.charAt(0) === '^') {
 			let suchstring = startstring.substring(1);
 			hitlist = this._labelDB.labels.filter((item) => {
 				return item.routine.startsWith(suchstring);
 			});
 		} else {
-			if (startstring.indexOf('^')!==-1) {
-				let label=startstring.split('^')[0];
-				let routinepart=startstring.split('^')[1];
+			if (startstring.indexOf('^') !== -1) {
+				let label = startstring.split('^')[0];
+				let routinepart = startstring.split('^')[1];
 				hitlist = this._labelDB.labels.filter((item) => {
-					let fits = item.label===label && item.routine.startsWith(routinepart);
+					let fits = item.label === label && item.routine.startsWith(routinepart);
 					return fits;
 				});
 			} else {
@@ -146,15 +145,15 @@ export class CompletionItemProvider {
 		for (let i = 0; i < hitlist.length; i++) {
 			let item = hitlist[i];
 			let label = item.label + '^' + item.routine;
-			if (label === startstring ) {
+			if (label === startstring) {
 				continue;
 			}
-			if (item.label==="*FL") {
+			if (item.label === "*FL") {
 				if (!startstring.startsWith('^')) {
 					continue;
 				}
-				label='^'+item.routine;
-				sortText="100";
+				label = '^' + item.routine;
+				sortText = "100";
 			}
 			let detail = ''
 			if (item.line.charAt(item.label.length) === '(') {
@@ -165,8 +164,8 @@ export class CompletionItemProvider {
 			if (item.line.indexOf(';') !== -1) {
 				detail += item.line.substring(item.line.indexOf(';') + 1);
 			}
-			if (detail.length>0 && sortText!=='100') {sortText='099';}
-			list.push({ label, detail, sortText, range:replaceRange });
+			if (detail.length > 0 && sortText !== '100') { sortText = '099'; }
+			list.push({ label, detail, sortText, range: replaceRange });
 		}
 		return list;
 	}
@@ -246,8 +245,7 @@ function getLineStatus(line: string | undefined, position: number): ItemHint {
 						}
 					} else if (char === "$") {
 						lineStatus = 'jumplabel';
-					}
-					if (!isBeginOfVariable) {
+					} else if (!isBeginOfVariable) {
 						lineStatus = 'argument';
 					}
 					break;
@@ -258,8 +256,8 @@ function getLineStatus(line: string | undefined, position: number): ItemHint {
 						lastCommand = '';
 					} else if (char === ":") {
 						lineStatus = 'argument';
-					} else if (char==="(") {
-						lineStatus='argument';
+					} else if (char === "(") {
+						lineStatus = 'argument';
 					}
 					break;
 				}
