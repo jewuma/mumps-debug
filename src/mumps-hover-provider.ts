@@ -1,21 +1,9 @@
 import * as vscode from 'vscode';
-let Hover = vscode.Hover;
-let MumpsToken = require('./mumps-language-token').MumpsToken;
-
+import { MumpsTokenHelper } from './mumpsTokenData';
 class MumpsHoverProvider {
-    provideHover(document, position) {
-        let token = new MumpsToken(document, position);
-				if (!token.range) {return}
-        if (!token.mayBeCommand && !token.isIntrinsic && !token.isLabelReference) {
-            return;
-        }
-
-        if (token.definition) {
-            let definition = token.definition;
-            let snippet = { language: 'typescript', value: definition.functionSignature || definition.name };
-            return new Hover([snippet, definition.description]);
-        }
-    }
+	provideHover(document: vscode.TextDocument, position: vscode.Position) {
+		const helper = new MumpsTokenHelper(document, position);
+		return helper.getTokenHoverInfo();
+	}
 }
-
-export {MumpsHoverProvider}
+export { MumpsHoverProvider }

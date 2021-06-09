@@ -37,4 +37,7 @@
 * Added toggling between long and short M Commands
 ## 0.8.1
 * Improved Error-Handling
+## 0.8.2
+* Code Improvements, better expression valuation
+
 

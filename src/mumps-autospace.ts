@@ -1,10 +1,7 @@
 import * as vscode from 'vscode';
 let em = require('emcellent');
-//let tabSize = vscode.workspace.getConfiguration().get("editor.tabSize")
-//var prevfin = true;
 
 async function autoSpaceEnter() {
-	//await vscode.commands.executeCommand("acceptSelectedSuggestion");
 	let editor = vscode.window.activeTextEditor
 	if (editor) {
 		let pos = editor.selection.active
@@ -57,11 +54,6 @@ async function autoSpaceTab() {
 		let pos = editor.selection.active
 		let currentLine = editor.document.lineAt(pos.line).text;
 		let parsed = em.parse(currentLine);
-
-		//vscode.commands.executeCommand("acceptSelectedSuggestion").then((test)=>{
-		//	console.log(test);
-		//});
-
 		if ((parsed[0].lineRoutines === undefined || parsed[0].lineRoutines.length === 0) &&
 			currentLine.indexOf(";") === -1 && parsed[0].lineIndentationArray !== undefined &&
 			parsed[0].lineIndentationArray.length > 0) {

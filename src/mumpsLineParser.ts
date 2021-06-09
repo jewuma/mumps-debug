@@ -562,8 +562,8 @@ const expressiontype = {
 	"Atom": 4
 }
 
-export class MumpsLineParser {
-	private tokens: LineToken[] = [];
+class MumpsLineParser {
+	private _tokens: LineToken[] = [];
 	private cmdCompressions: object;
 	private funcCompressions: object;
 	private isvCompressions: object;
@@ -687,7 +687,7 @@ export class MumpsLineParser {
 				let evalString = line.substring(position);
 				if (evalString.match(lvn)) {
 					let localname = evalString.match(lvn)![0];
-					this.tokens.push({ type: TokenType.local, name: localname, position: position + this.linePosition });
+					this._tokens.push({ type: TokenType.local, name: localname, position: position + this.linePosition });
 					position += localname.length;
 					char = line.charAt(position);
 					if (char !== ',' && char !== ')') {
@@ -726,7 +726,7 @@ export class MumpsLineParser {
 				}
 				if (line.substring(position).match(binoperator)) {
 					let operator = line.substring(position).match(binoperator)![0];
-					this.tokens.push({ name: operator, position: position + this.linePosition, type: TokenType.operator });
+					this._tokens.push({ name: operator, position: position + this.linePosition, type: TokenType.operator });
 					position += operator.length;
 					expressionComplete = false;
 					if (operator === '?' || operator === "'?") {
@@ -754,7 +754,7 @@ export class MumpsLineParser {
 					expressionComplete = true;
 				} else if (evalString.match(nonMfunction)) {
 					let functionname = evalString.match(nonMfunction)![0];
-					this.tokens.push({ type: TokenType.nonMfunction, name: functionname, position });
+					this._tokens.push({ type: TokenType.nonMfunction, name: functionname, position });
 					position += functionname.length;
 					lastExpression = 'exfunction'
 					expressionComplete = true;
@@ -765,7 +765,7 @@ export class MumpsLineParser {
 					if (funcExpansions[functionname] !== undefined) {
 						longName = funcExpansions[functionname];
 					}
-					this.tokens.push({ name: "$" + functionname, position: position - functionname.length - 2, type: TokenType.ifunction, longName: "$" + longName });
+					this._tokens.push({ name: "$" + functionname, position: position - functionname.length - 2, type: TokenType.ifunction, longName: "$" + longName });
 					let result = this._checkFunction(longName, line, position);
 					position = result.position;
 					lastExpression = '';
@@ -776,21 +776,21 @@ export class MumpsLineParser {
 					if (isvExpansions[longName.substring(1)] !== undefined) {
 						longName = "$" + isvExpansions[longName.substring(1)];
 					}
-					this.tokens.push({ name: specialvarname, position: position + this.linePosition, type: TokenType.sysvariable, longName });
+					this._tokens.push({ name: specialvarname, position: position + this.linePosition, type: TokenType.sysvariable, longName });
 					position += specialvarname.length
 					expressionComplete = true;
 				} else if (evalString.match(numlit) && evalString.match(numlit)![0] !== '') {
 					let numericliteral = evalString.match(numlit)![0];
-					this.tokens.push({ name: numericliteral, type: TokenType.number, position: position + this.linePosition });
+					this._tokens.push({ name: numericliteral, type: TokenType.number, position: position + this.linePosition });
 					position += numericliteral.length;
 					expressionComplete = true;
 				} else if (evalString.match(strlit)) {
 					let stringlit = evalString.match(strlit)![0];
-					this.tokens.push({ name: stringlit, type: TokenType.string, position: position + this.linePosition });
+					this._tokens.push({ name: stringlit, type: TokenType.string, position: position + this.linePosition });
 					position += stringlit.length;
 					expressionComplete = true;
 				} else if (char.match(unaryoperator)) {
-					this.tokens.push({ name: char, type: TokenType.operator, position: position + this.linePosition });
+					this._tokens.push({ name: char, type: TokenType.operator, position: position + this.linePosition });
 					position++;
 				} else {
 					throw { text: 'Unexpected Character ' + char, position }
@@ -1039,22 +1039,22 @@ export class MumpsLineParser {
 		for (let i = 0; i < lines.length; i++) {
 			lines[i] = lines[i].replace('\r', '');
 			this.checkLine(lines[i]);
-			linetokens[i] = this.tokens;
+			linetokens[i] = this._tokens;
 		}
 		return linetokens;
 	}
 	private _splitLabelAndParameters(label: string) {
 		if (label.indexOf('(') === -1) {
-			this.tokens.push({ name: label, position: 0, type: TokenType.label });
+			this._tokens.push({ name: label, position: 0, type: TokenType.label });
 		} else {
 			let labelparts = label.split('(');
 			let labeltext = labelparts[0];
-			this.tokens.push({ name: labeltext, position: 0, type: TokenType.label });
+			this._tokens.push({ name: labeltext, position: 0, type: TokenType.label });
 			let parameters = labelparts[1].split(')')[0];
 			let parameterVars = parameters.split(',');
 			let position = labeltext.length + 1		// Position = lengths of Label + trailing "("
 			for (let i = 0; i < parameterVars.length; i++) {
-				this.tokens.push({ name: parameterVars[i], position, type: TokenType.local });
+				this._tokens.push({ name: parameterVars[i], position, type: TokenType.local });
 				position += parameterVars[i].length + 1
 			}
 		}
@@ -1112,8 +1112,8 @@ export class MumpsLineParser {
 			outline.errorText = errorinfo.text;
 		} else {
 			let posCorrector = 0;
-			for (let i = 0; i < this.tokens.length; i++) {
-				let token = this.tokens[i];
+			for (let i = 0; i < this._tokens.length; i++) {
+				let token = this._tokens[i];
 				if (token.hasOwnProperty("longName")) {
 					let name = token.name;
 					let longName = name;
@@ -1153,14 +1153,14 @@ export class MumpsLineParser {
 		return outline;
 	}
 	public checkLine(line: string): ErrorInformation {
-		this.tokens = [];
+		this._tokens = [];
 		this.linePosition = 0;
 		let parsed = this.parseLine(line);
 		if (parsed.lineLabel) {
 			this._splitLabelAndParameters(parsed.lineLabel);
 		}
 		if (parsed.lineComment) {
-			this.tokens.push({ name: parsed.lineComment.comment, position: parsed.lineComment.position, type: TokenType.comment });
+			this._tokens.push({ name: parsed.lineComment.comment, position: parsed.lineComment.position, type: TokenType.comment });
 		}
 		let result: ErrorInformation = { text: '', position: 0 }
 		if (parsed.lineRoutines) {
@@ -1180,7 +1180,7 @@ export class MumpsLineParser {
 						if (cmdParams[cmd] === undefined) {
 							longcmd = cmdExpansions[cmd];
 						}
-						this.tokens.push({ name: code.mCommand, type: TokenType.keyword, position: code.cmdPosition, longName: longcmd });
+						this._tokens.push({ name: code.mCommand, type: TokenType.keyword, position: code.cmdPosition, longName: longcmd });
 
 						if (longcmd === undefined) {
 							result.text = 'Unknown Command';
@@ -1199,6 +1199,23 @@ export class MumpsLineParser {
 			}
 		}
 		return result;
+	}
+
+	public getTokenAt(line: string, position: number): LineToken | undefined {
+		this.checkLine(line);
+		let memPosition = 0
+		let tokenId = -1
+		for (let i = 0; i < this._tokens.length; i++) {
+			let token = this._tokens[i];
+			if (token.position >= memPosition && token.position < position) {
+				memPosition = token.position;
+				tokenId = i;
+			}
+		}
+		if (tokenId === -1) {
+			return;
+		}
+		return this._tokens[tokenId];
 	}
 	private _checkEntryRefAndPostcondition(line: string, position: number, withParams: boolean): ErrorInformation {
 		let result: ErrorInformation = { text: '', position };
@@ -1248,7 +1265,7 @@ export class MumpsLineParser {
 					if (ref[0] === '&') {
 						tokentype = TokenType.nonMfunction;
 					}
-					this.tokens.push({ 'type': tokentype, name: ref, position: merkpos + this.linePosition });
+					this._tokens.push({ 'type': tokentype, name: ref, position: merkpos + this.linePosition });
 					return result;
 				} else {
 					result.text = 'Missing Entryref';
@@ -1259,7 +1276,7 @@ export class MumpsLineParser {
 				result = this.evaluateExpression(expressiontype.Standard, line, ++result.position);
 				//ref += "+X";
 				if (result.position >= line.length) {
-					this.tokens.push({ 'type': tokentype, name: ref, position: merkpos + this.linePosition });
+					this._tokens.push({ 'type': tokentype, name: ref, position: merkpos + this.linePosition });
 					return result
 				}
 				if (line.substring(result.position).match(routineref)) {
@@ -1268,7 +1285,7 @@ export class MumpsLineParser {
 					result.position += routine.length;
 				}
 			}
-			this.tokens.push({ 'type': tokentype, name: ref, position: merkpos + this.linePosition });
+			this._tokens.push({ 'type': tokentype, name: ref, position: merkpos + this.linePosition });
 		} else {
 			result.text = 'Invalid Entryref';
 			throw result;
@@ -1316,19 +1333,19 @@ export class MumpsLineParser {
 					result.position++;
 					if (line.substring(result.position).match(lvn)) {
 						let global = line.substring(result.position).match(lvn)![0];
-						this.tokens.push({ name: global, type: TokenType.global, position: result.position + this.linePosition });
+						this._tokens.push({ name: global, type: TokenType.global, position: result.position + this.linePosition });
 						varFound = true;
 						result.position += global.length;
 					}
 				} else {
 					let global = line.substring(result.position).match(gvn)![0];
-					this.tokens.push({ name: global, type: TokenType.global, position: result.position + this.linePosition });
+					this._tokens.push({ name: global, type: TokenType.global, position: result.position + this.linePosition });
 					varFound = true;
 					result.position += global.length;
 				}
 			} else if (line.substring(result.position).match(lvn)) {
 				let local = line.substring(result.position).match(lvn)![0];
-				this.tokens.push({ name: local, type: TokenType.local, position: result.position + this.linePosition });
+				this._tokens.push({ name: local, type: TokenType.local, position: result.position + this.linePosition });
 				varFound = true;
 				result.position += local.length;
 			} else if (line.substring(result.position, result.position + 2) === '^(') {
@@ -1710,7 +1727,7 @@ export class MumpsLineParser {
 				let functionname = mat[0].substring(1, mat[0].length - 1).toUpperCase();
 				result.position += functionname.length + 2
 				if (funcExpansions[functionname] !== undefined) {
-					this.tokens.push({ name: "$" + functionname, position: result.position - functionname.length - 2, type: TokenType.ifunction, longName: "$" + funcExpansions[functionname] });
+					this._tokens.push({ name: "$" + functionname, position: result.position - functionname.length - 2, type: TokenType.ifunction, longName: "$" + funcExpansions[functionname] });
 					functionname = funcExpansions[functionname];
 				}
 				result = this._checkFunction(functionname, line, result.position);
@@ -2323,3 +2340,4 @@ for (let i = 0; i < lines.length; i++) {
 //let result = test.checkLine('	S VGZR=$E(YDL(2),5,6)-1 S:VGZR=0 VGZR=12_($E(YDL(2),1,4)-1)');
 //console.log(result);
 //console.log(test.tokens);
+export { ifunction, isv, MumpsLineParser }

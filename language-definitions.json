@@ -1125,6 +1125,406 @@
 		"returns": {
 			"type": "string"
 		}
+	},
+	{
+		"name": "$ZCOLLATE",
+		"type": "function",
+		"abbreviation": "$ZCO",
+		"description": "Returns the transformed representation of the first argument glvn in a normalized form using the alternative transform specified by the second argument intexpr; the return can be used as an operand to the follows (]) or sorts-after (]]) operator such that, if both operands are in the normalized form, the result is independent of alternative collation.",
+		"parameters": [{
+				"name": "var",
+				"type": "reference",
+				"description": "The subscripted or unsubscripted global or local variable name specifies the key to transform"
+			},
+			{
+				"name": "TransformId",
+				"type": "number",
+				"description": "Specifies the ID of the alternative transform to use"
+			},
+			{
+				"name": "NormForm",
+				"type": "number",
+				"optional": true,
+				"description": "Specifies whether the transform is to normalized form, by default or if zero (0), or, if one (1), the reverse transform from the normalized to the native form."
+			}
+		],
+		"returns": {
+			"type": "string"
+		}
+	},
+	{
+		"name": "$ZCONVERT",
+		"type": "function",
+		"description": "Returns its first argument as a string or value converted to a different encoding or numeric base. The two argument form changes the encoding for case within the ASCII character set. The three argument form changes the encoding scheme or base. Supported bases are decimal 'DEC' and 'HEX', case insensitive).",
+		"parameters": [{
+				"name": "expr1",
+				"type": "any",
+				"description": "string or value to convert. $ZCONVERT() generates a run-time error if for Unicode conversion if the string contains a code-point value that is not in the character set, or for base conversion if the value to be converted is out of range"
+			},
+			{
+				"name": "expr2",
+				"type": "code",
+				"description": "Specifies a code that determines the form of the result."
+			},
+			{
+				"name": "expr3",
+				"type": "code",
+				"optional": true,
+				"description": "Code that specifies the character set or base of the result"
+			}
+		],
+		"returns": {
+			"type": "string"
+		}
+	},
+	{
+		"name": "$ZDATA",
+		"type": "function",
+		"description": "Extends $DATA() to reflect the current alias state of the lvn or name argument to identify alias and alias container variables. It treats variables joined through pass-by-reference as well as TP RESTART variables within a transaction as alias variables. However, it does not distinguish nodes having alias containers among their descendants.",
+		"parameters": [{
+			"name": "var",
+			"type": "reference",
+			"description": "Returns data about a variable: 0: if undefined, 1: if valued but has no descendants, 10: if has descendants but no value; 11: if has both a value and descendants; 100; 101; 111"
+		}],
+		"returns": {
+			"type": "number"
+		}
+	},
+	{
+		"name": "$ZDATE",
+		"type": "function",
+		"description": "Returns a date and/or time formatted as text based on an argument formatted in the manner of $HOROLOG",
+		"parameters": [{
+				"name": "expr1",
+				"type": "any",
+				"description": "$HOROLOG format of the date and/or time"
+			},
+			{
+				"name": "expr2",
+				"type": "string",
+				"optional": true,
+				"description": "Pattern of desired output p.e. 'YEAR-MM-DD'"
+			},
+			{
+				"name": "expr3",
+				"type": "string",
+				"optional": true,
+				"description": "Specifies a list of 12 month codes, separated by commas (,)"
+			},
+			{
+				"name": "expr4",
+				"type": "string",
+				"optional": true,
+				"description": "Specifies a list of seven day codes, separated by commas (,)"
+			}
+		],
+		"returns": {
+			"type": "string"
+		}
+	}, {
+		"name": "$ZEXTRACT",
+		"type": "function",
+		"abbreviation": "$ZE",
+		"description": "Returns a byte sequence from a given sequence of octets (8-bit bytes).",
+		"parameters": [{
+				"name": "expr1",
+				"type": "any",
+				"description": "Specifies a sequence of octets (8-bit bytes) from which $ZEXTRACT() derives a byte sequence"
+			},
+			{
+				"name": "intexpr1",
+				"type": "number",
+				"optional": true,
+				"description": "Specifies the starting byte position in the byte string"
+			},
+			{
+				"name": "intexpr2",
+				"type": "number",
+				"optional": true,
+				"description": "Specifies the ending byte position for the result"
+			}
+		],
+		"returns": {
+			"type": "string"
+		}
+	}, {
+		"name": "$ZFIND",
+		"type": "function",
+		"abbreviation": "$ZF",
+		"description": "Returns an integer byte position that locates the occurrence of a byte sequence within a sequence of octets(8-bit bytes).",
+		"parameters": [{
+				"name": "expr1",
+				"type": "string",
+				"description": "Specifies the sequence of octets (8-bit bytes) in which $ZFIND() searches for the byte sequence"
+			},
+			{
+				"name": "expr2",
+				"type": "string",
+				"description": " specifies the byte sequence for which $ZFIND() searches"
+			},
+			{
+				"name": "expr3",
+				"type": "number",
+				"optional": true,
+				"description": "Identifies the starting byte position for the $ZFIND() search"
+			}
+		],
+		"returns": {
+			"type": "number"
+		}
+	}, {
+		"name": "$ZGETJPI",
+		"type": "function",
+		"description": "Returns job or process information of the specified process",
+		"parameters": [{
+				"name": "expr1",
+				"type": "any",
+				"description": "Identifies the PID of the target job. If expr1 is an empty string (“”), $ZGETJPI() returns information about the current process."
+			},
+			{
+				"name": "expr2",
+				"type": "string",
+				"description": "Specifies the item keyword identifying the type of information returned"
+			}
+		],
+		"returns": {
+			"type": "string"
+		}
+	}, {
+		"name": "$ZJOBEXAM",
+		"type": "function",
+		"description": "Returns the full specification of the file specified by the optional expr1 argument into which the function places a ZSHOW output specified by expr2",
+		"parameters": [{
+				"name": "expr1",
+				"type": "any",
+				"description": "A template output device specification. It can be a device, a file directory, or a file name."
+			},
+			{
+				"name": "expr2",
+				"type": "",
+				"optional": true,
+				"description": "Defaulting to '*', expr2 specifies the ZSHOW Information Codes of data to be included in the output"
+			}
+		],
+		"returns": {
+			"type": "string"
+		}
+	}, {
+		"name": "$ZJUSTIFY",
+		"type": "function",
+		"abbreviation": "$ZJ",
+		"description": "",
+		"parameters": [{
+				"name": "expr1",
+				"type": "any",
+				"description": "The expression specifies the sequence of octets formatted by $ZJUSTIFY()."
+			},
+			{
+				"name": "expr2",
+				"type": "number",
+				"description": "Specifies the minimum size of the resulting byte sequence."
+			},
+			{
+				"name": "expr3",
+				"type": "",
+				"optional": true,
+				"description": "The number of digits after the decimal point; providing this argument makes $ZJUSTIFY treat expr1 as a number"
+			}
+		],
+		"returns": {
+			"type": "string"
+		}
+	}, {
+		"name": "$ZLENGTH",
+		"abbreviation": "$ZL",
+		"type": "function",
+		"description": "Returns the length of a sequence of octets measured in bytes, or in “pieces” separated by a delimiter specified by one of its arguments",
+		"parameters": [{
+				"name": "expr1",
+				"type": "any",
+				"description": "Specifies the sequence of octets that $ZLENGTH() “measures”."
+			},
+			{
+				"name": "expr2",
+				"type": "number",
+				"optional": true,
+				"description": "specifies the delimiter that defines the measure; if this argument is missing, $ZLENGTH() returns the number of bytes in the sequence of octets."
+			}
+		],
+		"returns": {
+			"type": "string"
+		}
+	}, {
+		"name": "$ZMESSAGE",
+		"type": "function",
+		"description": "Returns a message string associated with a specified status code .",
+		"parameters": [{
+			"name": "expr1",
+			"type": "number",
+			"description": "The integer expression specifies the status code for which $ZMESSAGE() returns error message text ."
+		}],
+		"returns": {
+			"type": "string"
+		}
+	}, {
+		"name": "$ZPARSE",
+		"type": "function",
+		"description": "Expands a file name to a full pathname and then returns the full pathname or one of its fields (directory, name, or extension).",
+		"parameters": [{
+				"name": "expr1",
+				"type": "any",
+				"description": "Specifies the file name; if the file name is not valid, $ZPARSE() returns a null string"
+			},
+			{
+				"name": "expr2",
+				"type": "string",
+				"optional": true,
+				"description": "Specifies the field of the pathname that $ZPARSE() returns"
+			},
+			{
+				"name": "expr3",
+				"type": "",
+				"optional": true,
+				"description": "Specify default values to use during file name expansion for missing fields (directory, name, or extension)"
+			},
+			{
+				"name": "expr4",
+				"type": "",
+				"optional": true,
+				"description": "Specify default values to use during file name expansion for missing fields (directory, name, or extension)"
+			},
+			{
+				"name": "expr5",
+				"type": "",
+				"optional": true,
+				"description": "Specifies the mode or type of parse that $ZPARSE() performs."
+			}
+		],
+		"returns": {
+			"type": "string"
+		}
+	}, {
+		"name": "$ZPIECE",
+		"abbreviation": "$ZPI",
+		"type": "function",
+		"description": "Return a sequence of bytes delimited by a specified byte sequence made up of one or more bytes.",
+		"parameters": [{
+				"name": "expr1",
+				"type": "any",
+				"description": "specifies the sequence of octets from which $ZPIECE() takes its result."
+			},
+			{
+				"name": "expr2",
+				"type": "string",
+				"description": "Specifies the delimiting byte sequence that determines the piece 'boundaries'"
+			},
+			{
+				"name": "expr3",
+				"type": "",
+				"optional": true,
+				"description": "Specifies the beginning piece to return"
+			},
+			{
+				"name": "expr4",
+				"type": "",
+				"optional": true,
+				"description": "Specifies the last piece to return"
+			}
+		],
+		"returns": {
+			"type": "string"
+		}
+	}, {
+		"name": "$ZPREVIOUS",
+		"abbreviation": "$ZP",
+		"type": "function",
+		"description": "Returns the subscript of the previous local or global variable name in collation sequence within the array level specified by its argument.",
+		"parameters": [{
+			"name": "glvn",
+			"type": "reference",
+			"description": "Specifies the node prior to which $ZPREVIOUS() searches backwards for a defined node with data and/or descendants."
+		}],
+		"returns": {
+			"type": "string"
+		}
+	}, {
+		"name": "$ZQGBLMOD",
+		"type": "function",
+		"description": "Enables an application to determine whether it can safely apply a lost transaction to the database.",
+		"parameters": [{
+			"name": "gvn",
+			"type": "reference",
+			"description": "The subscripted or non-subscripted global variable name (gvn) specifies the target node."
+		}],
+		"returns": {
+			"type": "boolean"
+		}
+	}, {
+		"name": "$ZSEARCH",
+		"type": "function",
+		"description": "Attempts to locate a file matching the specified file name. If the file exists, it returns the file name; if the file does not exist, it returns the null string.",
+		"parameters": [{
+				"name": "expr1",
+				"type": "any",
+				"description": "Contains a file name, with or without wildcards, for which $ZSEARCH() attempts to locate a matching file."
+			},
+			{
+				"name": "expr2",
+				"type": "number",
+				"optional": true,
+				"description": "Specifies an integer expression that is a stream number. It can be any value from 0 to 255 for each search"
+			}
+		],
+		"returns": {
+			"type": "string"
+		}
+	}, {
+		"name": "$ZSIGPROC",
+		"type": "function",
+		"description": "Sends a signal to a process. The format for the $ZSIGPROC function is",
+		"parameters": [{
+				"name": "expr1",
+				"type": "number",
+				"description": "The pid of the process to which the signal is to be sent."
+			},
+			{
+				"name": "expr2",
+				"type": "string",
+				"description": "The system signal name (e.g., 'SIGUSR1' or just 'USR1')."
+			}
+		],
+		"returns": {
+			"type": "string"
+		}
+	}, {
+		"name": "$ZSOCKET",
+		"type": "function",
+		"description": "Returns information about a SOCKET device and its attached sockets",
+		"parameters": [{
+				"name": "expr1",
+				"type": "any",
+				"description": "Specifies the SOCKET device name"
+			},
+			{
+				"name": "expr2",
+				"type": "string",
+				"description": "Specifies a keyword identifying the type of information returned"
+			},
+			{
+				"name": "expr3",
+				"type": "number",
+				"optional": true,
+				"description": "Specifies the index (starting at zero) of a socket attached to the device"
+			},
+			{
+				"name": "expr4",
+				"type": "string",
+				"optional": true,
+				"description": "Specifies an individual delimiter when the second expression specifies DELIMITER."
+			}
+		],
+		"returns": {
+			"type": "string"
+		}
 	}
-
 ]

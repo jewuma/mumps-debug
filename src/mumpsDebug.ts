@@ -204,6 +204,9 @@ export class MumpsDebugSession extends DebugSession {
 			stackFrames: stk.frames.map(f => new StackFrame(f.index, f.name, this.createSource(f.file), this.convertDebuggerLineToClient(f.line))),
 			totalFrames: stk.count
 		};
+		if (stk.count === 0) {
+			this.sendEvent(new TerminatedEvent());
+		}
 		this.sendResponse(response);
 	}
 
@@ -339,19 +342,24 @@ export class MumpsDebugSession extends DebugSession {
 		});
 		this.sendResponse(response);
 	}
+
 	protected disconnectRequest(response: DebugProtocol.DisconnectResponse, args: DebugProtocol.DisconnectArguments, request?: DebugProtocol.Request): void {
 		this._mconnect.disconnect();
 		this.sendResponse(response);
-	};
+	}
+
 	private createSource(filePath: string): Source {
 		return new Source(basename(filePath), this.convertDebuggerPathToClient(filePath), undefined, undefined, 'mumps-adapter-data');
 	}
+
 	protected async exceptionInfoRequest(response: DebugProtocol.ExceptionInfoResponse, args: DebugProtocol.ExceptionInfoArguments) {
 		const statVariable: any = await this._mconnect.getSingleVar("$ZSTATUS");
 		const status = statVariable.content.split(",");
+		let trashlength = status[0].length + status[1].length + status[2].length + 4;
+		let description = statVariable.content.substr(trashlength);
 		response.body = {
 			exceptionId: status[2],
-			description: status[3],
+			description,
 			breakMode: 'always',
 			details: {
 				message: 'Line :' + status[1],
@@ -360,6 +368,7 @@ export class MumpsDebugSession extends DebugSession {
 		}
 		this.sendResponse(response);
 	}
+
 	private varAnalyze(varname: string, content: string): VarData {
 		let indexcount = 1;
 		let bases: string[] = [];
