@@ -39,5 +39,5 @@
 * Improved Error-Handling
 ## 0.8.2
 * Code Improvements, better expression valuation
-
-
+##0.8.3
+* Fixed Syntax of $&-Functions

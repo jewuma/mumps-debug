@@ -3,7 +3,6 @@ import { TokenType, MumpsLineParser } from './mumpsLineParser'
 const tokenModifiers = ['standard'];
 const subtype = "standard";
 const tokentypes: string[] = Object.keys(TokenType);
-//const tokentypes:string[]=Object.values(TokenType);
 const SemanticTokens = new vscode.SemanticTokensLegend(tokentypes, tokenModifiers);
 const parser = new MumpsLineParser();
 //type: "global" | "local" | "exfunction" | "nonMfunction" | "entryref" | "operator" |
@@ -23,7 +22,7 @@ const MumpsHighlighter: vscode.DocumentSemanticTokensProvider = {
 			for (let tokenId = 0; tokenId < tokens.length; tokenId++) {
 				let t = tokens[tokenId];
 				let type = t.type;
-				if (type === "exfunction") {
+				if (type === TokenType.exfunction) {
 					t.position -= 2;			//Correct Position because of leading $$
 					t.name = "$$" + t.name;
 				}

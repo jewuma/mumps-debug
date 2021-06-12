@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { MumpsLineParser } from './mumpsLineParser';
+import { TokenType, MumpsLineParser } from './mumpsLineParser';
 const parser = new MumpsLineParser();
 const definitionsArray = require('./../language-definitions.json');
 const definitions = {};
@@ -74,7 +74,7 @@ export class MumpsTokenHelper {
 		}
 		let text = line.text;
 		let myToken = this._getFunctionToken(text);
-		if (myToken === undefined || (myToken.type !== 'ifunction' && myToken.type !== 'exfunction')) {
+		if (myToken === undefined || (myToken.type !== TokenType.ifunction && myToken.type !== TokenType.exfunction)) {
 			return;
 		}
 		let definition = this.getTokenData(myToken.name, myToken.type);
@@ -92,7 +92,8 @@ export class MumpsTokenHelper {
 		if (myToken === undefined) {
 			return;
 		}
-		if (myToken.type === "exfunction" || myToken.type === "ifunction" || myToken.type === "entryref" || myToken.type === "keyword") {
+		if (myToken.type === TokenType.exfunction || myToken.type === TokenType.ifunction ||
+			myToken.type === TokenType.entryref || myToken.type === TokenType.keyword) {
 			let definition = this.getTokenData(myToken.name, myToken.type);
 			if (!definition) {
 				return;
@@ -134,15 +135,15 @@ export class MumpsTokenHelper {
 		if (myToken === undefined) {
 			return;
 		}
-		if (myToken.type === "entryref" || myToken.type === "exfunction") {
+		if (myToken.type === TokenType.entryref || myToken.type === TokenType.exfunction) {
 			let tokendata = this.getTokenData(myToken.name, myToken.type);
 			if (tokendata) {
 				return tokendata.location;
 			}
 		}
 	}
-	public getTokenData(functionName: string, functionType: string): TokenDefinition | undefined {
-		if (functionType === "ifunction" || functionType === "keyword") {
+	public getTokenData(functionName: string, functionType: TokenType): TokenDefinition | undefined {
+		if (functionType === TokenType.ifunction || functionType === TokenType.keyword) {
 			let matches = definitions[functionName.toUpperCase()];
 			if (matches) {
 				for (let definition of matches) {
@@ -154,7 +155,7 @@ export class MumpsTokenHelper {
 			} else {
 				return;
 			}
-		} else if (functionType === "exfunction" || functionType === "entryref") {
+		} else if (functionType === TokenType.exfunction || functionType === TokenType.entryref) {
 			let locationInfo = this.getPositionForLabel(functionName);
 			if (locationInfo) {
 				return this._extractDefinition(locationInfo);
