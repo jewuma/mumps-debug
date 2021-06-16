@@ -19,8 +19,8 @@ RELINK(%PROG)			;LINK Sourcefile again and Start over
 RELINK1				;Entry after Stack-Clearance
 	D REFRESHBP		;Remember Breakpoints
 	I $P(%PROGNAME,"^",2)=$T(+0) G ENDPROGRAM	;Debugging of this Program not possible
-	ZLINK:%PROGNAME["^" $P(%PROGNAME,"^",2)
-	ZLINK:%PROGNAME'["^" %PROGNAME
+	ZLINK:%PROGNAME["^" $TR($P(%PROGNAME,"^",2),"%","_")
+	ZLINK:%PROGNAME'["^" $TR(%PROGNAME,"%","_")
 	D BPRESET		;Set Breakpoints again after Relink
 	D @%PROGNAME X $ZSTEP	;Start Program and get back into Wait-Loop
 	Q
