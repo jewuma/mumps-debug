@@ -25,11 +25,15 @@ export async function activate(context: vscode.ExtensionContext) {
 	const MUMPS_MODE: vscode.DocumentFilter = { language: 'mumps', scheme: 'file' };
 	// register a configuration provider for 'mumps' debug type
 	const mumpsDiagnostics = vscode.languages.createDiagnosticCollection("mumps");
-	let storage = context.storageUri!.fsPath;
-	if (!fs.existsSync(storage)) {
-		fs.mkdirSync(storage);
+	let storage = "";
+	if (context.storageUri !== undefined) {
+		storage = context.storageUri.fsPath;
+		if (!fs.existsSync(storage)) {
+			fs.mkdirSync(storage);
+		}
+		const dbFile = storage + "/labeldb.json";
+		context.subscriptions.push(vscode.languages.registerCompletionItemProvider(MUMPS_MODE, new CompletionItemProvider(dbFile)));
 	}
-	const dbFile = storage + "/labeldb.json";
 	const wsState = context.workspaceState;
 	context.subscriptions.push(
 		vscode.commands.registerCommand("mumps.documentFunction", () => { DocumentFunction(); }),
@@ -42,7 +46,6 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.languages.registerEvaluatableExpressionProvider(MUMPS_MODE, new MumpsEvalutableExpressionProvider()),
 		vscode.languages.registerSignatureHelpProvider(MUMPS_MODE, new MumpsSignatureHelpProvider(), '(', ','),
 		vscode.languages.registerDocumentSymbolProvider(MUMPS_MODE, new MumpsDocumentSymbolProvider()),
-		vscode.languages.registerCompletionItemProvider(MUMPS_MODE, new CompletionItemProvider(dbFile)),
 		vscode.languages.registerDocumentSemanticTokensProvider(MUMPS_MODE, MumpsHighlighter, SemanticTokens),
 		vscode.languages.registerDocumentFormattingEditProvider(MUMPS_MODE, new MumpsFormattingHelpProvider()),
 		vscode.languages.registerDocumentRangeFormattingEditProvider(MUMPS_MODE, new MumpsFormattingHelpProvider()),

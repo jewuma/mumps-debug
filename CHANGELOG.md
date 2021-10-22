@@ -39,5 +39,10 @@
 * Improved Error-Handling
 ## 0.8.2
 * Code Improvements, better expression valuation
-##0.8.3
+## 0.8.3
 * Fixed Syntax of $&-Functions
+## 0.8.4
+* Fixed a Bug when opening File without a workspace
+## 0.8.5
+* Fixed Bug when there's no Label at the first Line
+

@@ -1,7 +1,7 @@
 {
 	"name": "mumps-debug",
 	"displayName": "Mumps Language-Pack",
-	"version": "0.8.3",
+	"version": "0.8.5",
 	"publisher": "jewuma",
 	"description": "Debugger for Mumps (M) , GT.M, YottaDB",
 	"author": {
@@ -16,7 +16,7 @@
 		"debug"
 	],
 	"engines": {
-		"vscode": "^1.55.0"
+		"vscode": "^1.61.2"
 	},
 	"icon": "images/mumps-debug-icon.png",
 	"categories": [
@@ -46,26 +46,25 @@
 	},
 	"dependencies": {
 		"await-notify": "1.0.1",
-		"ts-loader": "^9.1.1",
-		"vscode-debugadapter": "1.47.0"
+		"ts-loader": "^9.2.6",
+		"vscode-debugadapter": "1.49.0"
 	},
 	"devDependencies": {
-		"@types/node": "^13.13.48",
-		"@types/vscode": "^1.55.0",
+		"@types/node": "^13.13.52",
+		"@types/vscode": "^1.61.0",
 		"emcellent": "0.0.5",
 		"tslint": "5.18.0",
-		"typescript": "^4.2.4",
-		"vsce": "^1.93.0",
-		"webpack": "^5.35.1",
-		"webpack-cli": "^4.6.0"
+		"typescript": "^4.4.4",
+		"vsce": "^1.100.2",
+		"webpack": "^5.59.1",
+		"webpack-cli": "^4.9.1"
 	},
 	"main": "./dist/extension",
 	"activationEvents": [
 		"onLanguage:mumps"
 	],
 	"contributes": {
-		"commands": [
-			{
+		"commands": [{
 				"command": "mumps.toggleExpandedCommands",
 				"title": "Toggles between Short- and Longversion of M Commands"
 			},
@@ -74,52 +73,63 @@
 				"title": "Creates comment for M subroutine"
 			}
 		],
-		"debuggers": [
-			{
-				"type": "mumps",
-				"label": "Mumps Debugger",
-				"program": "./dist/extension",
-				"runtime": "node",
-				"languages": [
-					"mumps"
-				],
-				"configurationAttributes": {
-					"launch": {
-						"required": [
-							"program",
-							"hostname",
-							"localRoutinesPath"
-						],
-						"properties": {
-							"program": {
-								"type": "string",
-								"description": "Absolute path to a text file.",
-								"default": "${workspaceFolder}/${command:mumps.getEntryRef}"
-							},
-							"stopOnEntry": {
-								"type": "boolean",
-								"description": "Automatically stop after launch.",
-								"default": true
-							},
-							"hostname": {
-								"type": "string",
-								"description": "The Host which runs MDEBUG",
-								"default": "localhost"
-							},
-							"localRoutinesPath": {
-								"type": "string",
-								"description": "The Path to map .m Files to local Files"
-							},
-							"port": {
-								"type": "number",
-								"description": "The Communication-Port to MDEBUG",
-								"default": 9000
-							}
+		"debuggers": [{
+			"type": "mumps",
+			"label": "Mumps Debugger",
+			"program": "./dist/extension",
+			"runtime": "node",
+			"languages": [
+				"mumps"
+			],
+			"configurationAttributes": {
+				"launch": {
+					"required": [
+						"program",
+						"hostname",
+						"localRoutinesPath"
+					],
+					"properties": {
+						"program": {
+							"type": "string",
+							"description": "Absolute path to a text file.",
+							"default": "${workspaceFolder}/${command:mumps.getEntryRef}"
+						},
+						"stopOnEntry": {
+							"type": "boolean",
+							"description": "Automatically stop after launch.",
+							"default": true
+						},
+						"hostname": {
+							"type": "string",
+							"description": "The Host which runs MDEBUG",
+							"default": "localhost"
+						},
+						"localRoutinesPath": {
+							"type": "string",
+							"description": "The Path to map .m Files to local Files"
+						},
+						"port": {
+							"type": "number",
+							"description": "The Communication-Port to MDEBUG",
+							"default": 9000
 						}
 					}
-				},
-				"initialConfigurations": [
-					{
+				}
+			},
+			"initialConfigurations": [{
+				"type": "mumps",
+				"request": "launch",
+				"name": "Active File",
+				"program": "${file}",
+				"hostname": "localhost",
+				"port": 9000,
+				"localRoutinesPath": "y:\\",
+				"stopOnEntry": true
+			}],
+			"configurationSnippets": [{
+					"label": "Mumps Debug: Launch",
+					"description": "Launch and debug active File",
+					"body": {
 						"type": "mumps",
 						"request": "launch",
 						"name": "Active File",
@@ -129,64 +139,43 @@
 						"localRoutinesPath": "y:\\",
 						"stopOnEntry": true
 					}
-				],
-				"configurationSnippets": [
-					{
-						"label": "Mumps Debug: Launch",
-						"description": "Launch and debug active File",
-						"body": {
-							"type": "mumps",
-							"request": "launch",
-							"name": "Active File",
-							"program": "${file}",
-							"hostname": "localhost",
-							"port": 9000,
-							"localRoutinesPath": "y:\\",
-							"stopOnEntry": true
-						}
-					},
-					{
-						"label": "Mumps Debug: Launch",
-						"description": "Start at individual Entry-Ref.",
-						"body": {
-							"type": "mumps",
-							"request": "launch",
-							"name": "Ask for Entryref",
-							"program": "${command:AskForProgramName}",
-							"stopOnEntry": true
-						}
+				},
+				{
+					"label": "Mumps Debug: Launch",
+					"description": "Start at individual Entry-Ref.",
+					"body": {
+						"type": "mumps",
+						"request": "launch",
+						"name": "Ask for Entryref",
+						"program": "${command:AskForProgramName}",
+						"stopOnEntry": true
 					}
-				]
-			}
-		],
+				}
+			]
+		}],
 		"variables": {
 			"AskForProgramName": "extension.mumps-debug.getProgramName"
 		},
-		"languages": [
-			{
-				"id": "mumps",
-				"aliases": [
-					"MUMPS",
-					"mumps"
-				],
-				"extensions": [
-					".int",
-					".m",
-					".mps",
-					".zwr"
-				],
-				"configuration": "./language-configuration.json"
-			}
-		],
-		"grammars": [
-			{
-				"language": "mumps",
-				"scopeName": "source.mumps",
-				"path": "./syntaxes/mumps.tmLanguage"
-			}
-		],
-		"keybindings": [
-			{
+		"languages": [{
+			"id": "mumps",
+			"aliases": [
+				"MUMPS",
+				"mumps"
+			],
+			"extensions": [
+				".int",
+				".m",
+				".mps",
+				".zwr"
+			],
+			"configuration": "./language-configuration.json"
+		}],
+		"grammars": [{
+			"language": "mumps",
+			"scopeName": "source.mumps",
+			"path": "./syntaxes/mumps.tmLanguage"
+		}],
+		"keybindings": [{
 				"command": "mumps.documentFunction",
 				"key": "ctrl+d",
 				"when": "editorLangId == mumps"
@@ -213,53 +202,49 @@
 				"editor.formatOnSave": true
 			}
 		},
-		"breakpoints": [
-			{
-				"language": "mumps"
+		"breakpoints": [{
+			"language": "mumps"
+		}],
+		"semanticTokenScopes": [{
+			"language": "mumps",
+			"scopes": {
+				"global": [
+					"variable.other.constant"
+				],
+				"local": [
+					"variable.language.local"
+				],
+				"entryref": [
+					"entity.name.type.class"
+				],
+				"number": [
+					"constant.numeric"
+				],
+				"ifunction": [
+					"support.function.mumps"
+				],
+				"exfunction": [
+					"support.variable.property"
+				],
+				"operator": [
+					"keyword.operator"
+				],
+				"string": [
+					"string.quoted.double"
+				],
+				"sysvariable": [
+					"variable.language.local"
+				],
+				"keyword": [
+					"keyword.control"
+				],
+				"nonMfunction": [
+					"support.function.user"
+				],
+				"comment": [
+					"comment.line.mumps"
+				]
 			}
-		],
-		"semanticTokenScopes": [
-			{
-				"language": "mumps",
-				"scopes": {
-					"global": [
-						"variable.other.constant"
-					],
-					"local": [
-						"variable.language.local"
-					],
-					"entryref": [
-						"entity.name.type.class"
-					],
-					"number": [
-						"constant.numeric"
-					],
-					"ifunction": [
-						"support.function.mumps"
-					],
-					"exfunction": [
-						"support.variable.property"
-					],
-					"operator": [
-						"keyword.operator"
-					],
-					"string": [
-						"string.quoted.double"
-					],
-					"sysvariable": [
-						"variable.language.local"
-					],
-					"keyword": [
-						"keyword.control"
-					],
-					"nonMfunction": [
-						"support.function.user"
-					],
-					"comment": [
-						"comment.line.mumps"
-					]
-				}
-			}
-		]
+		}]
 	}
 }

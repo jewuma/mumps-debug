@@ -315,7 +315,6 @@ export class MConnect extends EventEmitter {
 			const position = this._mStack[i];
 			if (position.indexOf("^") !== -1) {
 				const fileposition = this.convertMumpsPosition(position);
-				fileposition.line++;	//Correction 0/1 based in Editor/GT.M
 				frames.push({
 					index: i,
 					name: `${position}(${i})`,
@@ -477,6 +476,7 @@ export class MConnect extends EventEmitter {
 				let offset = 0;
 				if (position.split("+")[1] !== undefined) {
 					offset = parseInt(position.split("+")[1]);
+					if (startlabel === "") { offset-- }   //If there's no startlabel M reports +1^XXX
 				}
 				let line = 0;
 				if (startlabel !== "") {
@@ -487,7 +487,7 @@ export class MConnect extends EventEmitter {
 						}
 					}
 				}
-				return { "file": file, "line": line + offset - 1 };
+				return { "file": file, "line": line + offset };
 			} catch {
 				console.log("Could not read Sourcefile " + file)
 				return { "file": file, "line": 1 };

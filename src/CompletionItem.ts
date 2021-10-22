@@ -11,7 +11,7 @@ export class CompletionItem extends vscode.CompletionItem {
 	line: number;
 	count: number;
 	details: String[];
-	constructor(word: string, file: string) {
+	constructor(word: string | vscode.CompletionItemLabel, file: string) {
 		super(word);
 		this.kind = vscode.CompletionItemKind.Text;
 		this.count = 1;
