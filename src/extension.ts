@@ -8,6 +8,7 @@ import { MumpsEvalutableExpressionProvider } from './mumps-evalutable-expression
 import { MumpsHoverProvider } from './mumps-hover-provider';
 import { MumpsDefinitionProvider } from './mumps-definition-provider';
 import { MumpsFormattingHelpProvider } from './mumps-formatting-help-provider';
+import { MumpsReferenceProvider } from './mumps-reference-provider';
 import { MumpsSignatureHelpProvider } from './mumps-signature-help-provider';
 import { DocumentFunction } from './mumps-documenter';
 import { MumpsDocumentSymbolProvider } from './mumps-document';
@@ -49,6 +50,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.languages.registerDocumentSemanticTokensProvider(MUMPS_MODE, MumpsHighlighter, SemanticTokens),
 		vscode.languages.registerDocumentFormattingEditProvider(MUMPS_MODE, new MumpsFormattingHelpProvider()),
 		vscode.languages.registerDocumentRangeFormattingEditProvider(MUMPS_MODE, new MumpsFormattingHelpProvider()),
+		vscode.languages.registerReferenceProvider(MUMPS_MODE,new MumpsReferenceProvider()),
 		vscode.debug.registerDebugConfigurationProvider('mumps', new MumpsConfigurationProvider()),
 		vscode.debug.registerDebugAdapterDescriptorFactory('mumps', new InlineDebugAdapterFactory()),
 		vscode.window.onDidChangeActiveTextEditor(editor => { if (editor) { triggerUpdateDiagnostics(editor.document, mumpsDiagnostics) } }),

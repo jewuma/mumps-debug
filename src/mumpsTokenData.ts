@@ -142,6 +142,8 @@ export class MumpsTokenHelper {
 			}
 		}
 	}
+
+	// get Information for given function or keyword
 	public getTokenData(functionName: string, functionType: TokenType): TokenDefinition | undefined {
 		if (functionType === TokenType.ifunction || functionType === TokenType.keyword) {
 			let matches = definitions[functionName.toUpperCase()];

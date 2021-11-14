@@ -45,4 +45,6 @@
 * Fixed a Bug when opening File without a workspace
 ## 0.8.5
 * Fixed Bug when there's no Label at the first Line
+## 0.9.0
+* Added Reference-provider
 
