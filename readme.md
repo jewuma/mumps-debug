@@ -18,8 +18,8 @@ It includes a debugger, syntax check and the syntax-highlighting module by David
 
 If you don't want some or all variables to be checked you can change this in Settings->Settings->Extensions->mumps-debug
 Example: Variables Y,Y1,YDATE,X are constants you don't want to NEW
-you put in the settings above: Y.*,X
-If you want to disable this check only in one file, just add a comment line: ;ignoreVars: abc,def.*
+you put in the settings above: ``Y.*,X``
+If you want to disable this check only in one file, just add a comment line: ``;ignoreVars: abc,def.*``
 
 If you discover problems please send a bug report on the github-page.
 
