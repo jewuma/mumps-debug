@@ -16,8 +16,8 @@ import { CompletionItemProvider } from './mumps-completion-item-provider';
 import * as AutospaceFunction from './mumps-autospace';
 import { MumpsLineParser } from './mumpsLineParser';
 import { MumpsHighlighter, SemanticTokens } from './mumps-highlighter';
-import { expandCompress } from './mumpsCompExp';
-
+import expandCompress from './mumpsCompExp';
+import MumpsVariableCheck from './mumpsVariableCheck';
 const parser = new MumpsLineParser;
 const fs = require('fs');
 let timeout: ReturnType<typeof setTimeout> | undefined;
@@ -50,7 +50,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.languages.registerDocumentSemanticTokensProvider(MUMPS_MODE, MumpsHighlighter, SemanticTokens),
 		vscode.languages.registerDocumentFormattingEditProvider(MUMPS_MODE, new MumpsFormattingHelpProvider()),
 		vscode.languages.registerDocumentRangeFormattingEditProvider(MUMPS_MODE, new MumpsFormattingHelpProvider()),
-		vscode.languages.registerReferenceProvider(MUMPS_MODE,new MumpsReferenceProvider()),
+		vscode.languages.registerReferenceProvider(MUMPS_MODE, new MumpsReferenceProvider()),
 		vscode.debug.registerDebugConfigurationProvider('mumps', new MumpsConfigurationProvider()),
 		vscode.debug.registerDebugAdapterDescriptorFactory('mumps', new InlineDebugAdapterFactory()),
 		vscode.window.onDidChangeActiveTextEditor(editor => { if (editor) { triggerUpdateDiagnostics(editor.document, mumpsDiagnostics) } }),
@@ -118,6 +118,8 @@ function updateDiagnostics(document: vscode.TextDocument, collection: vscode.Dia
 
 			}
 		}
+		let vc = new MumpsVariableCheck(document);
+		diags = diags.concat(vc.scanSubroutines());
 		if (diags) {
 			collection.set(document.uri, diags);
 		}
@@ -137,3 +139,4 @@ function getEntryRef() {
 		value: entryRef
 	})
 }
+

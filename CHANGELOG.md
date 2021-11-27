@@ -47,4 +47,5 @@
 * Fixed Bug when there's no Label at the first Line
 ## 0.9.0
 * Added Reference-provider
-
+## 1.0.0
+* New Feature: Variables are checked for correct NEWing, some semantic checks added

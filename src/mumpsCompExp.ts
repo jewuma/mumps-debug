@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { MumpsLineParser } from './mumpsLineParser';
 const parser = new MumpsLineParser;
-export function expandCompress(state: vscode.Memento) {
+export default function expandCompress(state: vscode.Memento) {
 	let doExpand = true;
 	let editor = vscode.window.activeTextEditor
 	if (editor) {

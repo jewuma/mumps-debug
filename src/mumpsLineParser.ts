@@ -1,4 +1,3 @@
-
 let fs = require('fs');
 let renderer = require('./mumps-render');
 interface ErrorInformation {
@@ -12,12 +11,14 @@ interface ErrorInformation {
 export enum TokenType {
 	"global" = "global", "local" = "local", "exfunction" = "exfunction", "nonMfunction" = "nonMfunction", "entryref" = "entryref",
 	"operator" = "operator", "keyword" = "keyword", "ifunction" = "ifunction", "label" = "label", "comment" = "comment",
-	"sysvariable" = "sysvariable", "string" = "string", "number" = "number"
+	"sysvariable" = "sysvariable", "string" = "string", "number" = "number", "intendation" = "intendation", "argPostcondition" = "argPostcondition"
 }
-interface LineToken {
+export interface LineToken {
 	type: TokenType,
 	name: string,
 	longName?: string,
+	isPostconditioned?: boolean,
+	isExcludedVariable?: boolean,
 	position: number
 }
 interface LineComand {
@@ -568,6 +569,13 @@ class MumpsLineParser {
 	private funcCompressions: object;
 	private isvCompressions: object;
 	private linePosition: number = 0;
+	/**
+	 * Checks Mumps-patterns, throws error when error found in pattern
+	 * @param line: Line to be analyzed
+	 * @param position: startposition
+	 * @param level: is used for nested Patterns
+	 * @returns ErrorInformation, text empty when no error found, position is set behind pattern
+	 */
 	private _evaluatePattern(line: string, position: number, level?: number): ErrorInformation {
 		let result = { text: '', position }
 		let patternComplete = false;
@@ -640,6 +648,7 @@ class MumpsLineParser {
 		return result;
 
 	}
+
 	public evaluateExpression(exType: number, line: string, position: number, level?: number | undefined): ErrorInformation {
 		let expressionComplete = false;
 		let startposition = position;
@@ -829,7 +838,7 @@ class MumpsLineParser {
 			}
 		}
 		inputObject.lineLeadSpace = inputLine.substring(position, i);
-		if (i !== (inputLine.length - 1)) {
+		if (i !== (inputLine.length)) {
 			inputObject.lineExpression = inputLine.substring(i);
 			inputObject.expressionPosition = i;
 		}
@@ -996,7 +1005,12 @@ class MumpsLineParser {
 		}
 		return tmpObject;
 	}
-	public parseLine(inputString): LineObject {
+	/**
+	 * Divde inputString into Label, commands and comments and return corresponding LineObject
+	 * @param inputString
+	 * @returns LineObject
+	 */
+	public parseLine(inputString: string): LineObject {
 
 		let tmpObject: LineObject = { lineExpression: inputString, expressionPosition: 0 };
 
@@ -1013,6 +1027,11 @@ class MumpsLineParser {
 		tmpObject.lineExpression = '';
 		return tmpObject;
 	}
+	/**
+	 *
+	 * @param filename
+	 * @returns Array with list of errors or an empty array if no errors found in file
+	 */
 	public checkFile(filename: string): ErrorInformation[] {
 		let errlist: ErrorInformation[] = [];
 		let content: string;
@@ -1159,6 +1178,16 @@ class MumpsLineParser {
 		if (parsed.lineLabel) {
 			this._splitLabelAndParameters(parsed.lineLabel);
 		}
+		if (parsed.lineIndentationArray) {
+			let position = 0;
+			if (parsed.lineLeadSpace) {
+				position += parsed.lineLeadSpace.length;
+			}
+			if (parsed.lineLabel) {
+				position += parsed.lineLabel.length;
+			}
+			this._tokens.push({ name: ".".repeat(parsed.lineIndentationArray.length), type: TokenType.intendation, position });
+		}
 		if (parsed.lineComment) {
 			this._tokens.push({ name: parsed.lineComment.comment, position: parsed.lineComment.position, type: TokenType.comment });
 		}
@@ -1180,7 +1209,13 @@ class MumpsLineParser {
 						if (cmdParams[cmd] === undefined) {
 							longcmd = cmdExpansions[cmd];
 						}
-						this._tokens.push({ name: code.mCommand, type: TokenType.keyword, position: code.cmdPosition, longName: longcmd });
+						this._tokens.push({
+							name: code.mCommand,
+							type: TokenType.keyword,
+							position: code.cmdPosition,
+							longName: longcmd,
+							isPostconditioned: code.mPostCondition !== ""
+						});
 
 						if (longcmd === undefined) {
 							result.text = 'Unknown Command';
@@ -1200,7 +1235,6 @@ class MumpsLineParser {
 		}
 		return result;
 	}
-
 	public getTokenAt(line: string, position: number): LineToken | undefined {
 		this.checkLine(line);
 		let memPosition = 0
@@ -1221,6 +1255,7 @@ class MumpsLineParser {
 		let result: ErrorInformation = { text: '', position };
 		result = this._checkEntryRef(line, result.position, withParams);
 		if (line[result.position] === ':') {
+			this._tokens.push({ type: TokenType.argPostcondition, name: ":", position });
 			result = this.evaluateExpression(expressiontype.Standard, line, ++result.position);
 		}
 		return result;
@@ -1295,7 +1330,7 @@ class MumpsLineParser {
 		}
 		return result
 	}
-	private _checkVar(line: string, position: number, globalOk?: boolean, indexOk?: boolean): ErrorInformation {
+	private _checkVar(line: string, position: number, globalOk?: boolean, indexOk?: boolean, isExluded?: boolean): ErrorInformation {
 		let result: ErrorInformation = { text: '', position, indexFound: false, globalFound: false, indirectionFound: false };
 		let varFound = false;
 		if (globalOk === undefined) {
@@ -1303,6 +1338,9 @@ class MumpsLineParser {
 		}
 		if (indexOk === undefined) {
 			indexOk = true;
+		}
+		if (isExluded === undefined) {
+			isExluded = false;
 		}
 		if (line[result.position] === '@') {
 			result = this.evaluateExpression(expressiontype.Atom, line, ++result.position);
@@ -1343,9 +1381,9 @@ class MumpsLineParser {
 					varFound = true;
 					result.position += global.length;
 				}
-			} else if (line.substring(result.position).match(lvn)) {
+			} else if (line.substring(result.position).match(lvn)) {  // local variable found
 				let local = line.substring(result.position).match(lvn)![0];
-				this._tokens.push({ name: local, type: TokenType.local, position: result.position + this.linePosition });
+				this._tokens.push({ name: local, type: TokenType.local, position: result.position + this.linePosition, isExcludedVariable: isExluded });
 				varFound = true;
 				result.position += local.length;
 			} else if (line.substring(result.position, result.position + 2) === '^(') {
@@ -1621,9 +1659,15 @@ class MumpsLineParser {
 			let braceComplete = false;
 			do {
 				if (line.substring(result.position).match(isv)) {
-					result.position += line.substring(result.position).match(isv)![0].length;
+					let sysvariable = line.substring(result.position).match(isv)![0];
+					let longName = sysvariable.toUpperCase();
+					if (isvExpansions[longName.substring(1)] !== undefined) {
+						longName = "$" + isvExpansions[longName.substring(1)];
+					}
+					this._tokens.push({ name: sysvariable, position: position + this.linePosition, type: TokenType.sysvariable, longName, isExcludedVariable: true });
+					result.position += sysvariable.length;
 				} else {
-					result = this._checkVar(line, result.position, false);
+					result = this._checkVar(line, result.position, false, false, true);
 				}
 				braceComplete = true;
 				if (line[result.position] === ')') {
@@ -1644,7 +1688,13 @@ class MumpsLineParser {
 			}
 		} else {
 			if (line.substring(result.position).match(isv)) {
-				result.position += line.substring(result.position).match(isv)![0].length;
+				let sysvariable = line.substring(result.position).match(isv)![0];
+				let longName = sysvariable.toUpperCase();
+				if (isvExpansions[longName.substring(1)] !== undefined) {
+					longName = "$" + isvExpansions[longName.substring(1)];
+				}
+				this._tokens.push({ name: sysvariable, position: position + this.linePosition, type: TokenType.sysvariable, longName, isExcludedVariable: false });
+				result.position += sysvariable.length;
 			} else {
 				result = this._checkVar(line, result.position, false);
 			}
