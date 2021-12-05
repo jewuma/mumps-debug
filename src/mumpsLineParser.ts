@@ -19,6 +19,7 @@ export interface LineToken {
 	longName?: string,
 	isPostconditioned?: boolean,
 	isExcludedVariable?: boolean,
+	hasArguments?: boolean,
 	position: number
 }
 interface LineComand {
@@ -1214,7 +1215,8 @@ class MumpsLineParser {
 							type: TokenType.keyword,
 							position: code.cmdPosition,
 							longName: longcmd,
-							isPostconditioned: code.mPostCondition !== ""
+							isPostconditioned: code.mPostCondition !== "",
+							hasArguments: code.mArguments !== ""
 						});
 
 						if (longcmd === undefined) {

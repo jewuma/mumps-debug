@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { LineToken, TokenType, MumpsLineParser } from './mumpsLineParser'
+//const folders = vscode.workspace.workspaceFolders;
 const parser = new MumpsLineParser();
 interface Parameter {
 	name: string,
@@ -23,12 +24,13 @@ interface VariableStates {
 	name: VariableState
 }
 
-//const currentValue = configuration.get<{}>('conf.resource.insertEmptyLastLine');
 /**
  * Checks if mumps routines NEWs variables correctly
+ * Checks if intendation levels are correct
+ * Checks if there's unreachable code
  *
  */
-export default class MumpsVariableCheck {
+export default class MumpsSemanticCheck {
 	private _linetokens: LineToken[][];
 	private _warnings: vscode.Diagnostic[];
 	private _variablesToBeIgnored: string[] = [];
@@ -262,19 +264,28 @@ export default class MumpsVariableCheck {
 	private _checkFile() {
 		let routine: Subroutine = { startLine: -1, endLine: -1, parameters: [] };
 		let level: number = 0;
+		let lineWithDo: number = -2;
 		let isBehindQuit: boolean = false;
 		let startUnreachable: vscode.Position | false = false;
-		for (let line = 0; line < this._linetokens.length; line++) {
+		for (let line = 0; line < this._linetokens.length; line++) { //iterate over every document line
 			let ifFlag = false;
 			let intendationFound = false;
-			for (let j = 0; j < this._linetokens[line].length; j++) {
-				let token: LineToken = this._linetokens[line][j];
+			if (this._linetokens[line].length === 0) { //empty line = intendation 0 is it OK?
+				if (line === lineWithDo + 1) {
+					this._addWarning("Expected intendation level: " + (level + 1) + ", found: 0", line, 0, 1);
+					lineWithDo = -2;
+				}
+				level = 0;
+			}
+			for (let tokenId = 0; tokenId < this._linetokens[line].length; tokenId++) { // iterate over every token in actual line
+				let token: LineToken = this._linetokens[line][tokenId];
 				if (token.type === TokenType.comment && token.name.match(/ignoreVars:/)) { //Check for IgnoreVars-directive
 					this._variablesToBeIgnored = this._variablesToBeIgnored.concat(token.name.split("ignoreVars:")[1].split(","));
 				}
-				if (j === 0 && token.type === TokenType.label) {
+				if (tokenId === 0 && token.type === TokenType.label) { 	//If there was unreachable code before this label
+					//save a warning
 					isBehindQuit = false;
-					if (startUnreachable) {
+					if (startUnreachable) { //Only if there were Code lines after a quit or a goto
 						this._warnings.push({
 							code: '',
 							message: "Unreachable Code",
@@ -287,30 +298,39 @@ export default class MumpsVariableCheck {
 					if (this._linetokens[line][1] !== undefined &&
 						this._linetokens[line][1].type === TokenType.local) { //Begin of a parametrized subroutine
 						routine.startLine = line;
-						while (++j < this._linetokens[line].length && this._linetokens[line][j].type === TokenType.local) {
-							routine.parameters.push({ name: this._linetokens[line][j].name, position: this._linetokens[line][j].position });
+						while (++tokenId < this._linetokens[line].length && this._linetokens[line][tokenId].type === TokenType.local) {
+							routine.parameters.push({ name: this._linetokens[line][tokenId].name, position: this._linetokens[line][tokenId].position });
 						}
-						if (j >= this._linetokens[line].length) {
+						if (tokenId >= this._linetokens[line].length) {
 							continue;
 						}
-						token = this._linetokens[line][j];
+						token = this._linetokens[line][tokenId];
+					}
+				}
+				if (token.type === TokenType.keyword || token.type === TokenType.comment) { //Check intendation level
+					if (intendationFound === false) {
+						if (line === lineWithDo + 1) {
+							this._addWarning("Expected intendation level: " + (level + 1) + ", found: " + level, line, 0, token.position);
+							lineWithDo = -2;
+						}
+						level = 0;
 					}
 				}
 				if (token.type === TokenType.keyword) {
 					if (isBehindQuit && startUnreachable === false) {
 						startUnreachable = new vscode.Position(line, token.position);
 					}
-					if (intendationFound === false) {
-						level = 0;
-					}
 					let command = token.longName;
 					if (command === "IF" || command === "ELSE") {
 						ifFlag = true;
 					}
+					if (command === "DO" && token.hasArguments === false) {
+						lineWithDo = line;
+					}
 					if (!ifFlag && (command === "QUIT" || command === "GOTO") && !token.isPostconditioned && level === 0) {
 						let hasPostcondition = false;
-						if (command === "GOTO") {
-							for (let k = j + 1; k < this._linetokens[line].length; k++) {
+						if (command === "GOTO") { //Check if GOTO argument is postconditioned
+							for (let k = tokenId + 1; k < this._linetokens[line].length; k++) {
 								if (this._linetokens[line][k].type === TokenType.argPostcondition) {
 									hasPostcondition = true;
 									break;
@@ -330,14 +350,26 @@ export default class MumpsVariableCheck {
 						}
 					}
 				}
-				if (token.type === TokenType.intendation) {
+				if (token.type === TokenType.intendation) { //check if new intendation level is OK and remember new level
+					let expectedLevel = line === lineWithDo + 1 ? level + 1 : level;
 					level = token.name.length;
 					intendationFound = true;
+					if (level > expectedLevel) {
+						this._addWarning("Intendation Level wrong, found: " + level + ", expected: " + expectedLevel, line, 0, token.position);
+					}
+					if (line === lineWithDo + 1 && level < expectedLevel) {
+						this._addWarning("Higher intendation expected after argumentless Do", line, 0, token.position);
+					}
+					lineWithDo = -2;
 				}
-
 			}
 		}
 	}
+	/**
+	 * Checks if the given variablename is on the ignore-list
+	 * @param variable
+	 * @returns true if variable can be ignored at NEW-Check
+	 */
 	private _isIgnoredVariable(variable: string): boolean {
 		let isIgnoredVariable = false;
 		for (let k = 0; k < this._variablesToBeIgnored.length; k++) {

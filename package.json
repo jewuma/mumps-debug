@@ -59,7 +59,7 @@
 		"webpack": "^5.64.0",
 		"webpack-cli": "^4.9.1"
 	},
-	"main": "./dist/extension",
+	"main": "./out/extension",
 	"activationEvents": [
 		"onLanguage:mumps"
 	],
