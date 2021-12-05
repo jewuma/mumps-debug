@@ -1,24 +1,21 @@
-
 'use strict';
 
 import * as vscode from 'vscode';
 import { WorkspaceFolder, ProviderResult, DebugConfiguration, CancellationToken } from 'vscode';
 import { MumpsDebugSession } from './mumpsDebug';
 import { MumpsEvalutableExpressionProvider } from './mumps-evalutable-expression-provider';
-import { MumpsHoverProvider } from './mumps-hover-provider';
+import { MumpsHoverProvider } from './mumpsHoverProvider';
 import { MumpsDefinitionProvider } from './mumps-definition-provider';
 import { MumpsFormattingHelpProvider } from './mumps-formatting-help-provider';
-import { MumpsReferenceProvider } from './mumps-reference-provider';
-import { MumpsSignatureHelpProvider } from './mumps-signature-help-provider';
+import { MumpsReferenceProvider } from './mumpsReferenceProvider';
+import { MumpsSignatureHelpProvider } from './mumpsSignatureHelpProvider';
 import { DocumentFunction } from './mumps-documenter';
 import { MumpsDocumentSymbolProvider } from './mumps-document';
 import { CompletionItemProvider } from './mumps-completion-item-provider';
 import * as AutospaceFunction from './mumps-autospace';
-import { MumpsLineParser } from './mumpsLineParser';
 import { MumpsHighlighter, SemanticTokens } from './mumps-highlighter';
 import expandCompress from './mumpsCompExp';
-import MumpsVariableCheck from './mumpsVariableCheck';
-const parser = new MumpsLineParser;
+import updateDiagnostics from './mumpsUpdateDiagnostics';
 const fs = require('fs');
 let timeout: ReturnType<typeof setTimeout> | undefined;
 let entryRef: string | undefined = "";
@@ -98,31 +95,6 @@ class InlineDebugAdapterFactory implements vscode.DebugAdapterDescriptorFactory 
 
 	createDebugAdapterDescriptor(_session: vscode.DebugSession): ProviderResult<vscode.DebugAdapterDescriptor> {
 		return new vscode.DebugAdapterInlineImplementation(new MumpsDebugSession());
-	}
-}
-function updateDiagnostics(document: vscode.TextDocument, collection: vscode.DiagnosticCollection): void {
-	if (document && document.languageId === 'mumps') {
-		collection.clear();
-		let diags: Array<vscode.Diagnostic> = [];
-		for (let i = 0; i < document.lineCount; i++) {
-			let line = document.lineAt(i);
-			let diag = parser.checkLine(line.text);
-			if (diag.text !== '') {
-				diags.push({
-					code: '',
-					message: diag.text,
-					range: new vscode.Range(new vscode.Position(i, diag.position), new vscode.Position(i, line.text.length)),
-					severity: vscode.DiagnosticSeverity.Error,
-					source: '',
-				});
-
-			}
-		}
-		let vc = new MumpsVariableCheck(document);
-		diags = diags.concat(vc.scanSubroutines());
-		if (diags) {
-			collection.set(document.uri, diags);
-		}
 	}
 }
 function triggerUpdateDiagnostics(document: vscode.TextDocument, collection: vscode.DiagnosticCollection) {
