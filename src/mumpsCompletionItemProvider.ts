@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import { MumpsLineParser, LabelInformation } from './mumpsLineParser';
+const parser = new MumpsLineParser();
 const fs = require('fs');
 
 interface ItemHint {
@@ -27,6 +29,7 @@ export default class CompletionItemProvider {
 	private _labelDB: DbItem;
 	private _filesToCheck: number;
 	private _dbfile: string;
+	private _document: vscode.TextDocument;
 	constructor(labeldb: string) {
 		this._labelsReady = false;
 		this._dbfile = labeldb;
@@ -36,6 +39,7 @@ export default class CompletionItemProvider {
 		//let word = document.getText(document.getWordRangeAtPosition(position));
 		let line = document.getText(new vscode.Range(new vscode.Position(position.line, 0), position))
 		let status = getLineStatus(line, position.character);
+		this._document = document;
 		let clean: Array<vscode.CompletionItem> = [];
 		if (this._labelsReady && status.lineStatus === 'jumplabel') {
 			let replaceRange = new vscode.Range(new vscode.Position(position.line, position.character - status.startstring.length), position)
@@ -118,7 +122,8 @@ export default class CompletionItemProvider {
 	}
 	private _findLabel(startstring: string, list: Array<vscode.CompletionItem>, replaceRange: vscode.Range) {
 		//let hits = 0;
-		let hitlist: LabelItem[];
+		let hitlist: LabelItem[] = [];
+		let localLabels: LabelInformation[] = parser.getLabels(this._document.getText());
 		let sortText = '';
 		if (startstring.charAt(0) === '^') {
 			let suchstring = startstring.substring(1);
@@ -134,15 +139,21 @@ export default class CompletionItemProvider {
 					return fits;
 				});
 			} else {
-				hitlist = this._labelDB.labels.filter((item) => {
+				for (let i = 0; i < localLabels.length; i++) {
+					if (localLabels[i].name.startsWith(startstring)) {
+						hitlist.push({ routine: '', label: localLabels[i].name, line: this._document.lineAt(localLabels[i].line).text })
+					}
+				}
+				hitlist = hitlist.concat(this._labelDB.labels.filter((item) => {
 					let fits = item.label.startsWith(startstring);
 					return fits;
-				});
+				}));
 			}
 		}
-		for (let i = 0; i < hitlist.length; i++) {
+		for (let i = 0; i < hitlist.length && i < 100; i++) {
+			sortText = '100';
 			let item = hitlist[i];
-			let label = item.label + '^' + item.routine;
+			let label = item.routine !== '' ? item.label + '^' + item.routine : item.label;
 			if (label === startstring) {
 				continue;
 			}
@@ -151,7 +162,6 @@ export default class CompletionItemProvider {
 					continue;
 				}
 				label = '^' + item.routine;
-				sortText = "100";
 			}
 			let detail = ''
 			if (item.line.charAt(item.label.length) === '(') {
@@ -162,7 +172,11 @@ export default class CompletionItemProvider {
 			if (item.line.indexOf(';') !== -1) {
 				detail += item.line.substring(item.line.indexOf(';') + 1);
 			}
-			if (detail.length > 0 && sortText !== '100') { sortText = '099'; }
+
+			if (detail.length > 0) { sortText = '099'; } //prefer documented lables
+			if (item.routine === '') { // local labels first
+				sortText = '098';
+			}
 			list.push({ label, detail, sortText, range: replaceRange });
 		}
 		return list;
