@@ -1,5 +1,5 @@
-let fs = require('fs');
-let renderer = require('./mumps-render');
+const fs = require('fs');
+//let renderer = require('./mumps-render');
 interface ErrorInformation {
 	text: string,
 	position: number,
@@ -53,7 +53,14 @@ interface ModifiedLine {
 	lineText: string,
 	errorText: string
 }
-
+export interface LineInformation {
+	error: ErrorInformation,
+	tokens: LineToken[]
+}
+export interface LabelInformation {
+	name: string,
+	line: number
+}
 const label = /^[A-Za-z%][A-Za-z0-9]*(\([A-Za-z%][A-Za-z0-9]*(,[A-Za-z%][A-Za-z0-9]*)*\))?/
 const lvn = /^[A-Za-z%][A-Za-z0-9]*/
 const gvn = /^\^[A-Za-z%][A-Za-z0-9]*/
@@ -571,86 +578,1336 @@ class MumpsLineParser {
 	private isvCompressions: object;
 	private linePosition: number = 0;
 	/**
-	 * Checks Mumps-patterns, throws error when error found in pattern
-	 * @param line: Line to be analyzed
-	 * @param position: startposition
-	 * @param level: is used for nested Patterns
-	 * @returns ErrorInformation, text empty when no error found, position is set behind pattern
+	 * Checks if the given File is correct M-Code
+	 * @param filename
+	 * @returns Array with list of errors or an empty array if no errors found in file
 	 */
-	private _evaluatePattern(line: string, position: number, level?: number): ErrorInformation {
-		let result = { text: '', position }
-		let patternComplete = false;
-		if (level === undefined) {
-			level = 0;
+	public checkFile(filename: string): ErrorInformation[] {
+		let errlist: ErrorInformation[] = [];
+		let content: string;
+		try {
+			content = fs.readFileSync(filename, "utf8");
+		} catch (err) {
+			errlist.push({ text: 'File read error: ' + filename, position: 0, line: 0 });
+			return errlist;
 		}
-		do {
-			if (line[position] === '@') {
-				result = this.evaluateExpression(expressiontype.Standard, line, ++position);
-				patternComplete = true;
+		let lines = content.split('\n');
+		for (let i = 0; i < lines.length; i++) {
+			lines[i] = lines[i].replace('\r', '');
+			let info = this.checkLine(lines[i]);
+			if (info.text !== '') {
+				info.line = i + 1;
+				errlist.push(info);
+			}
+		}
+		return errlist;
+	}
+	public checkLine(line: string): ErrorInformation {
+		this._tokens = [];
+		this.linePosition = 0;
+		let parsed = this._parseLine(line);
+		if (parsed.lineLabel) {
+			this._splitLabelAndParameters(parsed.lineLabel);
+		}
+		if (parsed.lineIndentationArray) {
+			let position = 0;
+			if (parsed.lineLeadSpace) {
+				position += parsed.lineLeadSpace.length;
+			}
+			if (parsed.lineLabel) {
+				position += parsed.lineLabel.length;
+			}
+			this._tokens.push({ name: ".".repeat(parsed.lineIndentationArray.length), type: TokenType.intendation, position });
+		}
+		if (parsed.lineComment) {
+			this._tokens.push({ name: parsed.lineComment.comment, position: parsed.lineComment.position, type: TokenType.comment });
+		}
+		let result: ErrorInformation = { text: '', position: 0 }
+		if (parsed.lineRoutines) {
+			for (let i = 0; i < parsed.lineRoutines.length; i++) {
+				let code = parsed.lineRoutines[i];
+				if (code.mCommand.length > 0) {
+					let cmd = code.mCommand.toUpperCase();
+					if (cmd === 'H') {
+						if (code.mArguments === '') {
+							cmd = 'HALT';
+						} else {
+							cmd = 'HANG';
+						}
+					}
+					if (cmd.match(command)) {
+						let longcmd = cmd;
+						if (cmdParams[cmd] === undefined) {
+							longcmd = cmdExpansions[cmd];
+						}
+						this._tokens.push({
+							name: code.mCommand,
+							type: TokenType.keyword,
+							position: code.cmdPosition,
+							longName: longcmd,
+							isPostconditioned: code.mPostCondition !== "",
+							hasArguments: code.mArguments !== ""
+						});
+
+						if (longcmd === undefined) {
+							result.text = 'Unknown Command';
+							result.position = code.cmdPosition;
+							return result;
+						}
+						try {
+							result = this._checkCommand(line, longcmd, code);
+						} catch (result) {
+							return result;
+						}
+					} else {
+						return { text: 'Invalid Command', position: code.cmdPosition }
+					}
+				}
+			}
+		}
+		return result;
+	}
+	public analyzeLine(line: string): LineInformation {
+		this._tokens = [];
+		line = line.replace('\r', '');
+		let errInfo = this.checkLine(line);
+		return { error: errInfo, tokens: this._tokens }
+	}
+	public analyzeLines(input: string): Array<Array<LineToken>> {
+		let lines = input.split('\n');
+		let linetokens: Array<Array<LineToken>> = [];
+		for (let i = 0; i < lines.length; i++) {
+			lines[i] = lines[i].replace('\r', '');
+			this.checkLine(lines[i]);
+			linetokens[i] = this._tokens;
+		}
+		return linetokens;
+	}
+	/*
+	public constructLine(inputObject: LineObject): string {
+		let line: string = "";
+		line = renderer.appendLabel(inputObject, line);
+		line = renderer.appendIndentation(inputObject, line);
+		line = renderer.appendRoutines(inputObject, line);
+		line = renderer.appendComment(inputObject, line);
+		return line;
+	}
+	*/
+	public expandCompressFile(filename: string, doExpand: boolean): string {
+		if (doExpand === undefined) { doExpand = false; }
+		let content: string;
+		let lines: string[] = [];
+		try {
+			content = fs.readFileSync(filename, "utf8");
+		} catch (err) {
+			lines[0] = 'File read error: ';
+			return lines[0];
+		}
+		lines = content.split('\n');
+		for (let i = 0; i < lines.length; i++) {
+			lines[i] = lines[i].replace('\r', '');
+			let info = this.expandCompressLine(lines[i], doExpand);
+			if (info.errorText !== '') {
+				lines = [];
+				lines[0] = "Error in Line " + i + " : " + info.errorText;
 				break;
 			}
-			if (line.substring(result.position).match(repititionCount)) {
-				let repCount = line.substring(result.position).match(repititionCount)![0];
-				if (repCount !== '') {
-					patternComplete = false;
-					result.position += repCount.length;
-					if (line.substring(result.position).match(patcode)) {
-						patternComplete = true;
-						result.position += line.substring(result.position).match(patcode)![0].length;
-						continue;
-					} else if (line[result.position] === '(') {
-						result = this._evaluatePattern(line, ++result.position, level + 1);
-						patternComplete = true;
-						continue;
+			lines[i] = info.lineText;
+		}
+		return lines.join("\n");
+	}
+	public expandCompressLine(line: string, doExpand: boolean): ModifiedLine {
+		if (doExpand === false && this.cmdCompressions === undefined) {
+			this.cmdCompressions = {};
+			Object.keys(cmdExpansions).forEach(shortCommand => {
+				this.cmdCompressions[cmdExpansions[shortCommand]] = shortCommand;
+			});
+			this.funcCompressions = {};
+			Object.keys(funcExpansions).forEach(shortFunction => {
+				this.funcCompressions[funcExpansions[shortFunction]] = shortFunction;
+			});
+			this.isvCompressions = {};
+			Object.keys(isvExpansions).forEach(shortIsv => {
+				this.isvCompressions[isvExpansions[shortIsv]] = shortIsv;
+			});
+		}
+		let outline: ModifiedLine = { lineText: line, errorText: '' }
+		let errorinfo = this.checkLine(line);
+		let outText = line;
+		if (errorinfo.text !== "") {
+			outline.errorText = errorinfo.text;
+		} else {
+			let posCorrector = 0;
+			for (let i = 0; i < this._tokens.length; i++) {
+				let token = this._tokens[i];
+				if (token.hasOwnProperty("longName")) {
+					let name = token.name;
+					let longName = name;
+					let position = token.position;
+					if (doExpand) {
+						longName = token.longName!.toLowerCase();
+						if (longName[0] === "$") {
+							longName = "$" + longName[1].toUpperCase() + longName.substring(2);
+						} else {
+							longName = longName[0].toUpperCase() + longName.substring(1);
+						}
+					} else {
+						let checkName = name.toUpperCase();
+						if (name[0] === "$") { checkName = name.substring(1); }
+						if (token.type === TokenType.keyword) {
+							if (this.cmdCompressions[checkName] !== undefined) {
+								longName = this.cmdCompressions[checkName];
+							}
+						} else if (token.type === TokenType.ifunction) {
+							if (this.funcCompressions[checkName] !== undefined) {
+								longName = "$" + this.funcCompressions[checkName];
+							}
+						} else if (token.type === TokenType.sysvariable) {
+							if (this.isvCompressions[checkName] !== undefined) {
+								longName = "$" + this.isvCompressions[checkName];
+							}
+						}
 					}
-				} else if (line[result.position] === ')') {
-					if (!patternComplete) {
-						result.text = 'Incomplete pattern';
+					if (name.length !== longName.length) {
+						outText = outText.substring(0, posCorrector + position) + longName + outText.substring(posCorrector + position + name.length);
+						posCorrector += longName.length - name.length;
+					}
+				}
+			}
+		}
+		outline.lineText = outText;
+		return outline;
+	}
+	public getLabels(text: string): LabelInformation[] {
+		let labels: LabelInformation[] = [];
+		let lines = text.split('\n');
+		for (let i = 0; i < lines.length; i++) {
+			let parsed = this._parseLine(lines[i]);
+			if (parsed.lineLabel) {
+				labels.push({ name: parsed.lineLabel, line: i });
+			}
+		}
+		return labels;
+	}
+	public getTokenAt(line: string, position: number): LineToken | undefined {
+		this.checkLine(line);
+		let memPosition = 0
+		let tokenId = -1
+		for (let i = 0; i < this._tokens.length; i++) {
+			let token = this._tokens[i];
+			if (token.position >= memPosition && token.position < position) {
+				memPosition = token.position;
+				tokenId = i;
+			}
+		}
+		if (tokenId === -1) {
+			return;
+		}
+		return this._tokens[tokenId];
+	}
+	private _checkEntryRefAndPostcondition(line: string, position: number, withParams: boolean): ErrorInformation {
+		let result: ErrorInformation = { text: '', position };
+		result = this._checkEntryRef(line, result.position, withParams);
+		if (line[result.position] === ':') {
+			this._tokens.push({ type: TokenType.argPostcondition, name: ":", position });
+			result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
+		}
+		return result;
+	}
+	private _checkEntryRef(line: string, position: number, withParams: boolean, isUserfunction?: boolean): ErrorInformation {
+		if (isUserfunction === undefined) {
+			isUserfunction = false;
+		}
+		let tokentype: TokenType = TokenType.entryref;
+		if (isUserfunction) {
+			tokentype = TokenType.exfunction;
+		}
+		let result: ErrorInformation = { text: '', position };
+		if (line[result.position] === '@') { //Check Indirection
+			result = this._evaluateExpression(expressiontype.Atom, line, ++result.position);
+			if (line[result.position] === '+') { //Check Label+Offset
+				result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
+			}
+			if (line[result.position] === '^') { //Check if it's a Label like xxx^yyy
+				if (line[result.position + 1] === '@') { // or a Label xxx^@expr
+					result = this._evaluateExpression(expressiontype.Atom, line, ++result.position);
+				} else {
+					if (line.substring(result.position).match(entryref)) {
+						let ref = line.substring(result.position).match(entryref)![0];
+						result.position += ref.length;
+					} else {
+						result.text = 'Invalid EntryRef';
 						throw result;
 					}
-					if (level > 0) {
-						result.position++;
-					}
-					return result;
-				} else if (line[result.position] === ',' && level > 0) {
-					result.position++;
-					continue;
-				} else {
-					break;
 				}
-			} else if (line[result.position] === ')') {
-				if (!patternComplete) {
-					result.text = 'Incomplete pattern';
-					throw result;
-				} else {
-					result.position++;
-				}
-				return result;
-			} else if (line[result.position] === ',' && level > 0) {
-				if (!patternComplete) {
-					result.text = 'Incomplete pattern';
-					throw result;
-				} else {
-					result.position++;
-				}
-				continue;
-			} else {
-				break;
 			}
-		} while (position < line.length)
-		if (!patternComplete) {
-			result.text = 'Incomplete pattern';
+			if (line.substring(result.position, result.position + 2) === '@(') {
+				result.position++;
+			}
+		} else if (line.substring(result.position).match(entryref)) { //No Indirection and a valid entryref
+			let ref = line.substring(result.position).match(entryref)![0];
+			let merkpos = result.position;
+			result.position += ref.length;
+			let char = line[result.position];
+			if (result.position >= line.length) {
+				if (ref.length > 0) {
+					if (ref[0] === '&') {
+						tokentype = TokenType.nonMfunction;
+					}
+					this._tokens.push({ 'type': tokentype, name: ref, position: merkpos + this.linePosition });
+					return result;
+				} else {
+					result.text = 'Missing Entryref';
+					throw result;
+				}
+			}
+			if (ref.indexOf('^') === -1 && char === '+') {
+				result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
+				//ref += "+X";
+				if (result.position >= line.length) {
+					this._tokens.push({ 'type': tokentype, name: ref, position: merkpos + this.linePosition });
+					return result
+				}
+				if (line.substring(result.position).match(routineref)) {
+					let routine = line.substring(result.position).match(routineref)![0];
+					ref += routine;
+					result.position += routine.length;
+				}
+			}
+			this._tokens.push({ 'type': tokentype, name: ref, position: merkpos + this.linePosition });
+		} else {
+			result.text = 'Invalid Entryref';
 			throw result;
 		}
-		if (level > 0) {
-			result.text = 'Missing ")"';
+		if (line[result.position] === '(' && withParams) {
+			result = this._evaluateExpression(expressiontype.eArgument, line, ++result.position, 1);
+		}
+		return result
+	}
+	private _checkVar(line: string, position: number, globalOk?: boolean, indexOk?: boolean, isExluded?: boolean): ErrorInformation {
+		let result: ErrorInformation = { text: '', position, indexFound: false, globalFound: false, indirectionFound: false };
+		let varFound = false;
+		if (globalOk === undefined) {
+			globalOk = true;
+		}
+		if (indexOk === undefined) {
+			indexOk = true;
+		}
+		if (isExluded === undefined) {
+			isExluded = false;
+		}
+		if (line[result.position] === '@') {
+			result = this._evaluateExpression(expressiontype.Atom, line, ++result.position);
+			result.indirectionFound = true;
+			varFound = true;
+			if (line.substring(result.position, result.position + 2) === '@(') {
+				result.position++;
+			}
+		} else {
+			if (line.substring(result.position).match(gvn) || line.substring(result.position, result.position + 2) === '^|') {
+				if (!globalOk) {
+					result.text = 'Global not allowed here';
+					throw result;
+				}
+				result.globalFound = true;
+				if (line.substring(result.position, result.position + 2) === '^|') {
+					result.position += 2
+					result = this._evaluateExpression(expressiontype.Standard, line, result.position);
+					result.globalFound = true;
+					if (line[result.position] === ',') {
+						result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
+						result.globalFound = true;
+					}
+					if (line[result.position] !== '|') {
+						result.text = 'Missing "|"';
+						throw result;
+					}
+					result.position++;
+					if (line.substring(result.position).match(lvn)) {
+						let global = line.substring(result.position).match(lvn)![0];
+						this._tokens.push({ name: global, type: TokenType.global, position: result.position + this.linePosition });
+						varFound = true;
+						result.position += global.length;
+					}
+				} else {
+					let global = line.substring(result.position).match(gvn)![0];
+					this._tokens.push({ name: global, type: TokenType.global, position: result.position + this.linePosition });
+					varFound = true;
+					result.position += global.length;
+				}
+			} else if (line.substring(result.position).match(lvn)) {  // local variable found
+				let local = line.substring(result.position).match(lvn)![0];
+				this._tokens.push({ name: local, type: TokenType.local, position: result.position + this.linePosition, isExcludedVariable: isExluded });
+				varFound = true;
+				result.position += local.length;
+			} else if (line.substring(result.position, result.position + 2) === '^(') {
+				result.globalFound = true;
+				if (!globalOk) {
+					result.text = 'Global not allowed here';
+					varFound = false;
+					throw result;
+				}
+				varFound = true;
+				result.position++;
+			}
+		}
+		if (varFound && line[result.position] === '(') {
+			if (!indexOk) {
+				result.text = 'Index not allowed here';
+				throw result;
+			}
+			let provResult = this._evaluateExpression(expressiontype.Index, line, ++result.position, 1);
+			result.position = provResult.position;
+			result.indexFound = true;
+		}
+		if (!varFound) {
+			result.text = 'Name missing';
 			throw result;
 		}
 		return result;
-
 	}
+	private _checkBreak(line: string, position: number): ErrorInformation {
+		//[expr[:tvexpr][,...]]
+		let result = this._evaluateExpression(expressiontype.Standard, line, position);
+		if (line[result.position] === ':') {
+			result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
+		}
+		return result;
+	}
+	private _checkKeyword(keywords: RegExp, line: string, position: number): ErrorInformation {
+		let result: ErrorInformation = { text: '', position };
+		if (line.substring(result.position).match(keywords)) {
+			let keyword = line.substring(result.position).match(keywords)![0];
+			result.position += keyword.length;
+			if (keyword.slice(-1) === '=') {
+				result = this._evaluateExpression(expressiontype.Standard, line, result.position);
+			}
+		} else {
+			result.text = 'No valid Keyword for command found';
+			throw result;
+		}
+		return result;
+	}
+	private _checkOUC(keywords: RegExp, line: string, position: number): ErrorInformation {
+		let result: ErrorInformation = { text: '', position };
+		//expr[:(keyword[=expr][:...])][,...]
+		result = this._evaluateExpression(expressiontype.Standard, line, result.position);
+		if (line[result.position] === ':') {
+			result.position++;
+			if (line[result.position] === '(') {
+				result.position++;
+				let braceComplete = false;
+				do {
+					result = this._checkKeyword(keywords, line, result.position);
+					braceComplete = true;
+					if (line[result.position] === ')') {
+						result.position++;
+						break;
+					}
+					if (line[result.position] !== ':') {
+						result.text = 'Unecpected Character';
+						throw result;
+					} else {
+						result.position++;
+					}
+					braceComplete = false;
+				} while (!this._isEndOfArgument(line, result.position))
+				if (!braceComplete) {
+					result.text = 'Missing ")" or Keyword';
+					throw result;
+				}
+			} else {
+				if (line[result.position] !== ':') {
+					result = this._checkKeyword(keywords, line, result.position);
+				}
+			}
+		}
+		if (keywords === openkeywords && line[result.position] === ':') {
+			result.position++;
+			if (line[result.position] !== ':') {
+				result = this._evaluateExpression(expressiontype.Standard, line, result.position);
+			}
+		}
+		if (keywords === openkeywords && line[result.position] === ':') {
+			result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
+		}
+		return result;
+	}
+	private _checkFor(line: string, position: number, argNumber: number): ErrorInformation {
+		//[lvn=expr[:numexpr1[:numexpr2]][,...]]]
+		let result: ErrorInformation = { text: '', position };
+		if (argNumber > 1) { //If it's not the first Argument the Options are possible: F I=1:2:3,4 or F I=1:2:3,I=4:1:6
+			try {
+				let provResult = this._checkVar(line, result.position, false);
+				if (line[provResult.position] === '"') {
+					result.position = provResult.position + 1;
+				}
+			} catch (provResult) {
+				if (provResult.text !== "Name missing") {
+					throw result;
+				}
+			}
+		} else {
+			result = this._checkVar(line, result.position, false);
+			if (line[result.position] !== '=') {
+				result.text = 'Missing equal-sign';
+				throw result;
+			}
+			result.position++;
+		}
+		result = this._evaluateExpression(expressiontype.Standard, line, result.position);
+		if (line[result.position] !== ':') {
+			return result;
+		}
+		result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
+		if (line[result.position] !== ':') {
+			return result;
+		}
+		result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
+		return result;
+	}
+	private _checkJobKeyword(line: string, position: number): ErrorInformation {
+		let result: ErrorInformation = { text: '', position };
+		if (line.substring(result.position).match(jobkeywords)) {
+			let keyword = line.substring(result.position).match(jobkeywords)![0];
+			result.position += keyword.length;
+			if (keyword[keyword.length - 1] === '=') {
+				if (line.substring(result.position).match(strlit)) {
+					let stringlit = line.substring(result.position).match(strlit)![0];
+					result.position += stringlit.length;
+					if (stringlit.length === 0) {
+						result.text = 'String literal expected';
+						throw result;
+					}
+				} else {
+					result.text = 'String literal expected';
+					throw result;
+				}
+			}
+		} else {
+			result.text = 'No valid Keyword for JOB Command';
+			throw result;
+		}
+		return result;
+	}
+	private _checkJob(line: string, position: number): ErrorInformation {
+		//entryref[(expr[,...])][:[(keyword[=value][:...])][:numexpr]][,...]
+		let result = this._checkEntryRef(line, position, true);
+		if (line[result.position] === ':') {
+			result.position++;
+			if (line[result.position] === '(') {
+				result.position++;
+				let braceComplete = false;
+				do {
+					result = this._checkJobKeyword(line, result.position);
+					braceComplete = true;
+					if (line[result.position] === ')') {
+						result.position++;
+						break;
+					}
+					if (line[result.position] !== ':') {
+						result.text = 'Unecpected Character';
+						throw result;
+					} else {
+						result.position++;
+					}
+					braceComplete = false;
+				} while (!this._isEndOfArgument(line, result.position))
+				if (!braceComplete) {
+					result.text = 'Missing ")" or Keyword';
+					throw result;
+				}
+			} else {
+				if (line[result.position] !== ':') {
+					result = this._checkJobKeyword(line, result.position);
+				}
+			}
+		}
+		if (line[result.position] === ':') { //Numeric expression for Job-Timeout
+			result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
+		}
+		return result;
+	}
+	private _checkKill(line: string, position: number): ErrorInformation {
+		//[glvn | (lvn[,...]) | *lname | *lvn ]
+		let result: ErrorInformation = { text: '', position };
+		if (line[result.position] === '(') {
+			result.position++;
+			let braceComplete = false;
+			do {
+				result = this._checkVar(line, result.position);
+				braceComplete = true;
+				if (line[result.position] === ')') {
+					result.position++;
+					break;
+				}
+				if (line[result.position] !== ',') {
+					result.text = 'Unecpected Character';
+					throw result;
+				} else {
+					result.position++;
+				}
+				braceComplete = false;
+			} while (!this._isEndOfArgument(line, result.position))
+			if (!braceComplete) {
+				result.text = 'Missing ")" or Name';
+				throw result;
+			}
+		} else {
+			result = this._checkVar(line, result.position);
+		}
+		return result;
+	}
+	private _checkLock(line: string, position: number, isLock: boolean): ErrorInformation {
+		//[[-|+]nref|(nref[,...])[:numexpr] [,...]]
+		let result: ErrorInformation = { text: '', position };
+		if ((line[result.position] === '+' || line[result.position] === '-') && isLock) {
+			result.position++;
+		}
+		if (line[result.position] === '(') {
+			result.position++;
+			let braceComplete = false;
+			do {
+				result = this._checkVar(line, result.position);
+				braceComplete = true;
+				if (line[result.position] === ')') {
+					result.position++;
+					break;
+				}
+				if (line[result.position] !== ',') {
+					result.text = 'Unecpected Character';
+					throw result;
+				} else {
+					result.position++;
+				}
+				braceComplete = false;
+			} while (!this._isEndOfArgument(line, result.position))
+			if (!braceComplete) {
+				result.text = 'Missing ")" or Name';
+				throw result;
+			}
+		} else {
+			result = this._checkVar(line, result.position);
+		}
+		if (line[result.position] === ':') {
+			result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
+		}
+		return result;
+	}
+	private _checkMerge(line: string, position: number): ErrorInformation {
+		//glvn=glvn[,...]
+		let result: ErrorInformation = { text: '', position };
+		result = this._checkVar(line, result.position);
+		if (line[result.position] !== '=') {
+			result.text = 'Equal-Sign expected';
+			throw result;
+		}
+		result = this._checkVar(line, ++result.position);
+		return result;
+	}
+	private _checkNew(line: string, position: number): ErrorInformation {
+		//[[(]lvn[,...][)][,...]]
+		let result: ErrorInformation = { text: '', position };
+		if (line[result.position] === '(') {
+			result.position++;
+			let braceComplete = false;
+			do {
+				if (line.substring(result.position).match(isv)) {
+					let sysvariable = line.substring(result.position).match(isv)![0];
+					let longName = sysvariable.toUpperCase();
+					if (isvExpansions[longName.substring(1)] !== undefined) {
+						longName = "$" + isvExpansions[longName.substring(1)];
+					}
+					this._tokens.push({ name: sysvariable, position: position + this.linePosition, type: TokenType.sysvariable, longName, isExcludedVariable: true });
+					result.position += sysvariable.length;
+				} else {
+					result = this._checkVar(line, result.position, false, false, true);
+				}
+				braceComplete = true;
+				if (line[result.position] === ')') {
+					result.position++;
+					break;
+				}
+				if (line[result.position] !== ',') {
+					result.text = 'Unecpected Character';
+					throw result;
+				} else {
+					result.position++;
+				}
+				braceComplete = false;
+			} while (!this._isEndOfArgument(line, result.position))
+			if (!braceComplete) {
+				result.text = 'Missing ")" or Name';
+				throw result;
+			}
+		} else {
+			if (line.substring(result.position).match(isv)) {
+				let sysvariable = line.substring(result.position).match(isv)![0];
+				let longName = sysvariable.toUpperCase();
+				if (isvExpansions[longName.substring(1)] !== undefined) {
+					longName = "$" + isvExpansions[longName.substring(1)];
+				}
+				this._tokens.push({ name: sysvariable, position: position + this.linePosition, type: TokenType.sysvariable, longName, isExcludedVariable: false });
+				result.position += sysvariable.length;
+			} else {
+				result = this._checkVar(line, result.position, false);
+			}
+		}
+		return result;
+	}
+	private _checkRead(line: string, position: number): ErrorInformation {
+		//(glvn|*glvn|glvn#intexpr)[:numexpr]|strlit|fcc[,...]
+		let result: ErrorInformation = { text: '', position };
+		let starDetected = false;
+		let mat: string[] | null;
+		if (line[result.position] === '*') {
+			result.position++;
+			starDetected = true;
+		}
+		try {
+			let provResult = this._checkVar(line, result.position);
+			result.position = provResult.position;
+			if (line[result.position] === '#') {
+				result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
+				if (result.text !== '') {
+					return result;
+				}
+			}
+			if (line[result.position] === ':') {
+				result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
+			}
+			return result;
+		} catch {
+			if (starDetected) {
+				result.text = 'Variable expected';
+				throw result;
+			}
+			if (mat = line.substring(result.position).match(strlit)) {
+				result.position += mat[0].length;
+				return result;
+			} else if (mat = line.substring(result.position).match(/^(#|!)+/)) {
+				result.position += mat[0].length;
+			}
+			if (line[result.position] === '?') {
+				result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
+				return result;
+			}
+		}
+		return result;
+	}
+	private _checkSet(line: string, position: number): ErrorInformation {
+		//setleft=expr | (setleft[,...])=expr | *lvn=lname | aliascontainer[,...]
+		let result: ErrorInformation = { text: '', position };
+		let mat: string[] | null;
+		let isBraced = false;
+		if (line[result.position] === '*') { //*lvn=lname
+			result = this._checkVar(line, ++result.position, false);
+			if (line[result.position] !== '=') {
+				result.text = 'Equal-Sign expected';
+				throw result;
+			}
+			result = this._checkVar(line, ++result.position, false);
+			return result;
+		}
+		if (line[result.position] === '(') {
+			isBraced = true;
+			result.position++;
+		}
+		do {
+			if (line[result.position] === '@') {
+				try {
+					let provResult = this._checkVar(line, result.position);
+					result.position = provResult.position;
+					if (this._isEndOfArgument(line, result.position) || line[result.position] === ',') {
+						return result;
+					}
+				} catch {
+					result = this._evaluateExpression(expressiontype.Atom, line, ++result.position);
+					if (this._isEndOfArgument(line, result.position) || line[result.position] === ',') {
+						return result;
+					}
+				}
+			} else if (mat = line.substring(result.position).match(/^\$Z?(PIECE|P|EXTRACT|E)\(/i)) {
+				let functionname = mat[0].substring(1, mat[0].length - 1).toUpperCase();
+				result.position += functionname.length + 2
+				if (funcExpansions[functionname] !== undefined) {
+					this._tokens.push({ name: "$" + functionname, position: result.position - functionname.length - 2, type: TokenType.ifunction, longName: "$" + funcExpansions[functionname] });
+					functionname = funcExpansions[functionname];
+				}
+				result = this._checkFunction(functionname, line, result.position);
+			} else if (mat = line.substring(result.position).match(isv)) {
+				result.position += mat[0].length;
+			} else {
+				result = this._checkVar(line, result.position, true);
+			}
+			if (line[result.position] === ',' && isBraced) {
+				result.position++;
+				continue;
+			}
+			if (line[result.position] === ')' && isBraced) {
+				isBraced = false;
+				result.position++;
+			}
+		} while (!this._isEndOfArgument(line, result.position) && isBraced);
+		if (line[result.position] !== '=') {
+			result.text = 'Equal-Sign expected';
+			throw result;
+		}
+		result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
+		return result;
+	}
+	private _checkTstart(line: string, position: number): ErrorInformation {
+		//[([lvn...])|lvn|*|][:keyword|(keyword...)]
+		let result: ErrorInformation = { text: '', position };
+		if (line[result.position] === '(') {
+			result.position++;
+			if (line[result.position] !== ')') {
+				let braceComplete = false;
+				do {
+					braceComplete = true;
+					result = this._checkVar(line, result.position, false, false);
+					if (line[result.position] === ')') {
+						result.position++;
+						break;
+					}
+					if (line[result.position] !== ',') {
+						result.text = 'Unecpected Character';
+						throw result;
+					} else {
+						result.position++;
+					}
+					braceComplete = false;
+				} while (!this._isEndOfArgument(line, result.position))
+				if (!braceComplete) {
+					result.text = 'Missing ")" or Name';
+					throw result;
+				}
+			}
+		} else {
+			if (line[result.position] !== '*') {
+				result = this._checkVar(line, result.position, false, false);
+			}
+		}
+		if (line[result.position] === ':') {
+			result.position++;
+			if (line[result.position] === '(') {
+				result.position++;
+				let braceComplete = false;
+				do {
+					result = this._checkKeyword(tstartkeywords, line, result.position);
+					braceComplete = true;
+					if (line[result.position] === ')') {
+						result.position++;
+						break;
+					}
+					if (line[result.position] !== ':') {
+						result.text = 'Unecpected Character';
+						throw result;
+					} else {
+						result.position++;
+					}
+					braceComplete = false;
+				} while (result.position < line.length)
+				if (!braceComplete) {
+					result.text = 'Missing ")" or Keyword';
+					throw result;
+				}
+			} else {
+				result = this._checkKeyword(tstartkeywords, line, result.position);
+			}
+		}
 
-	public evaluateExpression(exType: number, line: string, position: number, level?: number | undefined): ErrorInformation {
+		return result;
+	}
+	private _checkView(line: string, position: number): ErrorInformation {
+		//keyword[:expr[:...]][,...]
+		let result: ErrorInformation = { text: '', position };
+		result = this._evaluateExpression(expressiontype.Standard, line, result.position);
+		while (line[result.position] === ':') {
+			result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
+		}
+		return result;
+	}
+	private _checkWrite(line: string, position: number): ErrorInformation {
+		//expr|*intexpr|fcc[,...]
+		let result: ErrorInformation = { text: '', position };
+		let mat: string[] | null;
+		if (line[result.position] === '*') {
+			result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
+			return result;
+		}
+		if (line.substring(result.position).match(/^\/(EOF|PASS|ACCEPT|LISTEN|L|TLS|WAIT|W)/i)) {
+			result = this._checkWriteSocket(line, result.position);
+			return result;
+		}
+		if (mat = line.substring(result.position).match(/^(#|!)+/)) {
+			result.position += mat[0].length;
+			if (line[result.position] === '?') {
+				result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
+			}
+			return result;
+		}
+		if (line[result.position] === '?') {
+			result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
+			return result;
+		}
+		result = this._evaluateExpression(expressiontype.Standard, line, result.position);
+		return result;
+	}
+	private _checkWriteSocket(line: string, position: number): ErrorInformation {
+		let result: ErrorInformation = { text: '', position };
+		let mat: string[] | null;
+		if (mat = line.substring(result.position).match(/^\/(EOF|PASS|ACCEPT|LISTEN|L|TLS|WAIT|W)/i)) {
+			result.position += mat[0].length;
+			let fname = mat![0].toUpperCase();
+			if (fname === '/EOF') {
+				return result;
+			}
+			if (line[result.position] !== '(') {
+				if (!fname.match(/^\/(LISTEN|L|WAIT|W)/)) {
+					result.text = fname + ' needs Parameter(s)';
+					throw result;
+				}
+				return result;
+			}
+			result.position++;
+			let maxparams = 99;
+			if (fname === '/LISTEN' || fname === '/L' || fname === '/WAIT' || fname === '/W') {
+				maxparams = 1;
+			} else if (fname === '/TLS') {
+				maxparams = 4;
+			}
+			let paramCount = 0;
+			let braceComplete = false;
+			do {
+				paramCount++;
+				if (paramCount > maxparams) {
+					result.text = 'More Parameters than expected';
+					throw result;
+				}
+				if (fname === '/ACCEPT' && paramCount === 1) {
+					if (line[result.position] !== '.') {
+						result.text = 'Local Variablereference expected (.lvn)';
+						throw result
+					}
+					result = this._checkVar(line, ++result.position, false, false);
+				} else {
+					result = this._evaluateExpression(expressiontype.Standard, line, result.position);
+				}
+				braceComplete = true;
+				if (line[result.position] === ',') {
+					braceComplete = false;
+					continue;
+				}
+				if (line[result.position] === ')') {
+					result.position++;
+					break;
+				}
+			} while (!this._isEndOfArgument(line, result.position))
+			if (!braceComplete) {
+				result.text = 'Missing Parameter or ")"';
+				throw result;
+			}
+		}
+		return result;
+	}
+	private _checkXecute(line: string, position: number): ErrorInformation {
+		let result: ErrorInformation = { text: '', position };
+		result = this._evaluateExpression(expressiontype.Standard, line, result.position);
+		if (line[result.position] === ':') {
+			result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
+		}
+		return result;
+	}
+	private _checkZbreak(line: string, position: number): ErrorInformation {
+		//[-]entryref[:[expr][:intexpr]][,...]
+		let result: ErrorInformation = { text: '', position };
+		if (line[result.position] === '-') {
+			result.position++;
+			if (line[result.position] === '*') {
+				result.position++;
+				return result;
+			}
+		}
+		result = this._checkEntryRef(line, result.position, false);
+		if (line[result.position] === ':') {
+			result.position++;
+			if (line[result.position] === ':') {
+				result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
+			} else {
+				result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
+				if (line[result.position] === ':') {
+					result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
+				}
+			}
+		}
+		return result;
+	}
+	private _checkZprint(line: string, position: number): ErrorInformation {
+		// 'parameter': '[entryref[:label[+intexpr]][,...]'
+		let result: ErrorInformation = { text: '', position };
+		result = this._checkEntryRef(line, result.position, false);
+		if (line[result.position] === ':') {
+			result = this._checkEntryRef(line, ++result.position, false);
+		}
+		return result;
+	}
+	private _checkZstep(line: string, position: number): ErrorInformation {
+		// 'parameter': '[keyword[:expr]][,...]'
+		let result: ErrorInformation = { text: '', position };
+		let mat: string[] | null;
+
+		if (mat = line.substring(result.position).match(/^(INTO|OUTOF|OU|OVER|OV)/i)) {
+			result.position += mat.length;
+		} else {
+			result.text = 'Invalid ZSTEP Qualifier';
+			throw result;
+		}
+		if (line[result.position] === ':') {
+			result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
+		}
+		return result;
+	}
+	private _checkCommand(line: string, longcmd: string, code: TmpFunction): ErrorInformation {
+		let para = cmdParams[longcmd];
+		let position = code.pcPosition
+		let postcondPossible = para.postcondition;
+		let argFormat = para.parameter;
+		let result: ErrorInformation = { text: '', position: 0 }
+		if (!postcondPossible && code.mPostCondition !== '') {
+			throw { text: 'Poscondition not allowed', position }
+		} else if (code.mPostCondition !== '') {
+			result = this._evaluateExpression(expressiontype.Standard, line, position);
+		}
+		position = code.argPosition;
+		if (code.mArguments === '') {
+			if (argFormat === '' || argFormat[0] === '[') {
+				return { text: '', position }
+			} else {
+				throw { text: 'Argument for command ' + code.mCommand + " required", position }
+			}
+		}
+		result.position = position;
+		let argCount = 0;
+		do {
+			argCount++;
+			switch (longcmd) {
+				case 'BREAK':
+					result = this._checkBreak(line, result.position);
+					break;
+				case 'CLOSE':
+					result = this._checkOUC(closekeywords, line, result.position);
+					break;
+				case 'DO':
+					result = this._checkEntryRefAndPostcondition(line, result.position, true);
+					break;
+				case 'ELSE':
+					if (line !== '') {
+						throw { text: 'No Argument expected', position }
+					}
+					break;
+				case 'FOR':
+					result = this._checkFor(line, result.position, argCount);
+					break;
+				case 'GOTO':
+					result = this._checkEntryRefAndPostcondition(line, result.position, false);
+					break;
+				case 'HANG':
+					result = this._evaluateExpression(expressiontype.Standard, line, result.position);
+					break;
+				case 'IF':
+					result = this._evaluateExpression(expressiontype.Standard, line, result.position);
+					break;
+				case 'JOB':
+					result = this._checkJob(line, result.position);
+					break;
+				case 'KILL':
+					result = this._checkKill(line, result.position);
+					break;
+				case 'LOCK':
+					result = this._checkLock(line, result.position, true);
+					break;
+				case 'MERGE':
+					result = this._checkMerge(line, result.position);
+					break;
+				case 'NEW':
+					result = this._checkNew(line, result.position);
+					break;
+				case 'OPEN':
+					result = this._checkOUC(openkeywords, line, result.position);
+					break;
+				case 'QUIT':
+					if (argCount > 1) {
+						result.text = 'Quit allows only one Argument'
+						throw result;
+					} else {
+						if (line[result.position] === '*') {
+							result = this._checkVar(line, ++result.position, false);
+						} else {
+							result = this._evaluateExpression(expressiontype.Standard, line, result.position);
+						}
+					}
+					break;
+				case 'READ':
+					result = this._checkRead(line, result.position);
+					break;
+				case 'SET':
+					result = this._checkSet(line, result.position);
+					break;
+				case 'TROLLBACK':
+					if (argCount > 1) {
+						result.text = 'TROLLBACK allows only one Argument'
+					} else {
+						result = this._evaluateExpression(expressiontype.Standard, line, result.position);
+					}
+					break;
+				case 'TSTART':
+					result = this._checkTstart(line, result.position);
+					break;
+				case 'USE':
+					result = this._checkOUC(usekeywords, line, result.position);
+					break;
+				case 'VIEW':
+					result = this._checkView(line, result.position);
+					break;
+				case 'WRITE':
+					result = this._checkWrite(line, result.position);
+					break;
+				case 'XECUTE':
+					result = this._checkXecute(line, result.position);
+					break;
+				case 'ZALLOCATE':
+					result = this._checkLock(line, result.position, false);
+					break;
+				case 'ZBREAK':
+					result = this._checkZbreak(line, result.position);
+					break;
+				case 'ZCOMPILE':
+					// 'abbreviation': 'ZCOM',
+					// 'postcondition': true,
+					// 'parameter': 'expr[,...]'
+					result = this._evaluateExpression(expressiontype.Standard, line, result.position);
+					break;
+				case 'ZDEALLOCATE':
+					result = this._checkVar(line, result.position);
+					// 'abbreviation': 'ZD',
+					// 'postcondition': true,
+					// 'parameter': '[nref[,...]]'
+					break;
+				case 'ZEDIT':
+					result = this._evaluateExpression(expressiontype.Standard, line, result.position);
+					// 'abbreviation': 'ZED',
+					// 'postcondition': true,
+					// 'parameter': '[expr[,...]]'
+					break;
+				case 'ZGOTO':
+					result = this._evaluateExpression(expressiontype.Standard, line, result.position);
+					if (line[result.position] === ':') {
+						result = this._checkEntryRefAndPostcondition(line, ++result.position, false);
+					}
+					// 'abbreviation': 'ZG',
+					// 'postcondition': true,
+					// 'parameter': '[[intexpr][:entryref[:tvexpr]],...]'
+					break;
+				case 'ZHALT':
+					result = this._evaluateExpression(expressiontype.Standard, line, result.position);
+					// 'abbreviation': 'ZHALT',
+					// 'postcondition': true,
+					// 'parameter': '[intexpr]'
+					break;
+				case 'ZHELP':
+					result = this._evaluateExpression(expressiontype.Standard, line, result.position);
+					if (line[result.position] === ':') {
+						result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
+					}
+					// 'abbreviation': 'ZH',
+					// 'postcondition': true,
+					// 'parameter': '[expr1[:expr2],...]'
+					break;
+				case 'ZKILL':
+					result = this._checkVar(line, result.position);
+					// 'abbreviation': 'ZK',
+					// 'postcondition': true,
+					// 'parameter': 'glvn'
+					break;
+				case 'ZLINK':
+					result = this._evaluateExpression(expressiontype.Standard, line, result.position);
+					if (line[result.position] === ':') {
+						result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
+					}
+					// 'abbreviation': 'ZL',
+					// 'postcondition': true,
+					// 'parameter': '[expr1[:expr2][,...]]'
+					break;
+				case 'ZMESSAGE':
+					result = this._evaluateExpression(expressiontype.Standard, line, result.position);
+					while (line[result.position] === ':') {
+						result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
+					}
+					// 'abbreviation': 'ZM',
+					// 'postcondition': true,
+					// 'parameter': 'intexpr[:expr2][:...]'
+					break;
+				case 'ZPRINT':
+					// 'abbreviation': 'ZP',
+					// 'postcondition': true,
+					// 'parameter': '[entryref[:label[+intexpr]][,...]'
+					result = this._checkZprint(line, result.position);
+					break;
+				case 'ZRUPDATE':
+					// 'abbreviation': 'ZRUP',
+					// 'postcondition': true,
+					// 'parameter': 'expr[,...]'
+					result = this._evaluateExpression(expressiontype.Standard, line, result.position);
+					break;
+				case 'ZSHOW':
+					// 'abbreviation': 'ZSH',
+					// 'postcondition': true,
+					// 'parameter': '[expr[:glvn][,...]]'
+					result = this._evaluateExpression(expressiontype.Standard, line, result.position);
+					if (line[result.position] === ':') {
+						result = this._checkVar(line, ++result.position);
+					}
+					break;
+				case 'ZSTEP':
+					// 'abbreviation': 'ZST',
+					// 'postcondition': true,
+					// 'parameter': '[keyword[:expr]][,...]'
+					result = this._checkZstep(line, result.position);
+					break;
+				case 'ZSYSTEM':
+					// 'abbreviation': 'ZSY',
+					// 'postcondition': true,
+					// 'parameter': '[expr][,...]]'
+					result = this._evaluateExpression(expressiontype.Standard, line, result.position);
+					break;
+				case 'ZTCOMMIT':
+					// 'abbreviation': 'ZTC',
+					// 'postcondition': true,
+					// 'parameter': '[intexpr]'
+					result = this._evaluateExpression(expressiontype.Standard, line, result.position);
+					break;
+				case 'ZTRIGGER':
+					// 'abbreviation': 'ZTR',
+					// 'postcondition': true,
+					// 'parameter': 'gvn'
+					result = this._checkVar(line, result.position, true, false);
+					if (!result.globalFound) {
+						result.text = 'Global Variable expected';
+						throw result;
+					}
+					break;
+				case 'ZWITHDRAW':
+					// 'abbreviation': 'ZWI',
+					// 'postcondition': true,
+					// 'parameter': 'glvn'
+					result = this._checkVar(line, result.position);
+					break;
+				case 'ZWRITE':
+					//'abbreviation': 'ZWR',
+					//'postcondition': true,
+					//'parameter': '[zwrglvn[,...]]'
+					//not separately tested because ZWRITE is for debugging and should not appear in normal code
+					result.position += line.length;
+					break;
+				default:
+					result.position = line.length;
+					break;
+			}
+			if (line[result.position] === ',') {
+				result.position++;
+				if (result.position === line.length) {
+					if (argFormat !== '' && argFormat[0] !== '[') {
+						throw { text: 'Argument for command ' + code.mCommand + " required", position: result.position }
+					}
+				}
+				continue;
+			} else if (line[result.position] !== undefined) {
+				let char = line[result.position];
+				if (char === " " || char === "\t" || char === ";") { break; }
+				result.text = 'Unexpected Character "' + line[result.position] + '"';
+				throw result;
+			}
+		} while (result.position < line.length)
+		return result;
+	}
+	private _checkFunction(longfunc: string, line: string, position: number): ErrorInformation {
+		let result: ErrorInformation = { text: '', position: position };
+		let params = funcParams[longfunc];
+		if (params === undefined) {
+			result.text = "Unknown Function " + longfunc;
+			throw result;
+		}
+		let minArguments = params.minparams !== undefined ? params.minparams : 1;
+		let formats = params.format !== undefined ? params.format.split(',') : undefined;
+		let argCount = 0;
+		longfunc = '$' + longfunc;
+		if (minArguments === 0 && line[result.position] === ')') {
+			result.position++;
+			return result;
+		}
+		do {
+			let format = (formats !== undefined && formats[argCount] !== undefined) ? formats[argCount] : 'expr';
+			if (longfunc === '$SELECT') {
+				format = 'special';
+			}
+			if (format === 'glvn' || format === 'gvn' || format === 'glvn(' || format === 'lvn') {
+				result = this._checkVar(line, result.position);
+				if (format === 'glvn(' && (!result.indexFound && !result.indirectionFound)) {
+					result.text = 'Variable with Index expected for ' + longfunc;
+					throw result;
+				}
+				if (format === 'lvn' && result.globalFound) {
+					result.text = 'Local variable expected';
+					throw result;
+				}
+			} else if (format === 'entryref') {
+				result = this._checkEntryRef(line, result.position, false);
+			} else if (format === 'expr') {
+				result = this._evaluateExpression(expressiontype.Standard, line, result.position);
+			} else if (format === 'bool') {
+				if (line[result.position] !== '0' && line[result.position] !== '1') {
+					result.text = '0/1 expected';
+					throw result;
+				} else {
+					result.position++;
+				}
+			} else if (format === 'special') {
+				if (longfunc === '$SELECT') {
+					result = this._evaluateExpression(expressiontype.Standard, line, result.position);
+					if (line[result.position] !== ':') {
+						result.text = 'Missing Expression';
+						throw result;
+					}
+					result.position++
+					result = this._evaluateExpression(expressiontype.Standard, line, result.position);
+				}
+			}
+			argCount++;
+			let char = line[result.position];
+			if (char === ',') {
+				if (argCount > params.maxparams) {
+					result.text = 'More Arguments for ' + longfunc + ' than expected';
+					throw result;
+				}
+				result.position++;
+				continue;
+			} else if (char === ')') {
+				if (argCount < minArguments) {
+					result.text = 'Less Arguments for ' + longfunc + ' than expected';
+					throw result;
+				}
+				result.position++;
+				break;
+			} else {
+				result.text = 'Unxepected character ';
+				throw result;
+			}
+		} while (!this._isEndOfArgument(line, result.position));
+
+		return result;
+	}
+	private _evaluateExpression(exType: number, line: string, position: number, level?: number | undefined): ErrorInformation {
 		let expressionComplete = false;
 		let startposition = position;
 		if (level === undefined) {
@@ -671,7 +1928,7 @@ class MumpsLineParser {
 					case 'pattern':
 						throw { text: 'Unecpected "("', position };
 				}
-				let result = this.evaluateExpression(subExType, line, ++position, level + 1);
+				let result = this._evaluateExpression(subExType, line, ++position, level + 1);
 				if (exType === expressiontype.Atom) {
 					return result;
 				}
@@ -816,32 +2073,137 @@ class MumpsLineParser {
 			throw { text: 'Incomplete Expression', position };
 		}
 	}
-	private _extractLabel(inputObject: LineObject): LineObject {
-		inputObject.lineLabel = '';
-		let inputLine = inputObject.lineExpression;
-		inputObject.lineExpression = '';
-		if (inputLine.match(label)) {
-			inputObject.lineLabel = inputLine.match(label)![0];
+
+	/**
+ * Checks Mumps-patterns, throws error when error found in pattern
+ * @param line: Line to be analyzed
+ * @param position: startposition
+ * @param level: is used for nested Patterns
+ * @returns ErrorInformation, text empty when no error found, position is set behind pattern
+ */
+	private _evaluatePattern(line: string, position: number, level?: number): ErrorInformation {
+		let result = { text: '', position }
+		let patternComplete = false;
+		if (level === undefined) {
+			level = 0;
 		}
-		let position = inputObject.lineLabel.length;
-		if (position === inputLine.length) {
-			return inputObject
-		}
-		if (!inputLine.charAt(position).match(/[\s|;]/)) {
-			inputObject.errorText = 'Unexpected Character' + inputLine.charAt(position);
-			inputObject.errorPosition = position;
-			return inputObject;
-		}
-		let i = 0;
-		for (i = position; i <= inputLine.length; i++) {
-			if (inputLine[i] !== " " && inputLine[i] !== "\t") {
+		do {
+			if (line[position] === '@') {
+				result = this._evaluateExpression(expressiontype.Standard, line, ++position);
+				patternComplete = true;
 				break;
 			}
+			if (line.substring(result.position).match(repititionCount)) {
+				let repCount = line.substring(result.position).match(repititionCount)![0];
+				if (repCount !== '') {
+					patternComplete = false;
+					result.position += repCount.length;
+					if (line.substring(result.position).match(patcode)) {
+						patternComplete = true;
+						result.position += line.substring(result.position).match(patcode)![0].length;
+						continue;
+					} else if (line[result.position] === '(') {
+						result = this._evaluatePattern(line, ++result.position, level + 1);
+						patternComplete = true;
+						continue;
+					}
+				} else if (line[result.position] === ')') {
+					if (!patternComplete) {
+						result.text = 'Incomplete pattern';
+						throw result;
+					}
+					if (level > 0) {
+						result.position++;
+					}
+					return result;
+				} else if (line[result.position] === ',' && level > 0) {
+					result.position++;
+					continue;
+				} else {
+					break;
+				}
+			} else if (line[result.position] === ')') {
+				if (!patternComplete) {
+					result.text = 'Incomplete pattern';
+					throw result;
+				} else {
+					result.position++;
+				}
+				return result;
+			} else if (line[result.position] === ',' && level > 0) {
+				if (!patternComplete) {
+					result.text = 'Incomplete pattern';
+					throw result;
+				} else {
+					result.position++;
+				}
+				continue;
+			} else {
+				break;
+			}
+		} while (position < line.length)
+		if (!patternComplete) {
+			result.text = 'Incomplete pattern';
+			throw result;
 		}
-		inputObject.lineLeadSpace = inputLine.substring(position, i);
-		if (i !== (inputLine.length)) {
-			inputObject.lineExpression = inputLine.substring(i);
-			inputObject.expressionPosition = i;
+		if (level > 0) {
+			result.text = 'Missing ")"';
+			throw result;
+		}
+		return result;
+
+	}
+
+	//Extract M-Commands.
+	//Assumes inputLine has extracted comments/spacing/indentation.
+	private _extractCommands(inputObject: LineObject): LineObject {
+
+		let tmpFunction: TmpFunction;
+		let tmpFunctionArray: Array<TmpFunction> = [];
+		//Divide Routines and Arguments.
+		let splitLine = this._splitCommandsAndArguments(inputObject);
+		//Loop, even is function, odd is arguments.
+		let i = 0;
+		tmpFunction = { mCommand: '', mPostCondition: '', mArguments: '', cmdPosition: 0, argPosition: 0, pcPosition: 0 }
+		while (i < splitLine.length) {
+			if (i % 2 === 0) {
+				tmpFunction.mCommand = splitLine[i].command;
+				tmpFunction.cmdPosition = splitLine[i].position;
+			} else {
+
+				tmpFunction.mArguments = splitLine[i].command;
+				tmpFunction.argPosition = splitLine[i].position;
+
+				//Custom handler for trailing argument spacing.
+				//Go until splitline hits a non empty val.
+				let ii = i + 1;
+				while (ii < splitLine.length) {
+					if (splitLine[ii].command === "") {
+						splitLine.splice(ii, 1);
+						//tmpFunction.mArguments = tmpFunction.mArguments + " ";
+					} else {
+						break;
+					}
+				}
+				tmpFunctionArray.push(tmpFunction);
+				tmpFunction = { mCommand: '', mPostCondition: '', mArguments: '', cmdPosition: 0, argPosition: 0, pcPosition: 0 }
+			}
+			i++
+		}
+		//Last command doesn't always require parameter, so if odd number of pairs, push it.
+		if (splitLine.length % 2 !== 0) {
+			tmpFunction.mCommand = splitLine[splitLine.length - 1].command;
+			tmpFunction.cmdPosition = splitLine[splitLine.length - 1].position;
+			tmpFunction.mArguments = '';
+			tmpFunction.argPosition = inputObject.lineExpression!.length;
+			tmpFunctionArray.push(tmpFunction);
+		}
+
+
+		//Extract and output Post Conditionals.
+		let postConditionFunctionArray = this._extractPostConditional(tmpFunctionArray);
+		if (postConditionFunctionArray.length > 0) {
+			inputObject.lineRoutines = postConditionFunctionArray;
 		}
 		return inputObject;
 	}
@@ -901,60 +2263,82 @@ class MumpsLineParser {
 		}
 		return inputObject;
 	}
-
-	//Extract M-Commands.
-	//Assumes inputLine has extracted comments/spacing/indentation.
-	private _extractCommands(inputObject: LineObject): LineObject {
-
-		let tmpFunction: TmpFunction;
-		let tmpFunctionArray: Array<TmpFunction> = [];
-		//Divide Routines and Arguments.
-		let splitLine = this._splitCommandsAndArguments(inputObject);
-		//Loop, even is function, odd is arguments.
+	private _extractLabel(inputObject: LineObject): LineObject {
+		inputObject.lineLabel = '';
+		let inputLine = inputObject.lineExpression;
+		inputObject.lineExpression = '';
+		if (inputLine.match(label)) {
+			inputObject.lineLabel = inputLine.match(label)![0];
+		}
+		let position = inputObject.lineLabel.length;
+		if (position === inputLine.length) {
+			return inputObject
+		}
+		if (!inputLine.charAt(position).match(/[\s|;]/)) {
+			inputObject.errorText = 'Unexpected Character' + inputLine.charAt(position);
+			inputObject.errorPosition = position;
+			return inputObject;
+		}
 		let i = 0;
-		tmpFunction = { mCommand: '', mPostCondition: '', mArguments: '', cmdPosition: 0, argPosition: 0, pcPosition: 0 }
-		while (i < splitLine.length) {
-			if (i % 2 === 0) {
-				tmpFunction.mCommand = splitLine[i].command;
-				tmpFunction.cmdPosition = splitLine[i].position;
-			} else {
-
-				tmpFunction.mArguments = splitLine[i].command;
-				tmpFunction.argPosition = splitLine[i].position;
-
-				//Custom handler for trailing argument spacing.
-				//Go until splitline hits a non empty val.
-				let ii = i + 1;
-				while (ii < splitLine.length) {
-					if (splitLine[ii].command === "") {
-						splitLine.splice(ii, 1);
-						//tmpFunction.mArguments = tmpFunction.mArguments + " ";
-					} else {
-						break;
-					}
-				}
-				tmpFunctionArray.push(tmpFunction);
-				tmpFunction = { mCommand: '', mPostCondition: '', mArguments: '', cmdPosition: 0, argPosition: 0, pcPosition: 0 }
+		for (i = position; i <= inputLine.length; i++) {
+			if (inputLine[i] !== " " && inputLine[i] !== "\t") {
+				break;
 			}
-			i++
 		}
-		//Last command doesn't always require parameter, so if odd number of pairs, push it.
-		if (splitLine.length % 2 !== 0) {
-			tmpFunction.mCommand = splitLine[splitLine.length - 1].command;
-			tmpFunction.cmdPosition = splitLine[splitLine.length - 1].position;
-			tmpFunction.mArguments = '';
-			tmpFunction.argPosition = inputObject.lineExpression!.length;
-			tmpFunctionArray.push(tmpFunction);
-		}
-
-
-		//Extract and output Post Conditionals.
-		let postConditionFunctionArray = this._extractPostConditional(tmpFunctionArray);
-		if (postConditionFunctionArray.length > 0) {
-			inputObject.lineRoutines = postConditionFunctionArray;
+		inputObject.lineLeadSpace = inputLine.substring(position, i);
+		if (i !== (inputLine.length)) {
+			inputObject.lineExpression = inputLine.substring(i);
+			inputObject.expressionPosition = i;
 		}
 		return inputObject;
 	}
+
+	//Extracts Post-Conditionals from Routines, used by extractRoutines.
+	private _extractPostConditional(tmpFunctionArray: TmpFunction[]): TmpFunction[] {
+
+		//Assign to new variable to truncate Routines.
+		let tmpObject = tmpFunctionArray;
+		for (let i = 0; i < tmpObject.length; i++) {
+			//Colon indicates Post-Conditionals.
+			let tmpIndex = tmpObject[i].mCommand!.indexOf(":");
+			if (tmpIndex > -1) {
+				tmpObject[i].mPostCondition = tmpObject[i].mCommand.substring(tmpIndex + 1);
+				tmpObject[i].mCommand = tmpObject[i].mCommand.substring(0, tmpIndex);
+				tmpObject[i].pcPosition = tmpObject[i].cmdPosition + tmpIndex + 1;
+			}
+		}
+		return tmpObject;
+	}
+
+	private _isEndOfArgument(line: string, position: number): boolean {
+		let isEndOfArgument = false;
+		let char = line[position];
+		if (char === undefined || char === " " || char === "\t" || char === ";") { isEndOfArgument = true; }
+		return isEndOfArgument;
+	}
+	/**
+ * Divde inputString into Label, commands and comments and return corresponding LineObject
+ * @param inputString
+ * @returns LineObject
+ */
+	private _parseLine(inputString: string): LineObject {
+
+		let tmpObject: LineObject = { lineExpression: inputString, expressionPosition: 0 };
+
+		//Parsing must be performed sequentially.
+		tmpObject = this._extractLabel(tmpObject);
+		if (tmpObject.errorText) {
+			return tmpObject;
+		}
+		tmpObject = this._extractComment(tmpObject);
+		tmpObject = this._extractIndentation(tmpObject);
+		tmpObject = this._extractCommands(tmpObject);
+
+		//Line Expression is no longer needed.
+		tmpObject.lineExpression = '';
+		return tmpObject;
+	}
+
 	//Divide commands and arguments into array, used by extractRoutines.
 	private _splitCommandsAndArguments(inputObject: LineObject): LineComand[] {
 
@@ -990,79 +2374,7 @@ class MumpsLineParser {
 		}
 		return lineCommands;
 	}
-	//Extracts Post-Conditionals from Routines, used by extractRoutines.
-	private _extractPostConditional(tmpFunctionArray: TmpFunction[]): TmpFunction[] {
 
-		//Assign to new variable to truncate Routines.
-		let tmpObject = tmpFunctionArray;
-		for (let i = 0; i < tmpObject.length; i++) {
-			//Colon indicates Post-Conditionals.
-			let tmpIndex = tmpObject[i].mCommand!.indexOf(":");
-			if (tmpIndex > -1) {
-				tmpObject[i].mPostCondition = tmpObject[i].mCommand.substring(tmpIndex + 1);
-				tmpObject[i].mCommand = tmpObject[i].mCommand.substring(0, tmpIndex);
-				tmpObject[i].pcPosition = tmpObject[i].cmdPosition + tmpIndex + 1;
-			}
-		}
-		return tmpObject;
-	}
-	/**
-	 * Divde inputString into Label, commands and comments and return corresponding LineObject
-	 * @param inputString
-	 * @returns LineObject
-	 */
-	public parseLine(inputString: string): LineObject {
-
-		let tmpObject: LineObject = { lineExpression: inputString, expressionPosition: 0 };
-
-		//Parsing must be performed sequentially.
-		tmpObject = this._extractLabel(tmpObject);
-		if (tmpObject.errorText) {
-			return tmpObject;
-		}
-		tmpObject = this._extractComment(tmpObject);
-		tmpObject = this._extractIndentation(tmpObject);
-		tmpObject = this._extractCommands(tmpObject);
-
-		//Line Expression is no longer needed.
-		tmpObject.lineExpression = '';
-		return tmpObject;
-	}
-	/**
-	 *
-	 * @param filename
-	 * @returns Array with list of errors or an empty array if no errors found in file
-	 */
-	public checkFile(filename: string): ErrorInformation[] {
-		let errlist: ErrorInformation[] = [];
-		let content: string;
-		try {
-			content = fs.readFileSync(filename, "utf8");
-		} catch (err) {
-			errlist.push({ text: 'File read error: ' + filename, position: 0, line: 0 });
-			return errlist;
-		}
-		let lines = content.split('\n');
-		for (let i = 0; i < lines.length; i++) {
-			lines[i] = lines[i].replace('\r', '');
-			let info = this.checkLine(lines[i]);
-			if (info.text !== '') {
-				info.line = i + 1;
-				errlist.push(info);
-			}
-		}
-		return errlist;
-	}
-	public analyzeLines(input: string): Array<Array<LineToken>> {
-		let lines = input.split('\n');
-		let linetokens: Array<Array<LineToken>> = [];
-		for (let i = 0; i < lines.length; i++) {
-			lines[i] = lines[i].replace('\r', '');
-			this.checkLine(lines[i]);
-			linetokens[i] = this._tokens;
-		}
-		return linetokens;
-	}
 	private _splitLabelAndParameters(label: string) {
 		if (label.indexOf('(') === -1) {
 			this._tokens.push({ name: label, position: 0, type: TokenType.label });
@@ -1079,1288 +2391,7 @@ class MumpsLineParser {
 			}
 		}
 	}
-	public constructLine(inputObject: LineObject): string {
-		let line: string = "";
-		line = renderer.appendLabel(inputObject, line);
-		line = renderer.appendIndentation(inputObject, line);
-		line = renderer.appendRoutines(inputObject, line);
-		line = renderer.appendComment(inputObject, line);
-		return line;
-	}
-	public expandCompressFile(filename: string, doExpand: boolean): string {
-		if (doExpand === undefined) { doExpand = false; }
-		let content: string;
-		let lines: string[] = [];
-		try {
-			content = fs.readFileSync(filename, "utf8");
-		} catch (err) {
-			lines[0] = 'File read error: ';
-			return lines[0];
-		}
-		lines = content.split('\n');
-		for (let i = 0; i < lines.length; i++) {
-			lines[i] = lines[i].replace('\r', '');
-			let info = this.expandCompressLine(lines[i], doExpand);
-			if (info.errorText !== '') {
-				lines = [];
-				lines[0] = "Error in Line " + i + " : " + info.errorText;
-				break;
-			}
-			lines[i] = info.lineText;
-		}
-		return lines.join("\n");
-	}
-	public expandCompressLine(line: string, doExpand: boolean): ModifiedLine {
-		if (doExpand === false && this.cmdCompressions === undefined) {
-			this.cmdCompressions = {};
-			Object.keys(cmdExpansions).forEach(shortCommand => {
-				this.cmdCompressions[cmdExpansions[shortCommand]] = shortCommand;
-			});
-			this.funcCompressions = {};
-			Object.keys(funcExpansions).forEach(shortFunction => {
-				this.funcCompressions[funcExpansions[shortFunction]] = shortFunction;
-			});
-			this.isvCompressions = {};
-			Object.keys(isvExpansions).forEach(shortIsv => {
-				this.isvCompressions[isvExpansions[shortIsv]] = shortIsv;
-			});
-		}
-		let outline: ModifiedLine = { lineText: line, errorText: '' }
-		let errorinfo = this.checkLine(line);
-		let outText = line;
-		if (errorinfo.text !== "") {
-			outline.errorText = errorinfo.text;
-		} else {
-			let posCorrector = 0;
-			for (let i = 0; i < this._tokens.length; i++) {
-				let token = this._tokens[i];
-				if (token.hasOwnProperty("longName")) {
-					let name = token.name;
-					let longName = name;
-					let position = token.position;
-					if (doExpand) {
-						longName = token.longName!.toLowerCase();
-						if (longName[0] === "$") {
-							longName = "$" + longName[1].toUpperCase() + longName.substring(2);
-						} else {
-							longName = longName[0].toUpperCase() + longName.substring(1);
-						}
-					} else {
-						let checkName = name.toUpperCase();
-						if (name[0] === "$") { checkName = name.substring(1); }
-						if (token.type === TokenType.keyword) {
-							if (this.cmdCompressions[checkName] !== undefined) {
-								longName = this.cmdCompressions[checkName];
-							}
-						} else if (token.type === TokenType.ifunction) {
-							if (this.funcCompressions[checkName] !== undefined) {
-								longName = "$" + this.funcCompressions[checkName];
-							}
-						} else if (token.type === TokenType.sysvariable) {
-							if (this.isvCompressions[checkName] !== undefined) {
-								longName = "$" + this.isvCompressions[checkName];
-							}
-						}
-					}
-					if (name.length !== longName.length) {
-						outText = outText.substring(0, posCorrector + position) + longName + outText.substring(posCorrector + position + name.length);
-						posCorrector += longName.length - name.length;
-					}
-				}
-			}
-		}
-		outline.lineText = outText;
-		return outline;
-	}
-	public checkLine(line: string): ErrorInformation {
-		this._tokens = [];
-		this.linePosition = 0;
-		let parsed = this.parseLine(line);
-		if (parsed.lineLabel) {
-			this._splitLabelAndParameters(parsed.lineLabel);
-		}
-		if (parsed.lineIndentationArray) {
-			let position = 0;
-			if (parsed.lineLeadSpace) {
-				position += parsed.lineLeadSpace.length;
-			}
-			if (parsed.lineLabel) {
-				position += parsed.lineLabel.length;
-			}
-			this._tokens.push({ name: ".".repeat(parsed.lineIndentationArray.length), type: TokenType.intendation, position });
-		}
-		if (parsed.lineComment) {
-			this._tokens.push({ name: parsed.lineComment.comment, position: parsed.lineComment.position, type: TokenType.comment });
-		}
-		let result: ErrorInformation = { text: '', position: 0 }
-		if (parsed.lineRoutines) {
-			for (let i = 0; i < parsed.lineRoutines.length; i++) {
-				let code = parsed.lineRoutines[i];
-				if (code.mCommand.length > 0) {
-					let cmd = code.mCommand.toUpperCase();
-					if (cmd === 'H') {
-						if (code.mArguments === '') {
-							cmd = 'HALT';
-						} else {
-							cmd = 'HANG';
-						}
-					}
-					if (cmd.match(command)) {
-						let longcmd = cmd;
-						if (cmdParams[cmd] === undefined) {
-							longcmd = cmdExpansions[cmd];
-						}
-						this._tokens.push({
-							name: code.mCommand,
-							type: TokenType.keyword,
-							position: code.cmdPosition,
-							longName: longcmd,
-							isPostconditioned: code.mPostCondition !== "",
-							hasArguments: code.mArguments !== ""
-						});
 
-						if (longcmd === undefined) {
-							result.text = 'Unknown Command';
-							result.position = code.cmdPosition;
-							return result;
-						}
-						try {
-							result = this._checkCommand(line, longcmd, code);
-						} catch (result) {
-							return result;
-						}
-					} else {
-						return { text: 'Invalid Command', position: code.cmdPosition }
-					}
-				}
-			}
-		}
-		return result;
-	}
-	public getTokenAt(line: string, position: number): LineToken | undefined {
-		this.checkLine(line);
-		let memPosition = 0
-		let tokenId = -1
-		for (let i = 0; i < this._tokens.length; i++) {
-			let token = this._tokens[i];
-			if (token.position >= memPosition && token.position < position) {
-				memPosition = token.position;
-				tokenId = i;
-			}
-		}
-		if (tokenId === -1) {
-			return;
-		}
-		return this._tokens[tokenId];
-	}
-	private _checkEntryRefAndPostcondition(line: string, position: number, withParams: boolean): ErrorInformation {
-		let result: ErrorInformation = { text: '', position };
-		result = this._checkEntryRef(line, result.position, withParams);
-		if (line[result.position] === ':') {
-			this._tokens.push({ type: TokenType.argPostcondition, name: ":", position });
-			result = this.evaluateExpression(expressiontype.Standard, line, ++result.position);
-		}
-		return result;
-	}
-	private _checkEntryRef(line: string, position: number, withParams: boolean, isUserfunction?: boolean): ErrorInformation {
-		if (isUserfunction === undefined) {
-			isUserfunction = false;
-		}
-		let tokentype: TokenType = TokenType.entryref;
-		if (isUserfunction) {
-			tokentype = TokenType.exfunction;
-		}
-		let result: ErrorInformation = { text: '', position };
-		if (line[result.position] === '@') { //Check Indirection
-			result = this.evaluateExpression(expressiontype.Atom, line, ++result.position);
-			if (line[result.position] === '+') { //Check Label+Offset
-				result = this.evaluateExpression(expressiontype.Standard, line, ++result.position);
-			}
-			if (line[result.position] === '^') { //Check if it's a Label like xxx^yyy
-				if (line[result.position + 1] === '@') { // or a Label xxx^@expr
-					result = this.evaluateExpression(expressiontype.Atom, line, ++result.position);
-				} else {
-					if (line.substring(result.position).match(entryref)) {
-						let ref = line.substring(result.position).match(entryref)![0];
-						result.position += ref.length;
-					} else {
-						result.text = 'Invalid EntryRef';
-						throw result;
-					}
-				}
-			}
-			if (line.substring(result.position, result.position + 2) === '@(') {
-				result.position++;
-			}
-		} else if (line.substring(result.position).match(entryref)) { //No Indirection and a valid entryref
-			let ref = line.substring(result.position).match(entryref)![0];
-			let merkpos = result.position;
-			result.position += ref.length;
-			let char = line[result.position];
-			if (result.position >= line.length) {
-				if (ref.length > 0) {
-					if (ref[0] === '&') {
-						tokentype = TokenType.nonMfunction;
-					}
-					this._tokens.push({ 'type': tokentype, name: ref, position: merkpos + this.linePosition });
-					return result;
-				} else {
-					result.text = 'Missing Entryref';
-					throw result;
-				}
-			}
-			if (ref.indexOf('^') === -1 && char === '+') {
-				result = this.evaluateExpression(expressiontype.Standard, line, ++result.position);
-				//ref += "+X";
-				if (result.position >= line.length) {
-					this._tokens.push({ 'type': tokentype, name: ref, position: merkpos + this.linePosition });
-					return result
-				}
-				if (line.substring(result.position).match(routineref)) {
-					let routine = line.substring(result.position).match(routineref)![0];
-					ref += routine;
-					result.position += routine.length;
-				}
-			}
-			this._tokens.push({ 'type': tokentype, name: ref, position: merkpos + this.linePosition });
-		} else {
-			result.text = 'Invalid Entryref';
-			throw result;
-		}
-		if (line[result.position] === '(' && withParams) {
-			result = this.evaluateExpression(expressiontype.eArgument, line, ++result.position, 1);
-		}
-		return result
-	}
-	private _checkVar(line: string, position: number, globalOk?: boolean, indexOk?: boolean, isExluded?: boolean): ErrorInformation {
-		let result: ErrorInformation = { text: '', position, indexFound: false, globalFound: false, indirectionFound: false };
-		let varFound = false;
-		if (globalOk === undefined) {
-			globalOk = true;
-		}
-		if (indexOk === undefined) {
-			indexOk = true;
-		}
-		if (isExluded === undefined) {
-			isExluded = false;
-		}
-		if (line[result.position] === '@') {
-			result = this.evaluateExpression(expressiontype.Atom, line, ++result.position);
-			result.indirectionFound = true;
-			varFound = true;
-			if (line.substring(result.position, result.position + 2) === '@(') {
-				result.position++;
-			}
-		} else {
-			if (line.substring(result.position).match(gvn) || line.substring(result.position, result.position + 2) === '^|') {
-				if (!globalOk) {
-					result.text = 'Global not allowed here';
-					throw result;
-				}
-				result.globalFound = true;
-				if (line.substring(result.position, result.position + 2) === '^|') {
-					result.position += 2
-					result = this.evaluateExpression(expressiontype.Standard, line, result.position);
-					result.globalFound = true;
-					if (line[result.position] === ',') {
-						result = this.evaluateExpression(expressiontype.Standard, line, ++result.position);
-						result.globalFound = true;
-					}
-					if (line[result.position] !== '|') {
-						result.text = 'Missing "|"';
-						throw result;
-					}
-					result.position++;
-					if (line.substring(result.position).match(lvn)) {
-						let global = line.substring(result.position).match(lvn)![0];
-						this._tokens.push({ name: global, type: TokenType.global, position: result.position + this.linePosition });
-						varFound = true;
-						result.position += global.length;
-					}
-				} else {
-					let global = line.substring(result.position).match(gvn)![0];
-					this._tokens.push({ name: global, type: TokenType.global, position: result.position + this.linePosition });
-					varFound = true;
-					result.position += global.length;
-				}
-			} else if (line.substring(result.position).match(lvn)) {  // local variable found
-				let local = line.substring(result.position).match(lvn)![0];
-				this._tokens.push({ name: local, type: TokenType.local, position: result.position + this.linePosition, isExcludedVariable: isExluded });
-				varFound = true;
-				result.position += local.length;
-			} else if (line.substring(result.position, result.position + 2) === '^(') {
-				result.globalFound = true;
-				if (!globalOk) {
-					result.text = 'Global not allowed here';
-					varFound = false;
-					throw result;
-				}
-				varFound = true;
-				result.position++;
-			}
-		}
-		if (varFound && line[result.position] === '(') {
-			if (!indexOk) {
-				result.text = 'Index not allowed here';
-				throw result;
-			}
-			let provResult = this.evaluateExpression(expressiontype.Index, line, ++result.position, 1);
-			result.position = provResult.position;
-			result.indexFound = true;
-		}
-		if (!varFound) {
-			result.text = 'Name missing';
-			throw result;
-		}
-		return result;
-	}
-	private _checkBreak(line: string, position: number): ErrorInformation {
-		//[expr[:tvexpr][,...]]
-		let result = this.evaluateExpression(expressiontype.Standard, line, position);
-		if (line[result.position] === ':') {
-			result = this.evaluateExpression(expressiontype.Standard, line, ++result.position);
-		}
-		return result;
-	}
-	private _checkKeyword(keywords: RegExp, line: string, position: number): ErrorInformation {
-		let result: ErrorInformation = { text: '', position };
-		if (line.substring(result.position).match(keywords)) {
-			let keyword = line.substring(result.position).match(keywords)![0];
-			result.position += keyword.length;
-			if (keyword.slice(-1) === '=') {
-				result = this.evaluateExpression(expressiontype.Standard, line, result.position);
-			}
-		} else {
-			result.text = 'No valid Keyword for command found';
-			throw result;
-		}
-		return result;
-	}
-	private _checkOUC(keywords: RegExp, line: string, position: number): ErrorInformation {
-		let result: ErrorInformation = { text: '', position };
-		//expr[:(keyword[=expr][:...])][,...]
-		result = this.evaluateExpression(expressiontype.Standard, line, result.position);
-		if (line[result.position] === ':') {
-			result.position++;
-			if (line[result.position] === '(') {
-				result.position++;
-				let braceComplete = false;
-				do {
-					result = this._checkKeyword(keywords, line, result.position);
-					braceComplete = true;
-					if (line[result.position] === ')') {
-						result.position++;
-						break;
-					}
-					if (line[result.position] !== ':') {
-						result.text = 'Unecpected Character';
-						throw result;
-					} else {
-						result.position++;
-					}
-					braceComplete = false;
-				} while (!this._isEndOfArgument(line, result.position))
-				if (!braceComplete) {
-					result.text = 'Missing ")" or Keyword';
-					throw result;
-				}
-			} else {
-				if (line[result.position] !== ':') {
-					result = this._checkKeyword(keywords, line, result.position);
-				}
-			}
-		}
-		if (keywords === openkeywords && line[result.position] === ':') {
-			result.position++;
-			if (line[result.position] !== ':') {
-				result = this.evaluateExpression(expressiontype.Standard, line, result.position);
-			}
-		}
-		if (keywords === openkeywords && line[result.position] === ':') {
-			result = this.evaluateExpression(expressiontype.Standard, line, ++result.position);
-		}
-		return result;
-	}
-	private _checkFor(line: string, position: number, argNumber: number): ErrorInformation {
-		//[lvn=expr[:numexpr1[:numexpr2]][,...]]]
-		let result: ErrorInformation = { text: '', position };
-		if (argNumber > 1) { //If it's not the first Argument the Options are possible: F I=1:2:3,4 or F I=1:2:3,I=4:1:6
-			try {
-				let provResult = this._checkVar(line, result.position, false);
-				if (line[provResult.position] === '"') {
-					result.position = provResult.position + 1;
-				}
-			} catch (provResult) {
-				if (provResult.text !== "Name missing") {
-					throw result;
-				}
-			}
-		} else {
-			result = this._checkVar(line, result.position, false);
-			if (line[result.position] !== '=') {
-				result.text = 'Missing equal-sign';
-				throw result;
-			}
-			result.position++;
-		}
-		result = this.evaluateExpression(expressiontype.Standard, line, result.position);
-		if (line[result.position] !== ':') {
-			return result;
-		}
-		result = this.evaluateExpression(expressiontype.Standard, line, ++result.position);
-		if (line[result.position] !== ':') {
-			return result;
-		}
-		result = this.evaluateExpression(expressiontype.Standard, line, ++result.position);
-		return result;
-	}
-	private _checkJobKeyword(line: string, position: number): ErrorInformation {
-		let result: ErrorInformation = { text: '', position };
-		if (line.substring(result.position).match(jobkeywords)) {
-			let keyword = line.substring(result.position).match(jobkeywords)![0];
-			result.position += keyword.length;
-			if (keyword[keyword.length - 1] === '=') {
-				if (line.substring(result.position).match(strlit)) {
-					let stringlit = line.substring(result.position).match(strlit)![0];
-					result.position += stringlit.length;
-					if (stringlit.length === 0) {
-						result.text = 'String literal expected';
-						throw result;
-					}
-				} else {
-					result.text = 'String literal expected';
-					throw result;
-				}
-			}
-		} else {
-			result.text = 'No valid Keyword for JOB Command';
-			throw result;
-		}
-		return result;
-	}
-	private _checkJob(line: string, position: number): ErrorInformation {
-		//entryref[(expr[,...])][:[(keyword[=value][:...])][:numexpr]][,...]
-		let result = this._checkEntryRef(line, position, true);
-		if (line[result.position] === ':') {
-			result.position++;
-			if (line[result.position] === '(') {
-				result.position++;
-				let braceComplete = false;
-				do {
-					result = this._checkJobKeyword(line, result.position);
-					braceComplete = true;
-					if (line[result.position] === ')') {
-						result.position++;
-						break;
-					}
-					if (line[result.position] !== ':') {
-						result.text = 'Unecpected Character';
-						throw result;
-					} else {
-						result.position++;
-					}
-					braceComplete = false;
-				} while (!this._isEndOfArgument(line, result.position))
-				if (!braceComplete) {
-					result.text = 'Missing ")" or Keyword';
-					throw result;
-				}
-			} else {
-				if (line[result.position] !== ':') {
-					result = this._checkJobKeyword(line, result.position);
-				}
-			}
-		}
-		if (line[result.position] === ':') { //Numeric expression for Job-Timeout
-			result = this.evaluateExpression(expressiontype.Standard, line, ++result.position);
-		}
-		return result;
-	}
-	private _checkKill(line: string, position: number): ErrorInformation {
-		//[glvn | (lvn[,...]) | *lname | *lvn ]
-		let result: ErrorInformation = { text: '', position };
-		if (line[result.position] === '(') {
-			result.position++;
-			let braceComplete = false;
-			do {
-				result = this._checkVar(line, result.position);
-				braceComplete = true;
-				if (line[result.position] === ')') {
-					result.position++;
-					break;
-				}
-				if (line[result.position] !== ',') {
-					result.text = 'Unecpected Character';
-					throw result;
-				} else {
-					result.position++;
-				}
-				braceComplete = false;
-			} while (!this._isEndOfArgument(line, result.position))
-			if (!braceComplete) {
-				result.text = 'Missing ")" or Name';
-				throw result;
-			}
-		} else {
-			result = this._checkVar(line, result.position);
-		}
-		return result;
-	}
-	private _checkLock(line: string, position: number, isLock: boolean): ErrorInformation {
-		//[[-|+]nref|(nref[,...])[:numexpr] [,...]]
-		let result: ErrorInformation = { text: '', position };
-		if ((line[result.position] === '+' || line[result.position] === '-') && isLock) {
-			result.position++;
-		}
-		if (line[result.position] === '(') {
-			result.position++;
-			let braceComplete = false;
-			do {
-				result = this._checkVar(line, result.position);
-				braceComplete = true;
-				if (line[result.position] === ')') {
-					result.position++;
-					break;
-				}
-				if (line[result.position] !== ',') {
-					result.text = 'Unecpected Character';
-					throw result;
-				} else {
-					result.position++;
-				}
-				braceComplete = false;
-			} while (!this._isEndOfArgument(line, result.position))
-			if (!braceComplete) {
-				result.text = 'Missing ")" or Name';
-				throw result;
-			}
-		} else {
-			result = this._checkVar(line, result.position);
-		}
-		if (line[result.position] === ':') {
-			result = this.evaluateExpression(expressiontype.Standard, line, ++result.position);
-		}
-		return result;
-	}
-	private _checkMerge(line: string, position: number): ErrorInformation {
-		//glvn=glvn[,...]
-		let result: ErrorInformation = { text: '', position };
-		result = this._checkVar(line, result.position);
-		if (line[result.position] !== '=') {
-			result.text = 'Equal-Sign expected';
-			throw result;
-		}
-		result = this._checkVar(line, ++result.position);
-		return result;
-	}
-	private _checkNew(line: string, position: number): ErrorInformation {
-		//[[(]lvn[,...][)][,...]]
-		let result: ErrorInformation = { text: '', position };
-		if (line[result.position] === '(') {
-			result.position++;
-			let braceComplete = false;
-			do {
-				if (line.substring(result.position).match(isv)) {
-					let sysvariable = line.substring(result.position).match(isv)![0];
-					let longName = sysvariable.toUpperCase();
-					if (isvExpansions[longName.substring(1)] !== undefined) {
-						longName = "$" + isvExpansions[longName.substring(1)];
-					}
-					this._tokens.push({ name: sysvariable, position: position + this.linePosition, type: TokenType.sysvariable, longName, isExcludedVariable: true });
-					result.position += sysvariable.length;
-				} else {
-					result = this._checkVar(line, result.position, false, false, true);
-				}
-				braceComplete = true;
-				if (line[result.position] === ')') {
-					result.position++;
-					break;
-				}
-				if (line[result.position] !== ',') {
-					result.text = 'Unecpected Character';
-					throw result;
-				} else {
-					result.position++;
-				}
-				braceComplete = false;
-			} while (!this._isEndOfArgument(line, result.position))
-			if (!braceComplete) {
-				result.text = 'Missing ")" or Name';
-				throw result;
-			}
-		} else {
-			if (line.substring(result.position).match(isv)) {
-				let sysvariable = line.substring(result.position).match(isv)![0];
-				let longName = sysvariable.toUpperCase();
-				if (isvExpansions[longName.substring(1)] !== undefined) {
-					longName = "$" + isvExpansions[longName.substring(1)];
-				}
-				this._tokens.push({ name: sysvariable, position: position + this.linePosition, type: TokenType.sysvariable, longName, isExcludedVariable: false });
-				result.position += sysvariable.length;
-			} else {
-				result = this._checkVar(line, result.position, false);
-			}
-		}
-		return result;
-	}
-	private _checkRead(line: string, position: number): ErrorInformation {
-		//(glvn|*glvn|glvn#intexpr)[:numexpr]|strlit|fcc[,...]
-		let result: ErrorInformation = { text: '', position };
-		let starDetected = false;
-		let mat: string[] | null;
-		if (line[result.position] === '*') {
-			result.position++;
-			starDetected = true;
-		}
-		try {
-			let provResult = this._checkVar(line, result.position);
-			result.position = provResult.position;
-			if (line[result.position] === '#') {
-				result = this.evaluateExpression(expressiontype.Standard, line, ++result.position);
-				if (result.text !== '') {
-					return result;
-				}
-			}
-			if (line[result.position] === ':') {
-				result = this.evaluateExpression(expressiontype.Standard, line, ++result.position);
-			}
-			return result;
-		} catch {
-			if (starDetected) {
-				result.text = 'Variable expected';
-				throw result;
-			}
-			if (mat = line.substring(result.position).match(strlit)) {
-				result.position += mat[0].length;
-				return result;
-			} else if (mat = line.substring(result.position).match(/^(#|!)+/)) {
-				result.position += mat[0].length;
-			}
-			if (line[result.position] === '?') {
-				result = this.evaluateExpression(expressiontype.Standard, line, ++result.position);
-				return result;
-			}
-		}
-		return result;
-	}
-	private _checkSet(line: string, position: number): ErrorInformation {
-		//setleft=expr | (setleft[,...])=expr | *lvn=lname | aliascontainer[,...]
-		let result: ErrorInformation = { text: '', position };
-		let mat: string[] | null;
-		let isBraced = false;
-		if (line[result.position] === '*') { //*lvn=lname
-			result = this._checkVar(line, ++result.position, false);
-			if (line[result.position] !== '=') {
-				result.text = 'Equal-Sign expected';
-				throw result;
-			}
-			result = this._checkVar(line, ++result.position, false);
-			return result;
-		}
-		if (line[result.position] === '(') {
-			isBraced = true;
-			result.position++;
-		}
-		do {
-			if (line[result.position] === '@') {
-				try {
-					let provResult = this._checkVar(line, result.position);
-					result.position = provResult.position;
-					if (this._isEndOfArgument(line, result.position) || line[result.position] === ',') {
-						return result;
-					}
-				} catch {
-					result = this.evaluateExpression(expressiontype.Atom, line, ++result.position);
-					if (this._isEndOfArgument(line, result.position) || line[result.position] === ',') {
-						return result;
-					}
-				}
-			} else if (mat = line.substring(result.position).match(/^\$Z?(PIECE|P|EXTRACT|E)\(/i)) {
-				let functionname = mat[0].substring(1, mat[0].length - 1).toUpperCase();
-				result.position += functionname.length + 2
-				if (funcExpansions[functionname] !== undefined) {
-					this._tokens.push({ name: "$" + functionname, position: result.position - functionname.length - 2, type: TokenType.ifunction, longName: "$" + funcExpansions[functionname] });
-					functionname = funcExpansions[functionname];
-				}
-				result = this._checkFunction(functionname, line, result.position);
-			} else if (mat = line.substring(result.position).match(isv)) {
-				result.position += mat[0].length;
-			} else {
-				result = this._checkVar(line, result.position, true);
-			}
-			if (line[result.position] === ',' && isBraced) {
-				result.position++;
-				continue;
-			}
-			if (line[result.position] === ')' && isBraced) {
-				isBraced = false;
-				result.position++;
-			}
-		} while (!this._isEndOfArgument(line, result.position) && isBraced);
-		if (line[result.position] !== '=') {
-			result.text = 'Equal-Sign expected';
-			throw result;
-		}
-		result = this.evaluateExpression(expressiontype.Standard, line, ++result.position);
-		return result;
-	}
-	private _checkTstart(line: string, position: number): ErrorInformation {
-		//[([lvn...])|lvn|*|][:keyword|(keyword...)]
-		let result: ErrorInformation = { text: '', position };
-		if (line[result.position] === '(') {
-			result.position++;
-			if (line[result.position] !== ')') {
-				let braceComplete = false;
-				do {
-					braceComplete = true;
-					result = this._checkVar(line, result.position, false, false);
-					if (line[result.position] === ')') {
-						result.position++;
-						break;
-					}
-					if (line[result.position] !== ',') {
-						result.text = 'Unecpected Character';
-						throw result;
-					} else {
-						result.position++;
-					}
-					braceComplete = false;
-				} while (!this._isEndOfArgument(line, result.position))
-				if (!braceComplete) {
-					result.text = 'Missing ")" or Name';
-					throw result;
-				}
-			}
-		} else {
-			if (line[result.position] !== '*') {
-				result = this._checkVar(line, result.position, false, false);
-			}
-		}
-		if (line[result.position] === ':') {
-			result.position++;
-			if (line[result.position] === '(') {
-				result.position++;
-				let braceComplete = false;
-				do {
-					result = this._checkKeyword(tstartkeywords, line, result.position);
-					braceComplete = true;
-					if (line[result.position] === ')') {
-						result.position++;
-						break;
-					}
-					if (line[result.position] !== ':') {
-						result.text = 'Unecpected Character';
-						throw result;
-					} else {
-						result.position++;
-					}
-					braceComplete = false;
-				} while (result.position < line.length)
-				if (!braceComplete) {
-					result.text = 'Missing ")" or Keyword';
-					throw result;
-				}
-			} else {
-				result = this._checkKeyword(tstartkeywords, line, result.position);
-			}
-		}
-
-		return result;
-	}
-	private _checkView(line: string, position: number): ErrorInformation {
-		//keyword[:expr[:...]][,...]
-		let result: ErrorInformation = { text: '', position };
-		result = this.evaluateExpression(expressiontype.Standard, line, result.position);
-		while (line[result.position] === ':') {
-			result = this.evaluateExpression(expressiontype.Standard, line, ++result.position);
-		}
-		return result;
-	}
-	private _checkWrite(line: string, position: number): ErrorInformation {
-		//expr|*intexpr|fcc[,...]
-		let result: ErrorInformation = { text: '', position };
-		let mat: string[] | null;
-		if (line[result.position] === '*') {
-			result = this.evaluateExpression(expressiontype.Standard, line, ++result.position);
-			return result;
-		}
-		if (line.substring(result.position).match(/^\/(EOF|PASS|ACCEPT|LISTEN|L|TLS|WAIT|W)/i)) {
-			result = this._checkWriteSocket(line, result.position);
-			return result;
-		}
-		if (mat = line.substring(result.position).match(/^(#|!)+/)) {
-			result.position += mat[0].length;
-			if (line[result.position] === '?') {
-				result = this.evaluateExpression(expressiontype.Standard, line, ++result.position);
-			}
-			return result;
-		}
-		if (line[result.position] === '?') {
-			result = this.evaluateExpression(expressiontype.Standard, line, ++result.position);
-			return result;
-		}
-		result = this.evaluateExpression(expressiontype.Standard, line, result.position);
-		return result;
-	}
-	private _checkWriteSocket(line: string, position: number): ErrorInformation {
-		let result: ErrorInformation = { text: '', position };
-		let mat: string[] | null;
-		if (mat = line.substring(result.position).match(/^\/(EOF|PASS|ACCEPT|LISTEN|L|TLS|WAIT|W)/i)) {
-			result.position += mat[0].length;
-			let fname = mat![0].toUpperCase();
-			if (fname === '/EOF') {
-				return result;
-			}
-			if (line[result.position] !== '(') {
-				if (!fname.match(/^\/(LISTEN|L|WAIT|W)/)) {
-					result.text = fname + ' needs Parameter(s)';
-					throw result;
-				}
-				return result;
-			}
-			result.position++;
-			let maxparams = 99;
-			if (fname === '/LISTEN' || fname === '/L' || fname === '/WAIT' || fname === '/W') {
-				maxparams = 1;
-			} else if (fname === '/TLS') {
-				maxparams = 4;
-			}
-			let paramCount = 0;
-			let braceComplete = false;
-			do {
-				paramCount++;
-				if (paramCount > maxparams) {
-					result.text = 'More Parameters than expected';
-					throw result;
-				}
-				if (fname === '/ACCEPT' && paramCount === 1) {
-					if (line[result.position] !== '.') {
-						result.text = 'Local Variablereference expected (.lvn)';
-						throw result
-					}
-					result = this._checkVar(line, ++result.position, false, false);
-				} else {
-					result = this.evaluateExpression(expressiontype.Standard, line, result.position);
-				}
-				braceComplete = true;
-				if (line[result.position] === ',') {
-					braceComplete = false;
-					continue;
-				}
-				if (line[result.position] === ')') {
-					result.position++;
-					break;
-				}
-			} while (!this._isEndOfArgument(line, result.position))
-			if (!braceComplete) {
-				result.text = 'Missing Parameter or ")"';
-				throw result;
-			}
-		}
-		return result;
-	}
-	private _checkXecute(line: string, position: number): ErrorInformation {
-		let result: ErrorInformation = { text: '', position };
-		result = this.evaluateExpression(expressiontype.Standard, line, result.position);
-		if (line[result.position] === ':') {
-			result = this.evaluateExpression(expressiontype.Standard, line, ++result.position);
-		}
-		return result;
-	}
-	private _checkZbreak(line: string, position: number): ErrorInformation {
-		//[-]entryref[:[expr][:intexpr]][,...]
-		let result: ErrorInformation = { text: '', position };
-		if (line[result.position] === '-') {
-			result.position++;
-			if (line[result.position] === '*') {
-				result.position++;
-				return result;
-			}
-		}
-		result = this._checkEntryRef(line, result.position, false);
-		if (line[result.position] === ':') {
-			result.position++;
-			if (line[result.position] === ':') {
-				result = this.evaluateExpression(expressiontype.Standard, line, ++result.position);
-			} else {
-				result = this.evaluateExpression(expressiontype.Standard, line, ++result.position);
-				if (line[result.position] === ':') {
-					result = this.evaluateExpression(expressiontype.Standard, line, ++result.position);
-				}
-			}
-		}
-		return result;
-	}
-	private _checkZprint(line: string, position: number): ErrorInformation {
-		// 'parameter': '[entryref[:label[+intexpr]][,...]'
-		let result: ErrorInformation = { text: '', position };
-		result = this._checkEntryRef(line, result.position, false);
-		if (line[result.position] === ':') {
-			result = this._checkEntryRef(line, ++result.position, false);
-		}
-		return result;
-	}
-	private _checkZstep(line: string, position: number): ErrorInformation {
-		// 'parameter': '[keyword[:expr]][,...]'
-		let result: ErrorInformation = { text: '', position };
-		let mat: string[] | null;
-
-		if (mat = line.substring(result.position).match(/^(INTO|OUTOF|OU|OVER|OV)/i)) {
-			result.position += mat.length;
-		} else {
-			result.text = 'Invalid ZSTEP Qualifier';
-			throw result;
-		}
-		if (line[result.position] === ':') {
-			result = this.evaluateExpression(expressiontype.Standard, line, ++result.position);
-		}
-		return result;
-	}
-	private _checkCommand(line: string, longcmd: string, code: TmpFunction): ErrorInformation {
-		let para = cmdParams[longcmd];
-		let position = code.pcPosition
-		let postcondPossible = para.postcondition;
-		let argFormat = para.parameter;
-		let result: ErrorInformation = { text: '', position: 0 }
-		if (!postcondPossible && code.mPostCondition !== '') {
-			throw { text: 'Poscondition not allowed', position }
-		} else if (code.mPostCondition !== '') {
-			result = this.evaluateExpression(expressiontype.Standard, line, position);
-		}
-		position = code.argPosition;
-		if (code.mArguments === '') {
-			if (argFormat === '' || argFormat[0] === '[') {
-				return { text: '', position }
-			} else {
-				throw { text: 'Argument for command ' + code.mCommand + " required", position }
-			}
-		}
-		result.position = position;
-		let argCount = 0;
-		do {
-			argCount++;
-			switch (longcmd) {
-				case 'BREAK':
-					result = this._checkBreak(line, result.position);
-					break;
-				case 'CLOSE':
-					result = this._checkOUC(closekeywords, line, result.position);
-					break;
-				case 'DO':
-					result = this._checkEntryRefAndPostcondition(line, result.position, true);
-					break;
-				case 'ELSE':
-					if (line !== '') {
-						throw { text: 'No Argument expected', position }
-					}
-					break;
-				case 'FOR':
-					result = this._checkFor(line, result.position, argCount);
-					break;
-				case 'GOTO':
-					result = this._checkEntryRefAndPostcondition(line, result.position, false);
-					break;
-				case 'HANG':
-					result = this.evaluateExpression(expressiontype.Standard, line, result.position);
-					break;
-				case 'IF':
-					result = this.evaluateExpression(expressiontype.Standard, line, result.position);
-					break;
-				case 'JOB':
-					result = this._checkJob(line, result.position);
-					break;
-				case 'KILL':
-					result = this._checkKill(line, result.position);
-					break;
-				case 'LOCK':
-					result = this._checkLock(line, result.position, true);
-					break;
-				case 'MERGE':
-					result = this._checkMerge(line, result.position);
-					break;
-				case 'NEW':
-					result = this._checkNew(line, result.position);
-					break;
-				case 'OPEN':
-					result = this._checkOUC(openkeywords, line, result.position);
-					break;
-				case 'QUIT':
-					if (argCount > 1) {
-						result.text = 'Quit allows only one Argument'
-						throw result;
-					} else {
-						if (line[result.position] === '*') {
-							result = this._checkVar(line, ++result.position, false);
-						} else {
-							result = this.evaluateExpression(expressiontype.Standard, line, result.position);
-						}
-					}
-					break;
-				case 'READ':
-					result = this._checkRead(line, result.position);
-					break;
-				case 'SET':
-					result = this._checkSet(line, result.position);
-					break;
-				case 'TROLLBACK':
-					if (argCount > 1) {
-						result.text = 'TROLLBACK allows only one Argument'
-					} else {
-						result = this.evaluateExpression(expressiontype.Standard, line, result.position);
-					}
-					break;
-				case 'TSTART':
-					result = this._checkTstart(line, result.position);
-					break;
-				case 'USE':
-					result = this._checkOUC(usekeywords, line, result.position);
-					break;
-				case 'VIEW':
-					result = this._checkView(line, result.position);
-					break;
-				case 'WRITE':
-					result = this._checkWrite(line, result.position);
-					break;
-				case 'XECUTE':
-					result = this._checkXecute(line, result.position);
-					break;
-				case 'ZALLOCATE':
-					result = this._checkLock(line, result.position, false);
-					break;
-				case 'ZBREAK':
-					result = this._checkZbreak(line, result.position);
-					break;
-				case 'ZCOMPILE':
-					// 'abbreviation': 'ZCOM',
-					// 'postcondition': true,
-					// 'parameter': 'expr[,...]'
-					result = this.evaluateExpression(expressiontype.Standard, line, result.position);
-					break;
-				case 'ZDEALLOCATE':
-					result = this._checkVar(line, result.position);
-					// 'abbreviation': 'ZD',
-					// 'postcondition': true,
-					// 'parameter': '[nref[,...]]'
-					break;
-				case 'ZEDIT':
-					result = this.evaluateExpression(expressiontype.Standard, line, result.position);
-					// 'abbreviation': 'ZED',
-					// 'postcondition': true,
-					// 'parameter': '[expr[,...]]'
-					break;
-				case 'ZGOTO':
-					result = this.evaluateExpression(expressiontype.Standard, line, result.position);
-					if (line[result.position] === ':') {
-						result = this._checkEntryRefAndPostcondition(line, ++result.position, false);
-					}
-					// 'abbreviation': 'ZG',
-					// 'postcondition': true,
-					// 'parameter': '[[intexpr][:entryref[:tvexpr]],...]'
-					break;
-				case 'ZHALT':
-					result = this.evaluateExpression(expressiontype.Standard, line, result.position);
-					// 'abbreviation': 'ZHALT',
-					// 'postcondition': true,
-					// 'parameter': '[intexpr]'
-					break;
-				case 'ZHELP':
-					result = this.evaluateExpression(expressiontype.Standard, line, result.position);
-					if (line[result.position] === ':') {
-						result = this.evaluateExpression(expressiontype.Standard, line, ++result.position);
-					}
-					// 'abbreviation': 'ZH',
-					// 'postcondition': true,
-					// 'parameter': '[expr1[:expr2],...]'
-					break;
-				case 'ZKILL':
-					result = this._checkVar(line, result.position);
-					// 'abbreviation': 'ZK',
-					// 'postcondition': true,
-					// 'parameter': 'glvn'
-					break;
-				case 'ZLINK':
-					result = this.evaluateExpression(expressiontype.Standard, line, result.position);
-					if (line[result.position] === ':') {
-						result = this.evaluateExpression(expressiontype.Standard, line, ++result.position);
-					}
-					// 'abbreviation': 'ZL',
-					// 'postcondition': true,
-					// 'parameter': '[expr1[:expr2][,...]]'
-					break;
-				case 'ZMESSAGE':
-					result = this.evaluateExpression(expressiontype.Standard, line, result.position);
-					while (line[result.position] === ':') {
-						result = this.evaluateExpression(expressiontype.Standard, line, ++result.position);
-					}
-					// 'abbreviation': 'ZM',
-					// 'postcondition': true,
-					// 'parameter': 'intexpr[:expr2][:...]'
-					break;
-				case 'ZPRINT':
-					// 'abbreviation': 'ZP',
-					// 'postcondition': true,
-					// 'parameter': '[entryref[:label[+intexpr]][,...]'
-					result = this._checkZprint(line, result.position);
-					break;
-				case 'ZRUPDATE':
-					// 'abbreviation': 'ZRUP',
-					// 'postcondition': true,
-					// 'parameter': 'expr[,...]'
-					result = this.evaluateExpression(expressiontype.Standard, line, result.position);
-					break;
-				case 'ZSHOW':
-					// 'abbreviation': 'ZSH',
-					// 'postcondition': true,
-					// 'parameter': '[expr[:glvn][,...]]'
-					result = this.evaluateExpression(expressiontype.Standard, line, result.position);
-					if (line[result.position] === ':') {
-						result = this._checkVar(line, ++result.position);
-					}
-					break;
-				case 'ZSTEP':
-					// 'abbreviation': 'ZST',
-					// 'postcondition': true,
-					// 'parameter': '[keyword[:expr]][,...]'
-					result = this._checkZstep(line, result.position);
-					break;
-				case 'ZSYSTEM':
-					// 'abbreviation': 'ZSY',
-					// 'postcondition': true,
-					// 'parameter': '[expr][,...]]'
-					result = this.evaluateExpression(expressiontype.Standard, line, result.position);
-					break;
-				case 'ZTCOMMIT':
-					// 'abbreviation': 'ZTC',
-					// 'postcondition': true,
-					// 'parameter': '[intexpr]'
-					result = this.evaluateExpression(expressiontype.Standard, line, result.position);
-					break;
-				case 'ZTRIGGER':
-					// 'abbreviation': 'ZTR',
-					// 'postcondition': true,
-					// 'parameter': 'gvn'
-					result = this._checkVar(line, result.position, true, false);
-					if (!result.globalFound) {
-						result.text = 'Global Variable expected';
-						throw result;
-					}
-					break;
-				case 'ZWITHDRAW':
-					// 'abbreviation': 'ZWI',
-					// 'postcondition': true,
-					// 'parameter': 'glvn'
-					result = this._checkVar(line, result.position);
-					break;
-				case 'ZWRITE':
-					//'abbreviation': 'ZWR',
-					//'postcondition': true,
-					//'parameter': '[zwrglvn[,...]]'
-					//not separately tested because ZWRITE is for debugging and should not appear in normal code
-					result.position += line.length;
-					break;
-				default:
-					result.position = line.length;
-					break;
-			}
-			if (line[result.position] === ',') {
-				result.position++;
-				if (result.position === line.length) {
-					if (argFormat !== '' && argFormat[0] !== '[') {
-						throw { text: 'Argument for command ' + code.mCommand + " required", position: result.position }
-					}
-				}
-				continue;
-			} else if (line[result.position] !== undefined) {
-				let char = line[result.position];
-				if (char === " " || char === "\t" || char === ";") { break; }
-				result.text = 'Unexpected Character "' + line[result.position] + '"';
-				throw result;
-			}
-		} while (result.position < line.length)
-		return result;
-	}
-	private _checkFunction(longfunc: string, line: string, position: number): ErrorInformation {
-		let result: ErrorInformation = { text: '', position: position };
-		let params = funcParams[longfunc];
-		if (params === undefined) {
-			result.text = "Unknown Function " + longfunc;
-			throw result;
-		}
-		let minArguments = params.minparams !== undefined ? params.minparams : 1;
-		let formats = params.format !== undefined ? params.format.split(',') : undefined;
-		let argCount = 0;
-		longfunc = '$' + longfunc;
-		if (minArguments === 0 && line[result.position] === ')') {
-			result.position++;
-			return result;
-		}
-		do {
-			let format = (formats !== undefined && formats[argCount] !== undefined) ? formats[argCount] : 'expr';
-			if (longfunc === '$SELECT') {
-				format = 'special';
-			}
-			if (format === 'glvn' || format === 'gvn' || format === 'glvn(' || format === 'lvn') {
-				result = this._checkVar(line, result.position);
-				if (format === 'glvn(' && (!result.indexFound && !result.indirectionFound)) {
-					result.text = 'Variable with Index expected for ' + longfunc;
-					throw result;
-				}
-				if (format === 'lvn' && result.globalFound) {
-					result.text = 'Local variable expected';
-					throw result;
-				}
-			} else if (format === 'entryref') {
-				result = this._checkEntryRef(line, result.position, false);
-			} else if (format === 'expr') {
-				result = this.evaluateExpression(expressiontype.Standard, line, result.position);
-			} else if (format === 'bool') {
-				if (line[result.position] !== '0' && line[result.position] !== '1') {
-					result.text = '0/1 expected';
-					throw result;
-				} else {
-					result.position++;
-				}
-			} else if (format === 'special') {
-				if (longfunc === '$SELECT') {
-					result = this.evaluateExpression(expressiontype.Standard, line, result.position);
-					if (line[result.position] !== ':') {
-						result.text = 'Missing Expression';
-						throw result;
-					}
-					result.position++
-					result = this.evaluateExpression(expressiontype.Standard, line, result.position);
-				}
-			}
-			argCount++;
-			let char = line[result.position];
-			if (char === ',') {
-				if (argCount > params.maxparams) {
-					result.text = 'More Arguments for ' + longfunc + ' than expected';
-					throw result;
-				}
-				result.position++;
-				continue;
-			} else if (char === ')') {
-				if (argCount < minArguments) {
-					result.text = 'Less Arguments for ' + longfunc + ' than expected';
-					throw result;
-				}
-				result.position++;
-				break;
-			} else {
-				result.text = 'Unxepected character ';
-				throw result;
-			}
-		} while (!this._isEndOfArgument(line, result.position));
-
-		return result;
-	}
-	private _isEndOfArgument(line: string, position: number): boolean {
-		let isEndOfArgument = false;
-		let char = line[position];
-		if (char === undefined || char === " " || char === "\t" || char === ";") { isEndOfArgument = true; }
-		return isEndOfArgument;
-	}
 }
 /*
 let dir = "t:\\";

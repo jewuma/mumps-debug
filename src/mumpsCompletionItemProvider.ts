@@ -1,8 +1,6 @@
 import * as vscode from 'vscode';
 const fs = require('fs');
 
-//let Location = vscode.Location;
-//let Position = vscode.Position;
 interface ItemHint {
 	lineStatus: string,
 	startstring: string
@@ -16,7 +14,7 @@ interface DbItem {
 	labels: LabelItem[],
 	routines: {}
 }
-export class CompletionItemProvider {
+export default class CompletionItemProvider {
 	/**
  * Provides the completion items for the supplied words.
  *
@@ -118,7 +116,7 @@ export class CompletionItemProvider {
 			this._checkReady(true);
 		});
 	}
-	private _findLabel(startstring, list: Array<vscode.CompletionItem>, replaceRange: vscode.Range) {
+	private _findLabel(startstring: string, list: Array<vscode.CompletionItem>, replaceRange: vscode.Range) {
 		//let hits = 0;
 		let hitlist: LabelItem[];
 		let sortText = '';

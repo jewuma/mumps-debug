@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
-import { LineToken, TokenType, MumpsLineParser } from './mumpsLineParser'
-//const folders = vscode.workspace.workspaceFolders;
+import { LineToken, TokenType, MumpsLineParser, LineInformation } from './mumpsLineParser'
 const parser = new MumpsLineParser();
+
 interface Parameter {
 	name: string,
 	position: number
@@ -10,6 +10,11 @@ interface Subroutine {
 	startLine: number,
 	endLine: number
 	parameters: Parameter[]
+}
+interface generalSubroutine {
+	name: string,
+	startLine: number,
+	endLine: number
 }
 interface VariableState {
 	newedAtLine?: number[],
@@ -23,6 +28,7 @@ interface VariableState {
 interface VariableStates {
 	name: VariableState
 }
+let symbols: vscode.SymbolInformation[] = [];
 
 /**
  * Checks if mumps routines NEWs variables correctly
@@ -30,16 +36,26 @@ interface VariableStates {
  * Checks if there's unreachable code
  *
  */
-export default class MumpsSemanticCheck {
-	private _linetokens: LineToken[][];
-	private _warnings: vscode.Diagnostic[];
+export default class MumpsDiagnosticsProvider {
+	private _linetokens: LineToken[][] = [];
+	private _diags: vscode.Diagnostic[] = [];
 	private _variablesToBeIgnored: string[] = [];
 	private _enableVariableCheck: boolean = true;
 	private _varStates: VariableStates;
 	private _levelExclusiveNew: number[];
-	private _subroutines: Subroutine[];
-	constructor(document: vscode.TextDocument) {
-		this._linetokens = parser.analyzeLines(document.getText());
+	private _subroutines: Subroutine[] = [];
+	private _document: vscode.TextDocument;
+	private _routine: Subroutine = { startLine: -1, endLine: -1, parameters: [] };
+	private _level: number = 0;
+	private _lineWithDo: number = -2;
+	private _isBehindQuit: boolean = false;
+	private _startUnreachable: vscode.Position | false = false;
+	private _activeSubroutine: generalSubroutine = { name: '', startLine: -1, endLine: -1 }
+
+	constructor(document: vscode.TextDocument, collection: vscode.DiagnosticCollection) {
+		this._document = document;
+		this._diags = [];
+		this._linetokens = [];
 		const configuration = vscode.workspace.getConfiguration();
 		if (configuration.mumps.variablesToBeIgnoredAtNewCheck !== undefined) {
 			this._variablesToBeIgnored = configuration.mumps.variablesToBeIgnoredAtNewCheck.split(",");
@@ -47,20 +63,27 @@ export default class MumpsSemanticCheck {
 		if (configuration.mumps.enableVariableCheck !== undefined) {
 			this._enableVariableCheck = configuration.mumps.enableVariableCheck;
 		}
-	}
-	/**
-	 * Check all subroutines with parameters in actual document
-	 * @returns Array of diagnostic messages if problems found, else an empty array
-	 */
-	public scanSubroutines(): vscode.Diagnostic[] {
-		//let start = 0;
-		this._warnings = [];
-		this._subroutines = [];
-		this._checkFile();
-		for (let i = 0; i < this._subroutines.length; i++) {
-			this.analyzeSubroutine(this._subroutines[i]);
+		if (document && document.languageId === 'mumps') {
+			collection.clear();
+			for (let i = 0; i < document.lineCount; i++) {
+				let line = document.lineAt(i);
+				let lineInfo: LineInformation = parser.analyzeLine(line.text);
+				if (lineInfo.error.text !== '') {
+					this._addWarning(lineInfo.error.text, i, lineInfo.error.position, -1, vscode.DiagnosticSeverity.Error)
+				}
+				this._linetokens.push(lineInfo.tokens);
+				this._checkLine(i, lineInfo.tokens);
+			}
+			if (this._activeSubroutine.startLine > -1) {
+				this._addSymbol(this._activeSubroutine.name, this._activeSubroutine.startLine, this._linetokens.length);
+			}
+			for (let i = 0; i < this._subroutines.length; i++) {
+				this.analyzeSubroutine(this._subroutines[i]);
+			}
+			if (this._diags) {
+				collection.set(document.uri, this._diags);
+			}
 		}
-		return this._warnings;
 	}
 	/**
 	 * Checks a single subroutine if variables are NEWed correctly
@@ -248,120 +271,123 @@ export default class MumpsSemanticCheck {
 	 * @param startPosition Position inside Line where the problem was found
 	 * @param len Length of variable-name
 	 */
-	private _addWarning(message: string, line: number, startPosition: number, len: number) {
-		this._warnings.push({
+	private _addWarning(message: string, line: number, startPosition: number, len: number, severity?) {
+		if (severity === undefined) {
+			severity = vscode.DiagnosticSeverity.Warning;
+		}
+		let endline = line;
+		let endPosition = startPosition + len;
+		if (len === -1) { //mark complete rest of line
+			endline = line + 1;
+			endPosition = 0;
+		}
+		this._diags.push({
 			code: '',
 			message,
-			range: new vscode.Range(new vscode.Position(line, startPosition), new vscode.Position(line, startPosition + len)),
-			severity: vscode.DiagnosticSeverity.Warning,
+			range: new vscode.Range(new vscode.Position(line, startPosition), new vscode.Position(endline, endPosition)),
+			severity,
 			source: ''
 		});
 	}
-	/**
-	 * Scans the given File for subroutines with paramters and save their parameters in this._subroutines
-	 * Looks for unreachable Code and saves error messages if this is the case
-	 */
-	private _checkFile() {
-		let routine: Subroutine = { startLine: -1, endLine: -1, parameters: [] };
-		let level: number = 0;
-		let lineWithDo: number = -2;
-		let isBehindQuit: boolean = false;
-		let startUnreachable: vscode.Position | false = false;
-		for (let line = 0; line < this._linetokens.length; line++) { //iterate over every document line
-			let ifFlag = false;
-			let intendationFound = false;
-			if (this._linetokens[line].length === 0) { //empty line = intendation 0 is it OK?
-				if (line === lineWithDo + 1) {
-					this._addWarning("Expected intendation level: " + (level + 1) + ", found: 0", line, 0, 1);
-					lineWithDo = -2;
-				}
-				level = 0;
+	private _checkLine(line: number, tokens: LineToken[]) {
+		let ifFlag = false;
+		let intendationFound = false;
+		if (tokens.length === 0) { //empty line = intendation 0 is it OK?
+			if (line === this._lineWithDo + 1) {
+				this._addWarning("Expected intendation level: " + (this._level + 1) + ", found: 0", line, 0, 1);
+				this._lineWithDo = -2;
 			}
-			for (let tokenId = 0; tokenId < this._linetokens[line].length; tokenId++) { // iterate over every token in actual line
-				let token: LineToken = this._linetokens[line][tokenId];
-				if (token.type === TokenType.comment && token.name.match(/ignoreVars:/)) { //Check for IgnoreVars-directive
-					this._variablesToBeIgnored = this._variablesToBeIgnored.concat(token.name.split("ignoreVars:")[1].split(","));
+			this._level = 0;
+		}
+		for (let tokenId = 0; tokenId < tokens.length; tokenId++) { // iterate over every token in actual line
+			let token: LineToken = tokens[tokenId];
+			if (token.type === TokenType.comment && token.name.match(/ignoreVars:/)) { //Check for IgnoreVars-directive
+				this._variablesToBeIgnored = this._variablesToBeIgnored.concat(token.name.split("ignoreVars:")[1].split(","));
+			}
+			if (tokenId === 0 && token.type === TokenType.label) { 	//If there was unreachable code before this label
+				//save a warning
+				//Remember label in symbol library
+				if (this._activeSubroutine.startLine > -1) {
+					this._addSymbol(this._activeSubroutine.name, this._activeSubroutine.startLine, line)
 				}
-				if (tokenId === 0 && token.type === TokenType.label) { 	//If there was unreachable code before this label
-					//save a warning
-					isBehindQuit = false;
-					if (startUnreachable) { //Only if there were Code lines after a quit or a goto
-						this._warnings.push({
-							code: '',
-							message: "Unreachable Code",
-							range: new vscode.Range(startUnreachable, new vscode.Position(line, 0)),
-							severity: vscode.DiagnosticSeverity.Warning,
-							source: ''
-						});
-						startUnreachable = false;
-					}
-					if (this._linetokens[line][1] !== undefined &&
-						this._linetokens[line][1].type === TokenType.local) { //Begin of a parametrized subroutine
-						routine.startLine = line;
-						while (++tokenId < this._linetokens[line].length && this._linetokens[line][tokenId].type === TokenType.local) {
-							routine.parameters.push({ name: this._linetokens[line][tokenId].name, position: this._linetokens[line][tokenId].position });
-						}
-						if (tokenId >= this._linetokens[line].length) {
-							continue;
-						}
-						token = this._linetokens[line][tokenId];
-					}
+				this._activeSubroutine.startLine = line;
+				this._activeSubroutine.name = token.name;
+				this._isBehindQuit = false;
+				if (this._startUnreachable) { //Only if there were Code lines after a quit or a goto
+					this._diags.push({
+						code: '',
+						message: "Unreachable Code",
+						range: new vscode.Range(this._startUnreachable, new vscode.Position(line, 0)),
+						severity: vscode.DiagnosticSeverity.Warning,
+						source: ''
+					});
+					this._startUnreachable = false;
 				}
-				if (token.type === TokenType.keyword || token.type === TokenType.comment) { //Check intendation level
-					if (intendationFound === false) {
-						if (line === lineWithDo + 1) {
-							this._addWarning("Expected intendation level: " + (level + 1) + ", found: " + level, line, 0, token.position);
-							lineWithDo = -2;
-						}
-						level = 0;
+				if (tokens[1] !== undefined && tokens[1].type === TokenType.local) { //Begin of a parametrized subroutine
+					this._routine.startLine = line;
+					while (++tokenId < tokens.length && tokens[tokenId].type === TokenType.local) {
+						this._routine.parameters.push({ name: tokens[tokenId].name, position: tokens[tokenId].position });
 					}
+					if (tokenId >= tokens.length) {
+						continue;
+					}
+					token = tokens[tokenId];
 				}
-				if (token.type === TokenType.keyword) {
-					if (isBehindQuit && startUnreachable === false) {
-						startUnreachable = new vscode.Position(line, token.position);
+			}
+			if (token.type === TokenType.keyword || token.type === TokenType.comment) { //Check intendation level
+				if (intendationFound === false) {
+					if (line === this._lineWithDo + 1) {
+						this._addWarning("Expected intendation level: " + (this._level + 1) + ", found: " + this._level, line, 0, token.position);
+						this._lineWithDo = -2;
 					}
-					let command = token.longName;
-					if (command === "IF" || command === "ELSE") {
-						ifFlag = true;
-					}
-					if (command === "DO" && token.hasArguments === false) {
-						lineWithDo = line;
-					}
-					if (!ifFlag && (command === "QUIT" || command === "GOTO") && !token.isPostconditioned && level === 0) {
-						let hasPostcondition = false;
-						if (command === "GOTO") { //Check if GOTO argument is postconditioned
-							for (let k = tokenId + 1; k < this._linetokens[line].length; k++) {
-								if (this._linetokens[line][k].type === TokenType.argPostcondition) {
-									hasPostcondition = true;
-									break;
-								} else if (this._linetokens[line][k].type === TokenType.keyword) {
-									break;
-								}
+					this._level = 0;
+				}
+			}
+			if (token.type === TokenType.keyword) {
+				if (this._isBehindQuit && this._startUnreachable === false) {
+					this._startUnreachable = new vscode.Position(line, token.position);
+				}
+				let command = token.longName;
+				if (command === "IF" || command === "ELSE") {
+					ifFlag = true;
+				}
+				if (command === "DO" && token.hasArguments === false) {
+					this._lineWithDo = line;
+				}
+				if (!ifFlag && (command === "QUIT" || command === "GOTO") && !token.isPostconditioned && this._level === 0) {
+					let hasPostcondition = false;
+					if (command === "GOTO") { //Check if GOTO argument is postconditioned
+						for (let k = tokenId + 1; k < tokens.length; k++) {
+							if (tokens[k].type === TokenType.argPostcondition) {
+								hasPostcondition = true;
+								break;
+							} else if (tokens[k].type === TokenType.keyword) {
+								break;
 							}
 						}
-						if (!hasPostcondition) {
-							routine.endLine = line;
-							if (routine.startLine !== -1) {
-								this._subroutines.push(routine);
-								routine = { startLine: -1, endLine: -1, parameters: [] };
-							}
-							isBehindQuit = true;
-							break;
+					}
+					if (!hasPostcondition) {
+						this._routine.endLine = line;
+						if (this._routine.startLine !== -1) {
+							this._subroutines.push(this._routine);
+							this._routine = { startLine: -1, endLine: -1, parameters: [] };
 						}
+						this._isBehindQuit = true;
+						break;
 					}
 				}
-				if (token.type === TokenType.intendation) { //check if new intendation level is OK and remember new level
-					let expectedLevel = line === lineWithDo + 1 ? level + 1 : level;
-					level = token.name.length;
-					intendationFound = true;
-					if (level > expectedLevel) {
-						this._addWarning("Intendation Level wrong, found: " + level + ", expected: " + expectedLevel, line, 0, token.position);
-					}
-					if (line === lineWithDo + 1 && level < expectedLevel) {
-						this._addWarning("Higher intendation expected after argumentless Do", line, 0, token.position);
-					}
-					lineWithDo = -2;
+			}
+			if (token.type === TokenType.intendation) { //check if new intendation level is OK and remember new level
+				let expectedLevel = line === this._lineWithDo + 1 ? this._level + 1 : this._level;
+				this._level = token.name.length;
+				intendationFound = true;
+				if (this._level > expectedLevel) {
+					this._addWarning("Intendation Level wrong, found: " + this._level + ", expected: " + expectedLevel, line, 0, token.position);
 				}
+				if (line === this._lineWithDo + 1 && this._level < expectedLevel) {
+					this._addWarning("Higher intendation expected after argumentless Do", line, 0, token.position);
+				}
+				this._lineWithDo = -2;
 			}
 		}
 	}
@@ -418,5 +444,11 @@ export default class MumpsSemanticCheck {
 				}
 			}
 		}
+	}
+	private _addSymbol(name: string, startLine: number, endLine: number) {
+		let startPosition = new vscode.Position(startLine, 0);
+		let endPosition = new vscode.Position(endLine, 0);
+		let methodRange = new vscode.Location(this._document.uri, new vscode.Range(startPosition, endPosition));
+		symbols.push(new vscode.SymbolInformation(name, vscode.SymbolKind.Function, '', methodRange));
 	}
 }

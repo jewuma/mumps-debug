@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 const DIVIDERLINE = "\t;****************\n"
 
-function DocumentFunction() {
+export default function mumpsDocumenter() {
 	let editor = vscode.window.activeTextEditor
 	if (editor) {
 		let document = editor.document
@@ -57,4 +57,3 @@ function makeSignature(labelLine: string) {
 	return Signature;
 }
 
-export { DocumentFunction };

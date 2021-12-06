@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { TokenType, MumpsLineParser } from './mumpsLineParser';
 const fs = require('fs');
 const parser = new MumpsLineParser();
-class MumpsReferenceProvider {
+export default class MumpsReferenceProvider {
 	provideReferences(document: vscode.TextDocument, position: vscode.Position): Promise<vscode.Location[] | null | undefined> {
 		let myToken = parser.getTokenAt(document.lineAt(position).text, position.character);
 		let result: vscode.Location[] = [];
@@ -73,4 +73,3 @@ class MumpsReferenceProvider {
 		});
 	}
 }
-export { MumpsReferenceProvider };

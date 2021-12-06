@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-export class MumpsEvalutableExpressionProvider {
+export default class MumpsEvalutableExpressionProvider {
 	provideEvaluatableExpression(document: vscode.TextDocument, position: vscode.Position): vscode.ProviderResult<vscode.EvaluatableExpression> {
 		/*
 		const diags: readonly vscode.Diagnostic[] | undefined = mumpsDiagnostics.get(document.uri);

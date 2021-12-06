@@ -12,7 +12,7 @@ import {
 import { DebugProtocol } from 'vscode-debugprotocol';
 import { basename } from 'path';
 const { Subject } = require('await-notify');
-import { MConnect, MumpsBreakpoint } from './mconnect';
+import { MumpsConnect, MumpsBreakpoint } from './mumpsConnect';
 import * as vscode from 'vscode';
 import { readFileSync } from 'fs';
 const MUMPSDIAGNOSTICS = vscode.languages.createDiagnosticCollection("mumps");
@@ -43,7 +43,7 @@ interface VarData {
 	bases: Array<string>,
 	content: string
 }
-export class MumpsDebugSession extends DebugSession {
+export default class MumpsDebugSession extends DebugSession {
 
 	// we don't support multiple threads, so we can use a hardcoded ID for the default thread
 	private static THREAD_ID = 1;
@@ -54,7 +54,7 @@ export class MumpsDebugSession extends DebugSession {
 
 	private _program: string;
 
-	private _mconnect: MConnect;
+	private _mconnect: MumpsConnect;
 	/**
 	 * Creates a new debug adapter that is used for one debug session.
 	 * We configure the default implementation of a debug adapter here.
@@ -66,7 +66,7 @@ export class MumpsDebugSession extends DebugSession {
 		this.setDebuggerLinesStartAt1(false);
 		this.setDebuggerColumnsStartAt1(false);
 		this._program = "";
-		this._mconnect = new MConnect();
+		this._mconnect = new MumpsConnect();
 
 		// setup event handlers
 		this._mconnect.on('stopOnEntry', () => {

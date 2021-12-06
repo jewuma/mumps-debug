@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-export class MumpsFormattingHelpProvider {
+export default class MumpsFormattingHelpProvider {
 	provideDocumentFormattingEdits(document: vscode.TextDocument, options, token) {
 		let textEdits: vscode.TextEdit[] = []
 		for (let i = 0; i < document.lineCount; i++) {

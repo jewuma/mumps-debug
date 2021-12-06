@@ -26,7 +26,7 @@ interface FrameInfo {
 enum connectState {
 	disconnected, waitingforStart, waitingForVars, waitingForBreakpoints, waitingForSingleVar, waitingForSingleVarContent, waitingForErrorReport, waitingForHints
 }
-export class MConnect extends EventEmitter {
+export class MumpsConnect extends EventEmitter {
 	private _socket = new Socket();
 	private _connectState: connectState;
 	private _readedData: string;
@@ -395,21 +395,6 @@ export class MConnect extends EventEmitter {
 			return this._mVars["V"];
 		}
 	}
-	/*
-	public buildLabelDb() {
-		this.writeln("BUILDLABELDB");
-	}
-
-	public async requestHints(part: string) {
-		return new Promise((resolve, reject) => {
-			this._event.on('HintsReceived', function HintsReceived(event: EventEmitter, hints: string[]) {
-				event.removeListener('HintsReceived', HintsReceived);
-				resolve(hints);
-			});
-			this.writeln("GETHINTS;" + part);
-		})
-	}
-	*/
 	public async checkRoutine(lines: string[]) {
 		return new Promise((resolve, reject) => {
 			this._event.on('ErrorreportReceived', function ErrorreportReceived(event: EventEmitter, errorLines: string[]) {
