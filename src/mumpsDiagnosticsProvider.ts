@@ -11,7 +11,7 @@ interface Subroutine {
 	endLine: number
 	parameters: Parameter[]
 }
-interface generalSubroutine {
+interface GeneralSubroutine {
 	name: string,
 	startLine: number,
 	endLine: number
@@ -50,7 +50,7 @@ export default class MumpsDiagnosticsProvider {
 	private _lineWithDo: number = -2;
 	private _isBehindQuit: boolean = false;
 	private _startUnreachable: vscode.Position | false = false;
-	private _activeSubroutine: generalSubroutine = { name: '', startLine: -1, endLine: -1 }
+	private _activeSubroutine: GeneralSubroutine = { name: '', startLine: -1, endLine: -1 }
 
 	constructor(document: vscode.TextDocument, collection: vscode.DiagnosticCollection) {
 		this._document = document;

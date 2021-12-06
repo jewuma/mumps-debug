@@ -1,7 +1,7 @@
 {
 	"name": "mumps-debug",
 	"displayName": "Mumps Language-Pack",
-	"version": "1.0.0",
+	"version": "1.1.0",
 	"publisher": "jewuma",
 	"description": "Debugger for Mumps (M) , GT.M, YottaDB",
 	"author": {
@@ -59,7 +59,7 @@
 		"webpack": "^5.64.0",
 		"webpack-cli": "^4.9.1"
 	},
-	"main": "./out/extension",
+	"main": "./dist/extension",
 	"activationEvents": [
 		"onLanguage:mumps"
 	],

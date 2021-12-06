@@ -49,3 +49,5 @@
 * Added Reference-provider
 ## 1.0.0
 * New Feature: Variables are checked for correct NEWing, some semantic checks added
+## 1.1.0
+* Intendation Check, better completion items, code optimization
