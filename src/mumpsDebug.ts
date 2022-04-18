@@ -7,7 +7,7 @@
 import {
 	DebugSession,
 	InitializedEvent, TerminatedEvent, StoppedEvent, BreakpointEvent,
-	Thread, StackFrame, Scope, Source, Handles, Breakpoint
+	Thread, StackFrame, Scope, Source, Handles
 } from 'vscode-debugadapter';
 import { DebugProtocol } from 'vscode-debugprotocol';
 import { basename } from 'path';
@@ -110,7 +110,7 @@ export default class MumpsDebugSession extends DebugSession {
 
 		// make VS Code to support data breakpoints
 		response.body.supportsDataBreakpoints = false;
-
+		response.body.supportsConditionalBreakpoints = true;
 		// make VS Code to support completion in REPL
 		response.body.supportsCompletionsRequest = false;
 		response.body.completionTriggerCharacters = [".", "["];
@@ -161,19 +161,12 @@ export default class MumpsDebugSession extends DebugSession {
 			vscode.window.showErrorMessage("Connection to MDEBUG failed. \nPlease start MDEBUG first.");
 		})
 	}
+
 	protected setBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments): void {
-
 		const path = <string>args.source.path;
-		const clientLines = args.lines || [];
-
 		this._mconnect.clearBreakpoints(path);
-		// set and verify breakpoint locations
-		const actualBreakpoints = clientLines.map(l => {
-			let { verified, line, id } = this._mconnect.setBreakPoint(path, this.convertClientLineToDebugger(l));
-			const bp = <DebugProtocol.Breakpoint>new Breakpoint(verified, this.convertDebuggerLineToClient(line));
-			bp.id = id;
-			return bp;
-		});
+		let actualBreakpoints = this._mconnect.setBreakPoint(path, args.breakpoints);
+
 		// send back the actual breakpoint positions
 		response.body = {
 			breakpoints: actualBreakpoints
@@ -251,7 +244,7 @@ export default class MumpsDebugSession extends DebugSession {
 					firstTime = false;
 					continue;
 				}
-				if (insertVariable = this.checkVars(lastVar!, actualVar, indexCount, varBase, lastRef)) {
+				if (insertVariable = this._checkVars(lastVar!, actualVar, indexCount, varBase, lastRef)) {
 					if (insertVariable.variablesReference !== 0) { lastRef = lastVar!.bases[indexCount]; }
 					variables.push(insertVariable);
 				}
@@ -259,7 +252,7 @@ export default class MumpsDebugSession extends DebugSession {
 			}
 			if (!firstTime) { // process Last Variable if there was minimum one
 				const dummyVar: VarData = { name: "", "indexCount": 0, "bases": [], "content": "" }
-				if (insertVariable = this.checkVars(lastVar!, dummyVar, indexCount, varBase, lastRef)) {
+				if (insertVariable = this._checkVars(lastVar!, dummyVar, indexCount, varBase, lastRef)) {
 					variables.push(insertVariable);
 				}
 			}
@@ -270,7 +263,7 @@ export default class MumpsDebugSession extends DebugSession {
 		this.sendResponse(response);
 	}
 	//checkVars checks if Variable has to be inserted in Var-Display and if it has descendants
-	private checkVars(lastVar: VarData, actualVar: VarData, indexCount: number, varBase: string, lastRef: string): DebugProtocol.Variable | undefined {
+	private _checkVars(lastVar: VarData, actualVar: VarData, indexCount: number, varBase: string, lastRef: string): DebugProtocol.Variable | undefined {
 		let returnVar: DebugProtocol.Variable | undefined = undefined;
 		let actualReference: number = 0;
 		if (indexCount === 0 || (lastVar.bases[indexCount - 1] === varBase && lastVar.indexCount > indexCount)) {
@@ -398,11 +391,7 @@ export default class MumpsDebugSession extends DebugSession {
 	private refreshDiagnostics(doc: vscode.TextDocument | undefined, mumpsDiagnostics: vscode.DiagnosticCollection): void {
 		let diagnostics: vscode.Diagnostic[] = [];
 		if (doc) {
-			let lines: string[] = []
-			for (let lineIndex = 0; lineIndex < doc.lineCount; lineIndex++) {
-				const lineOfText = doc.lineAt(lineIndex);
-				lines.push(lineOfText.text);
-			}
+			let lines: string[] = doc.getText().split("\n");
 			this._mconnect.checkRoutine(lines).then((errLines: string[]) => {
 				for (let i = 0; i < errLines.length; i++) {
 					let errData = errLines[i].split(";");

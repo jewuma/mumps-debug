@@ -18,15 +18,23 @@ export default class MumpsReferenceProvider {
 				let docLines: string[] = document.getText().split('\n');
 				for (let i = 0; i < docLines.length; i++) {
 					if (docLines[i].includes(externalLabel) || docLines[i].includes(searchToken)) {
-						let foundPosition = docLines[i].indexOf(externalLabel);
-						if (foundPosition === -1) {
-							foundPosition = docLines[i].indexOf(searchToken);
-						}
-						let token = parser.getTokenAt(docLines[i], foundPosition + 1)
-						if (token !== undefined && (token.name === externalLabel || token.name === searchToken) &&
-							(token.type === TokenType.entryref || token.type === TokenType.exfunction)) {
-							result!.push(new vscode.Location(document.uri, new vscode.Range(i, foundPosition, i, foundPosition + token.name.length)));
-						}
+						let foundPosition = -1;
+						do {
+							let extPosition = docLines[i].indexOf(externalLabel, foundPosition + 1);
+							if (extPosition === -1) {
+								foundPosition = docLines[i].indexOf(searchToken, foundPosition + 1);
+								if (foundPosition === -1) {
+									break;
+								}
+							} else {
+								foundPosition = extPosition;
+							}
+							let token = parser.getTokenAt(docLines[i], foundPosition + 1)
+							if (token !== undefined && (token.name === externalLabel || token.name === searchToken) &&
+								(token.type === TokenType.entryref || token.type === TokenType.exfunction)) {
+								result!.push(new vscode.Location(document.uri, new vscode.Range(i, foundPosition, i, foundPosition + token.name.length)));
+							}
+						} while (1);
 					}
 				}
 				// Check all other documents and return result

@@ -51,3 +51,5 @@
 * New Feature: Variables are checked for correct NEWing, some semantic checks added
 ## 1.1.0
 * Intendation Check, better completion items, code optimization
+## 1.1.1
+* Fixed that ]]-Operator wasn't interpreted correctly

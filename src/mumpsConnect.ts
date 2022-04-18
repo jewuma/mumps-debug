@@ -2,14 +2,16 @@
 	Connector to MDEBUG-Server by Jens Wulf
 	License: LGPL
 */
+import { DebugProtocol } from 'vscode-debugprotocol';
 import { Socket } from "net";
 import { EventEmitter } from 'events';
 import { readFileSync } from 'fs';
 export interface MumpsBreakpoint {
-	id: number;
+	id: number,
 	file: string,
-	line: number;
-	verified: boolean;
+	line: number,
+	verified: boolean,
+	condition?: string
 }
 interface VarData {
 	name: string,
@@ -233,17 +235,18 @@ export class MumpsConnect extends EventEmitter {
 			}
 		}
 	}
-	private sendBreakpoint(file: string, line: number, onOff: boolean): void {
-		if (onOff) { this.writeln("SETBP;" + file + ";" + line); }
+	private sendBreakpoint(file: string, line: number, onOff: boolean, condition?: string): void {
+		if (condition === undefined) { condition = ""; }
+		if (onOff) { this.writeln("SETBP;" + file + ";" + line + ";" + condition); }
 		else { this.writeln("CLEARBP;" + file + ";" + line); }
 	}
 	public start(file: string, stopAtStart: boolean): void {
 		if (stopAtStart) {
 			if (file.indexOf("^")) {
 				//Stop direct at given Label not at first line
-				this.sendBreakpoint(file, 0, true);
+				this.sendBreakpoint(file, 0, true, "");
 			} else {
-				this.sendBreakpoint(file, 1, true);
+				this.sendBreakpoint(file, 1, true, "");
 			}
 		}
 		this.requestBreakpoints();
@@ -333,11 +336,18 @@ export class MumpsConnect extends EventEmitter {
 	/*
 	 * Set breakpoint in file with given line.
 	 */
-	public setBreakPoint(file: string, line: number): MumpsBreakpoint {
-		const bp = <MumpsBreakpoint>{ verified: false, file, line, id: this._breakpointId++ };
-		this._breakPoints.push(bp);
-		this.sendBreakpoint(file, bp.line + 1, true);
-		return bp;
+	public setBreakPoint(file: string, breakpoints: DebugProtocol.SourceBreakpoint[] | undefined): DebugProtocol.Breakpoint[] {
+		let confirmedBreakpoints: DebugProtocol.Breakpoint[] = [];
+		if (breakpoints) {
+			for (let i = 0; i < breakpoints.length; i++) {
+				let breakpoint = breakpoints[i];
+				let line = breakpoint.line
+				confirmedBreakpoints.push({ id: this._breakpointId, verified: false })
+				this._breakPoints.push({ verified: false, file, line, id: this._breakpointId++ });
+				this.sendBreakpoint(file, line, true, breakpoint.condition);
+			}
+		}
+		return confirmedBreakpoints;
 	}
 
 	/*
@@ -461,7 +471,7 @@ export class MumpsConnect extends EventEmitter {
 				let offset = 0;
 				if (position.split("+")[1] !== undefined) {
 					offset = parseInt(position.split("+")[1]);
-					if (startlabel === "") { offset-- }   //If there's no startlabel M reports +1^XXX
+					//if (startlabel === "") { offset-- }   //If there's no startlabel M reports +1^XXX
 				}
 				let line = 0;
 				if (startlabel !== "") {

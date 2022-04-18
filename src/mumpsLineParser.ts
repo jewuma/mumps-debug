@@ -1,5 +1,4 @@
 const fs = require('fs');
-//let renderer = require('./mumps-render');
 interface ErrorInformation {
 	text: string,
 	position: number,
@@ -9,9 +8,8 @@ interface ErrorInformation {
 	indirectionFound?: boolean
 }
 export enum TokenType {
-	"global" = "global", "local" = "local", "exfunction" = "exfunction", "nonMfunction" = "nonMfunction", "entryref" = "entryref",
-	"operator" = "operator", "keyword" = "keyword", "ifunction" = "ifunction", "label" = "label", "comment" = "comment",
-	"sysvariable" = "sysvariable", "string" = "string", "number" = "number", "intendation" = "intendation", "argPostcondition" = "argPostcondition"
+	global, local, exfunction, nonMfunction, entryref, operator, keyword, ifunction, label, comment, sysvariable,
+	string, number, intendation, argPostcondition
 }
 export interface LineToken {
 	type: TokenType,
@@ -72,7 +70,7 @@ const routineref = /^\^@?[A-Za-z%][A-Za-z0-9]*/
 const numlit = /^(\d*\.?\d*(E-?\d+)?)/
 const strlit = /^"([^"]*("")*)*"/
 const command = /^[B|BREAK|C|CLOSE|D|DO|E|ELSE|F|FOR|G|GOTO|H|HALT|HANG|I|IF|J|JOB|K|KILL|L|LOCK|M|MERGE|N|NEW|O|OPEN|Q|QUIT|R|READ|S|SET|U|USE|V|VIEW|W|WRITE|X|XECUTE|ZA|ZALLOCATE|ZBR|ZBREAK|ZC|ZCONTINUE|ZD|ZDEALLOCATE|ZE|ZEDIT|ZG|ZGOTO|ZHALT|ZH|ZHELP|ZK|ZKILL|ZL|ZLINK|ZM|ZMESSAGE|ZP|ZPRINT|ZRUPDATE|ZSH|ZSHOW|ZST|ZSTEP|ZSY|ZSYSTEM|ZTC|ZTCOMMIT|ZTR|ZTRIGGER|ZTS|ZTSTART|ZWI|ZWITHDRAW|ZWR|ZWRITE]/i
-const binoperator = /^('=|'>|'<|<=|>=|'&|'!|'\?|'\[|'\]|\*\*|\+|\-|\*|\/|\\|#|'|&|!|_|<|>|=|\[|\]|\?|@)/
+const binoperator = /^('=|'>|'<|<=|>=|'&|'!|'\?|'\[|'\]|\*\*|\+|\-|\*|\/|\\|#|'|&|!|_|<|>|=|\[|\]\]|\]|\?|@)/
 const unaryoperator = /(\-|'|\+|@)/
 const patcode = /^([A|C|E|L|N|P|U]|^("([^"]("")*)*"))+/i
 const repititionCount = /^\d*\.?\d*/
@@ -1558,7 +1556,7 @@ class MumpsLineParser {
 		let mat: string[] | null;
 
 		if (mat = line.substring(result.position).match(/^(INTO|OUTOF|OU|OVER|OV)/i)) {
-			result.position += mat.length;
+			result.position += mat[0].length;
 		} else {
 			result.text = 'Invalid ZSTEP Qualifier';
 			throw result;
@@ -2422,5 +2420,4 @@ for (let i = 0; i < lines.length; i++) {
 */
 //let result = test.checkLine('	S VGZR=$E(YDL(2),5,6)-1 S:VGZR=0 VGZR=12_($E(YDL(2),1,4)-1)');
 //console.log(result);
-//console.log(test.tokens);
 export { ifunction, isv, MumpsLineParser }

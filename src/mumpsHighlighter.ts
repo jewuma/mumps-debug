@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { TokenType, MumpsLineParser } from './mumpsLineParser'
 const tokenModifiers = ['standard'];
 const subtype = "standard";
-const tokentypes: string[] = Object.keys(TokenType);
+const tokentypes: string[] = Object.keys(TokenType).map(key => TokenType[key]);
 const SemanticTokens = new vscode.SemanticTokensLegend(tokentypes, tokenModifiers);
 const parser = new MumpsLineParser();
 //type: "global" | "local" | "exfunction" | "nonMfunction" | "entryref" | "operator" |
@@ -31,7 +31,7 @@ const MumpsHighlighter: vscode.DocumentSemanticTokensProvider = {
 				}
 				tokensBuilder.push(
 					new vscode.Range(new vscode.Position(line, t.position), new vscode.Position(line, t.position + t.name.length)),
-					type, [subtype]
+					TokenType[type], [subtype]
 				);
 			}
 		}

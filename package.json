@@ -1,7 +1,7 @@
 {
 	"name": "mumps-debug",
 	"displayName": "Mumps Language-Pack",
-	"version": "1.1.0",
+	"version": "1.1.1",
 	"publisher": "jewuma",
 	"description": "Debugger for Mumps (M) , GT.M, YottaDB",
 	"author": {
@@ -187,7 +187,7 @@
 			},
 			{
 				"command": "mumps.autoSpaceEnter",
-				"when": "editorLangId == mumps",
+				"when": "editorLangId == mumps && editorTextFocus",
 				"key": "enter"
 			},
 			{

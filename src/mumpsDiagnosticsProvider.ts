@@ -354,7 +354,7 @@ export default class MumpsDiagnosticsProvider {
 				if (command === "DO" && token.hasArguments === false) {
 					this._lineWithDo = line;
 				}
-				if (!ifFlag && (command === "QUIT" || command === "GOTO") && !token.isPostconditioned && this._level === 0) {
+				if (!ifFlag && (command === "QUIT" || command === "GOTO" || command === "HALT") && !token.isPostconditioned && this._level === 0) {
 					let hasPostcondition = false;
 					if (command === "GOTO") { //Check if GOTO argument is postconditioned
 						for (let k = tokenId + 1; k < tokens.length; k++) {
