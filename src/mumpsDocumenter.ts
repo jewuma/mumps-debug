@@ -10,7 +10,7 @@ export default function mumpsDocumenter() {
 		//if the line is empty look down for the label
 		while (InsertPosition.line < document.lineCount) {
 			let txt = editor.document.lineAt(InsertPosition.line).text
-			if (txt.replace(/\t|\ /i, "") === "") {
+			if (txt.replace(/\t|\ /ig, "") === "") {
 				InsertPosition = InsertPosition.translate(1, 0)
 			} else {
 				break;

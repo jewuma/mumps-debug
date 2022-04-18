@@ -68,7 +68,8 @@ const nonMfunction = /^\$\&([A-Za-z%0-9][A-Za-z0-9]*\.)?([A-Za-z%0-9][A-Za-z0-9]
 const entryref = /^(\&[A-Za-z0-9]*\.?)?@?([A-Za-z%0-9][A-Za-z0-9]*)?(\^@?[A-Za-z%][A-Za-z0-9]*)?/
 const routineref = /^\^@?[A-Za-z%][A-Za-z0-9]*/
 const numlit = /^(\d*\.?\d*(E-?\d+)?)/
-const strlit = /^"([^"]*("")*)*"/
+//const strlit = /^"([^"]*("")*)*"/
+const strlit = /^"(""|[^"])*"/
 const command = /^[B|BREAK|C|CLOSE|D|DO|E|ELSE|F|FOR|G|GOTO|H|HALT|HANG|I|IF|J|JOB|K|KILL|L|LOCK|M|MERGE|N|NEW|O|OPEN|Q|QUIT|R|READ|S|SET|U|USE|V|VIEW|W|WRITE|X|XECUTE|ZA|ZALLOCATE|ZBR|ZBREAK|ZC|ZCONTINUE|ZD|ZDEALLOCATE|ZE|ZEDIT|ZG|ZGOTO|ZHALT|ZH|ZHELP|ZK|ZKILL|ZL|ZLINK|ZM|ZMESSAGE|ZP|ZPRINT|ZRUPDATE|ZSH|ZSHOW|ZST|ZSTEP|ZSY|ZSYSTEM|ZTC|ZTCOMMIT|ZTR|ZTRIGGER|ZTS|ZTSTART|ZWI|ZWITHDRAW|ZWR|ZWRITE]/i
 const binoperator = /^('=|'>|'<|<=|>=|'&|'!|'\?|'\[|'\]|\*\*|\+|\-|\*|\/|\\|#|'|&|!|_|<|>|=|\[|\]\]|\]|\?|@)/
 const unaryoperator = /(\-|'|\+|@)/
@@ -591,7 +592,7 @@ class MumpsLineParser {
 		}
 		let lines = content.split('\n');
 		for (let i = 0; i < lines.length; i++) {
-			lines[i] = lines[i].replace('\r', '');
+			lines[i] = lines[i].replace(/\r/g, '');
 			let info = this.checkLine(lines[i]);
 			if (info.text !== '') {
 				info.line = i + 1;
@@ -667,7 +668,7 @@ class MumpsLineParser {
 	}
 	public analyzeLine(line: string): LineInformation {
 		this._tokens = [];
-		line = line.replace('\r', '');
+		line = line.replace(/\r/g, '');
 		let errInfo = this.checkLine(line);
 		return { error: errInfo, tokens: this._tokens }
 	}
@@ -675,7 +676,7 @@ class MumpsLineParser {
 		let lines = input.split('\n');
 		let linetokens: Array<Array<LineToken>> = [];
 		for (let i = 0; i < lines.length; i++) {
-			lines[i] = lines[i].replace('\r', '');
+			lines[i] = lines[i].replace(/\r/g, '');
 			this.checkLine(lines[i]);
 			linetokens[i] = this._tokens;
 		}
@@ -703,7 +704,7 @@ class MumpsLineParser {
 		}
 		lines = content.split('\n');
 		for (let i = 0; i < lines.length; i++) {
-			lines[i] = lines[i].replace('\r', '');
+			lines[i] = lines[i].replace(/\r/g, '');
 			let info = this.expandCompressLine(lines[i], doExpand);
 			if (info.errorText !== '') {
 				lines = [];

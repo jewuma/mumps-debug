@@ -53,3 +53,5 @@
 * Intendation Check, better completion items, code optimization
 ## 1.1.1
 * Fixed that ]]-Operator wasn't interpreted correctly
+## 1.1.2
+* Some security fixes suggested by CodeQL

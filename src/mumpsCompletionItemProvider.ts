@@ -98,22 +98,24 @@ export default class CompletionItemProvider {
 			}
 		}
 	}
-	private _refreshFileLabels(path) {  // Refresh all Labels of a changed .m File
-		let routine = path.replace('\\', '/').split('/').pop();
+	private _refreshFileLabels(path: string) {  // Refresh all Labels of a changed .m File
+		let routine = path.replace(/\\\\/g, '/').split('/').pop();
 		routine = routine!.split('.')[0].replace('_', '%');
-		fs.readFile(path, 'utf8', (err, content) => {
+		fs.readFile(path, 'utf8', (err, content: string) => {
 			if (!err) {
 				let lines = content.split('\n');
-				let label = '';
+				let label: RegExpMatchArray | null = null;
 				this._labelDB.labels = this._labelDB.labels.filter((label) => {
 					return label.routine !== routine;
 				})
 				for (let i = 0; i < lines.length; i++) {
-					if (i === 0) {
-						this._labelDB.labels.push({ label: '*FL', routine, line: lines[0] });
-					}
-					if (label = lines[i].match(/^[%A-Za-z0-9][A-Za-z0-9]{0,31}/)) {
-						this._labelDB.labels.push({ label: label[0], routine, line: lines[i] })
+					if (routine) {
+						if (i === 0) {
+							this._labelDB.labels.push({ label: '*FL', routine, line: lines[0] });
+						}
+						if (label = lines[i].match(/^[%A-Za-z0-9][A-Za-z0-9]{0,31}/)) {
+							this._labelDB.labels.push({ label: label[0], routine, line: lines[i] })
+						}
 					}
 				}
 			}

@@ -10,7 +10,7 @@ export default class MumpsReferenceProvider {
 			let searchType: TokenType = myToken.type;
 			let searchToken = myToken?.name;
 			if (searchType === TokenType.label) {
-				let routine = document.fileName.replace('\\', '/').split('/').pop();
+				let routine = document.fileName.replace(/\\\\/g, '/').split('/').pop();
 				routine = routine!.split('.')[0].replace('_', '%');
 				searchType = TokenType.entryref
 				let externalLabel: string = searchToken + "^" + routine;

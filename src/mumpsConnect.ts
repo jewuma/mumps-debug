@@ -447,7 +447,7 @@ export class MumpsConnect extends EventEmitter {
 	// private methods
 
 	private loadSource(file: string) {
-		file = file.replace("%", "_");
+		file = file.replace(/%/g, "_");
 		if (this._sourceFile !== file) {
 			this._sourceFile = file;
 			try {
@@ -464,7 +464,7 @@ export class MumpsConnect extends EventEmitter {
 		if (parts[1] !== undefined) {
 
 			let program = parts[1].split(" ", 1)[0];
-			let file = (this._localRoutinesPath + program + ".m").replace("%", "_");
+			let file = (this._localRoutinesPath + program + ".m").replace(/%/g, "_");
 			try {
 				let filecontent = readFileSync(file).toString().split('\n');
 				let startlabel = position.split("+")[0];
