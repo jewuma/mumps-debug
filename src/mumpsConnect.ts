@@ -468,6 +468,7 @@ export class MumpsConnect extends EventEmitter {
 			try {
 				let filecontent = readFileSync(file).toString().split('\n');
 				let startlabel = position.split("+")[0];
+				let labelRegexp = new RegExp("^" + startlabel + "[\\s;]");
 				let offset = 0;
 				if (position.split("+")[1] !== undefined) {
 					offset = parseInt(position.split("+")[1]);
@@ -476,7 +477,7 @@ export class MumpsConnect extends EventEmitter {
 				let line = 0;
 				if (startlabel !== "") {
 					for (let ln = 0; ln < filecontent.length; ln++) {
-						if (filecontent[ln].substring(0, startlabel.length) === startlabel) {
+						if (filecontent[ln].match(labelRegexp)) {
 							line = ln;
 							break;
 						}
