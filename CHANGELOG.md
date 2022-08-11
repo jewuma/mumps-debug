@@ -55,3 +55,6 @@
 * Fixed that ]]-Operator wasn't interpreted correctly
 ## 1.1.2
 * Some security fixes suggested by CodeQL
+## 1.1.3
+* Added conditional Breakpoints
+
