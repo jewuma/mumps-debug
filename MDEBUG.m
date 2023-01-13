@@ -1,6 +1,6 @@
 MDEBUG  			;Debugging Routine for GT.M/YottaDB by Jens Wulf
-				;Version 0.9.1
-				;2022-08-11
+				;Version 0.9.2
+				;2023-01-13
 				;License: LGPL
 				;Usage on your own Risk - No guaranties
 				;
@@ -97,7 +97,7 @@ BYE				;Clean Up and end Program
 SETBP(FILE,LINE,CONDITION)        	;Set Breakpoint
 	N ROUTINE,ZBPOS,ZBCMD,$ZTRAP
 	I FILE'["/"&(FILE'["\") S ZBPOS=$P($P(FILE,"^",1)_"+"_LINE_"^"_$P(FILE,"^",2),"(",1)
-	E  S ROUTINE=$$RNAME(FILE) Q:ROUTINE=""  S ZBPOS="+"_LINE_"^"_ROUTINE
+	E  S ROUTINE=$$RNAME(FILE) Q:ROUTINE=""  S:LINE=0 ZBPOS="^"_ROUTINE S:LINE'=0 ZBPOS="+"_LINE_"^"_ROUTINE
 	Q:ZBPOS[("^"_$T(+0))
 	S CONDITION=$$MTR(CONDITION,$C(34),$C(34,34))
 	S ^%MDEBUG($J,"BP",ZBPOS)=CONDITION
@@ -115,7 +115,6 @@ CLEARBP(FILE,LINE)      	;Clear Breakpoint
 	. D REFRESHBP
 	. S BP="" F  S BP=$O(^%MDEBUG($J,"BP",BP)) Q:BP=""  D
 	. . I BP[("^"_ROUTINE) S ZBPOS="-"_BP ZB @ZBPOS
-	. ;D OUT("CLEARBP "_$D(^%MDEBUG($J,"BP")))
 	. D REFRESHBP
 	S ZBPOS="-+"_LINE_"^"_ROUTINE
 	ZB:$T(@$E(ZBPOS,2,99))'="" @ZBPOS
@@ -132,7 +131,7 @@ GETVAR1				;Continue-Label if something fails
 	W "***SINGLEEND",!
 	S $ZSTATUS=""
 	Q
-ENDPROGRAM			;Stop the Debugge and wait for new Debugger-Connection
+ENDPROGRAM			;Stop the Debugger and wait for new Debugger-Connection
 	N %DEV
 	S %DEV=$G(^%MDEBUG($J,"DEV")),%SOCKET=$G(^%MDEBUG($J,"SOCKET"))
 	I %DEV'="" D

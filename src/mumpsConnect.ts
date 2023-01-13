@@ -228,6 +228,7 @@ export class MumpsConnect extends EventEmitter {
 				message = this._commandQueue.shift()!;
 				try {
 					this._socket.write(message + "\n");
+					console.log(message);
 				} catch {
 					this._commandQueue.unshift(message);
 					break;
@@ -468,7 +469,7 @@ export class MumpsConnect extends EventEmitter {
 			try {
 				let filecontent = readFileSync(file).toString().split('\n');
 				let startlabel = position.split("+")[0];
-				let labelRegexp = new RegExp("^" + startlabel + "[\\s;]");
+				let labelRegexp = new RegExp("^" + startlabel + "[(\\s;]");
 				let offset = 0;
 				if (position.split("+")[1] !== undefined) {
 					offset = parseInt(position.split("+")[1]);

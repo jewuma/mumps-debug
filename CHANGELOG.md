@@ -57,4 +57,7 @@
 * Some security fixes suggested by CodeQL
 ## 1.1.3
 * Added conditional Breakpoints
+# 1.1.4
+* Fixed incorrect Editor-Line-jump
+
 

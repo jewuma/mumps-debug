@@ -37,15 +37,15 @@ export default function mumpsDocumenter() {
 
 function makeSignature(labelLine: string) {
 	let Signature = ""
-
+	let parameterString: string[] = [];
 	Signature += DIVIDERLINE
 	Signature += "\t; DESCRIPTION: \n"
-	let parameters = labelLine.match(/\(.*\)/)
+	let parameters = labelLine.match(/\(.*\)/);
 	if (parameters !== null && parameters.length > 0) {
-		parameters = parameters[0].substring(1, parameters[0].length - 1).split(",")
-		if (parameters.length > 0) {
+		parameterString = parameters[0].toString().substring(1, parameters[0].toString().length - 1).split(",")
+		if (parameterString.length > 0) {
 			Signature += "\t; PARAMETERS: \n"
-			parameters.forEach(function (element: string) {
+			parameterString.forEach(function (element: string) {
 				Signature += "\t;    " + element + ": \n"
 			});
 		}
