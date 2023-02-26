@@ -228,7 +228,6 @@ export class MumpsConnect extends EventEmitter {
 				message = this._commandQueue.shift()!;
 				try {
 					this._socket.write(message + "\n");
-					console.log(message);
 				} catch {
 					this._commandQueue.unshift(message);
 					break;

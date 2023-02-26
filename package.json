@@ -59,10 +59,7 @@
 		"webpack": "^5.64.0",
 		"webpack-cli": "^4.9.1"
 	},
-	"main": "./dist/extension",
-	"activationEvents": [
-		"onLanguage:mumps"
-	],
+	"main": "./out/extension",
 	"contributes": {
 		"commands": [{
 				"command": "mumps.toggleExpandedCommands",
@@ -76,7 +73,7 @@
 		"debuggers": [{
 			"type": "mumps",
 			"label": "Mumps Debugger",
-			"program": "./dist/extension",
+			"program": "./out/extension",
 			"runtime": "node",
 			"languages": [
 				"mumps"

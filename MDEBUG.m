@@ -29,7 +29,7 @@ INIT    			;Open TCP-Communication-Port
 	N %IO,%DEV,%PORT,%SOCKET,%ZTFORM
 	;USE $P:(EXCEPTION="D BYE":CTRAP=$C(3))	;Ensure Clean-Up when Ctrl-C is pressed
 	USE $P	;Ensure Clean-Up when Ctrl-C is pressed
-	S %IO=$I,%PORT=9000,%DEV="|TCP|"_%PORT_"|"_$J
+	S %IO=$I,%PORT=9022,%DEV="|TCP|"_%PORT_"|"_$J
 	O %DEV:(ZLISTEN=%PORT_":TCP":NODELIMITER:ATTACH="listener"):5:"SOCKET"
 	E  U 0 W "DEBUG-Port could not be opened.",! HALT
 	U %DEV
@@ -71,7 +71,7 @@ READLOOP			;Wait for next Command from Editor
 	U %DEV:(SOCKET=%SOCKET:DELIM=$C(10))
 	F  R %CMDLINE S %CMD=$P(%CMDLINE,";",1) Q:$P(%CMD,";",1)'=""&(%CMDS[$TR(%CMD,";"))
 	;D OUT(%CMDLINE)
-	I %CMD="REQUESTBP" W "***STARTBP",! ZSHOW "B" W "***ENDBP",! G READLOOP	;Transmit Breakpoints to Debugger
+	I %CMD="REQUESTBP" W "***STARTBP",! D SHOWBP W "***ENDBP",! G READLOOP	;Transmit Breakpoints to Debugger
 	I %CMD="GETVAR" D GETVAR($P(%CMDLINE,";",2,999)) G READLOOP	;Transmit Variables
 	I %CMD="SETBP" D SETBP($P(%CMDLINE,";",2),$P(%CMDLINE,";",3),$P(%CMDLINE,";",4)) G READLOOP	;Set a new Breakpoint
 	I %CMD="CLEARBP" D CLEARBP($P(%CMDLINE,";",2),$P(%CMDLINE,";",3)) G READLOOP	;Clear a Breakpoint
@@ -117,6 +117,7 @@ CLEARBP(FILE,LINE)      	;Clear Breakpoint
 	. . I BP[("^"_ROUTINE) S ZBPOS="-"_BP ZB @ZBPOS
 	. D REFRESHBP
 	S ZBPOS="-+"_LINE_"^"_ROUTINE
+	;D OUT("BREAKPOS:"_ZBPOS)
 	ZB:$T(@$E(ZBPOS,2,99))'="" @ZBPOS
 	D REFRESHBP
 	Q
@@ -149,9 +150,16 @@ REFRESHBP       		;Remember Breakpoint-Positions to avoid Collisions between ZST
 	N BP,BPS,BPNEU,IO
 	ZSHOW "B":BPS
 	S BP="" F  S BP=$O(BPS("B",BP)) Q:BP=""  D
+	. S BPS("B",BP)=$P(BPS("B",BP),">",1)
 	. S BPNEU(BPS("B",BP))=$G(^%MDEBUG($J,"BP",BPS("B",BP)))
 	;S IO=$I ZWR:$D(BPNEU) BPNEU U IO
 	M:$D(BPNEU) ^%MDEBUG($J,"BP")=BPNEU
+	Q
+SHOWBP				;Get active Breakpoints and transmit them to Debugger
+	N BPS,BP
+	ZSHOW "B":BPS
+	S BP="" F  S BP=$O(BPS("B",BP)) Q:BP=""  D
+	. W $P(BPS("B",BP),">",1),!
 	Q
 BPRESET				;Set BPs again after Recompile
 	N BP,ZBCMD,CONDITION
