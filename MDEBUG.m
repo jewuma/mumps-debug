@@ -1,6 +1,6 @@
 MDEBUG  			;Debugging Routine for GT.M/YottaDB by Jens Wulf
-				;Version 0.9.2
-				;2023-01-13
+				;Version 0.9.4
+				;2023-04-24
 				;License: LGPL
 				;Usage on your own Risk - No guaranties
 				;
@@ -29,7 +29,7 @@ INIT    			;Open TCP-Communication-Port
 	N %IO,%DEV,%PORT,%SOCKET,%ZTFORM
 	;USE $P:(EXCEPTION="D BYE":CTRAP=$C(3))	;Ensure Clean-Up when Ctrl-C is pressed
 	USE $P	;Ensure Clean-Up when Ctrl-C is pressed
-	S %IO=$I,%PORT=9022,%DEV="|TCP|"_%PORT_"|"_$J
+	S %IO=$I,%PORT=9000,%DEV="|TCP|"_%PORT_"|"_$J
 	O %DEV:(ZLISTEN=%PORT_":TCP":NODELIMITER:ATTACH="listener"):5:"SOCKET"
 	E  U 0 W "DEBUG-Port could not be opened.",! HALT
 	U %DEV
@@ -152,7 +152,8 @@ REFRESHBP       		;Remember Breakpoint-Positions to avoid Collisions between ZST
 	S BP="" F  S BP=$O(BPS("B",BP)) Q:BP=""  D
 	. S BPS("B",BP)=$P(BPS("B",BP),">",1)
 	. S BPNEU(BPS("B",BP))=$G(^%MDEBUG($J,"BP",BPS("B",BP)))
-	;S IO=$I ZWR:$D(BPNEU) BPNEU U IO
+	;S IO=$I U 0 ZSHOW "B" ZWR:$D(BPNEU) BPNEU U IO
+	KILL ^%MDEBUG($J,"BP")
 	M:$D(BPNEU) ^%MDEBUG($J,"BP")=BPNEU
 	Q
 SHOWBP				;Get active Breakpoints and transmit them to Debugger
@@ -167,7 +168,6 @@ BPRESET				;Set BPs again after Recompile
 	S BP="" F  S BP=$O(^%MDEBUG($J,"BP",BP)) Q:BP=""  D
 	. S CONDITION=^%MDEBUG($J,"BP",BP)
 	. S:CONDITION'="" CONDITION="I ("_CONDITION_") "
-	. ;D OUT(BP_" COND: "_CONDITION)
 	. S ZBCMD="ZB "_BP_":"""_CONDITION_"ZSHOW """"VIS"""":^%MDEBUG($J,""""VARS"""") S %STEP=$$WAIT^MDEBUG($ZPOS) ZST:%STEP=""""I"""" INTO ZST:%STEP=""""O"""" OVER ZST:%STEP=""""F"""" OUTOF ZC:%STEP=""""C""""  H:%STEP=""""H"""""""
 	. X ZBCMD
 	D REFRESHBP

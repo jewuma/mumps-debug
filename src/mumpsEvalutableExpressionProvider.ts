@@ -14,10 +14,10 @@ export default class MumpsEvalutableExpressionProvider {
 		*/
 		const lineContent = document.lineAt(position.line).text;
 		if (lineContent.charAt(position.character) === ")") {
-			return this.getExpression(position.line, lineContent.substr(0, position.character))
+			return this.getExpression(position.line, lineContent.substring(0, position.character))
 		}
 		let result: RegExpExecArray | null = null;
-		let expression = /([ (,+\-\*_:=])([\^\$]?%?[a-zA-Z][a-zA-Z\d]*)/g;
+		let expression = /([ (.,+\-\*_:=])([\^\$]?%?[a-zA-Z][a-zA-Z\d]*)/g;
 
 		// find the word under the cursor
 		while (result = expression.exec(lineContent)) {
@@ -61,7 +61,7 @@ export default class MumpsEvalutableExpressionProvider {
 			}
 		}
 		if (level === 0) { // Corresponding opening bracket found
-			let part = content.substr(0, position);
+			let part = content.substring(0, position);
 			let expression = /([ (,+\-\*_:=])([\^\$]?%?[a-zA-Z][a-zA-Z\d]*)$/
 			let match = part.match(expression);
 			if (match) {

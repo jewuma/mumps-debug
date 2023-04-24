@@ -49,12 +49,15 @@ export default class MumpsDebugSession extends DebugSession {
 	private static THREAD_ID = 1;
 
 	private _variableHandles = new Handles<string>();
+	private _variableBases = {};
 
 	private _configurationDone = new Subject();
 
 	private _program: string;
 
 	private _mconnect: MumpsConnect;
+	private _localScope = this._variableHandles.create("~local|0");
+	private _systemScope = this._variableHandles.create("~system")
 	/**
 	 * Creates a new debug adapter that is used for one debug session.
 	 * We configure the default implementation of a debug adapter here.
@@ -207,8 +210,8 @@ export default class MumpsDebugSession extends DebugSession {
 
 		response.body = {
 			scopes: [
-				new Scope("Local", this._variableHandles.create("local|0"), true),
-				new Scope("System", this._variableHandles.create("system"), false)
+				new Scope("Local", this._localScope, false),
+				new Scope("System", this._systemScope, false)
 			]
 		};
 		this.sendResponse(response);
@@ -218,8 +221,9 @@ export default class MumpsDebugSession extends DebugSession {
 
 		const variables: DebugProtocol.Variable[] = [];
 		let insertVariable: DebugProtocol.Variable | undefined;
+		const varReference = args.variablesReference;
 		const varId = this._variableHandles.get(args.variablesReference);
-		if (varId === "system") {
+		if (varReference === this._systemScope) {
 			let varObject = this._mconnect.getVariables("system");
 			for (let varname in varObject) {
 				variables.push({
@@ -271,16 +275,22 @@ export default class MumpsDebugSession extends DebugSession {
 				if (lastRef !== lastVar.bases[indexCount]) {
 					let name = lastVar.bases[indexCount];
 					if (indexCount > 0) { name += ")"; }
+					if (this._variableBases[lastVar.bases[indexCount]] === undefined) {
+						this._variableBases[lastVar.bases[indexCount]] = this._variableHandles.create(lastVar.bases[indexCount] + "|" + (indexCount + 1));
+					}
 					returnVar = {
 						name,
 						type: 'string',
 						value: 'undefined',
-						variablesReference: this._variableHandles.create(lastVar.bases[indexCount] + "|" + (indexCount + 1))
+						variablesReference: this._variableBases[lastVar.bases[indexCount]]
 					};
 				}
 			} else { //lastVar.indexCount==indexCount+1
 				if (lastVar.bases[indexCount] === actualVar.bases[indexCount]) {
-					actualReference = this._variableHandles.create(lastVar.bases[indexCount] + "|" + (indexCount + 1));
+					if (this._variableBases[lastVar.bases[indexCount]] === undefined) {
+						this._variableBases[lastVar.bases[indexCount]] = this._variableHandles.create(lastVar.bases[indexCount] + "|" + (indexCount + 1));
+					}
+					actualReference = this._variableBases[lastVar.bases[indexCount]];
 				}
 				returnVar = {
 					name: lastVar.name,
@@ -318,9 +328,12 @@ export default class MumpsDebugSession extends DebugSession {
 				response.body = {
 					result: varReply.name + " := " + varReply.content,
 					variablesReference: 0
-				};
+				}
+				if (!args.expression.includes(")") && this._variableBases[args.expression] !== undefined) {
+					response.body.variablesReference = this._variableBases[args.expression];
+				}
 				this.sendResponse(response);
-			})
+			});
 		}
 	}
 

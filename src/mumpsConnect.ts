@@ -380,6 +380,8 @@ export class MumpsConnect extends EventEmitter {
 			bp.verified = false;
 			for (let i = 0; i < this._activeBreakpoints.length; i++) {
 				let internalBp = this.convertMumpsPosition(this._activeBreakpoints[i])
+				internalBp.file = this.normalizeDrive(internalBp.file.replace(/\\/g, "/"));
+				bp.file = this.normalizeDrive(bp.file.replace(/\\/g, "/"));
 				if (internalBp.file === bp.file && bp.line === internalBp.line) {
 					bp.verified = true;
 					this.sendEvent('breakpointValidated', bp);
@@ -397,7 +399,14 @@ export class MumpsConnect extends EventEmitter {
 			}
 		}
 	}
-
+	private normalizeDrive(path) {
+		const parts = path.split(':');
+		if (parts.length === 2) {
+			return parts[0].toLowerCase() + ':' + parts[1];
+		} else {
+			return path;
+		}
+	}
 	public getVariables(type: string) {
 		if (type === "system") {
 			return this._mVars["I"];
