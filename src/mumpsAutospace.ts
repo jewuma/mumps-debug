@@ -1,12 +1,12 @@
 import * as vscode from 'vscode';
-let em = require('emcellent');
+import em = require('emcellent');
 
 async function autoSpaceEnter() {
-	let editor = vscode.window.activeTextEditor
+	const editor = vscode.window.activeTextEditor
 	if (editor) {
-		let pos = editor.selection.active
-		let currentLine = editor.document.lineAt(pos.line).text;
-		let parsed = em.parse(currentLine);
+		const pos = editor.selection.active
+		const currentLine = editor.document.lineAt(pos.line).text;
+		const parsed = em.parse(currentLine);
 		let newLine = '';
 		if (pos.character !== 0) {
 			//check for removing a trailing .
@@ -36,8 +36,8 @@ async function autoSpaceEnter() {
 }
 
 function lineContainsNoParamDo(parsed) {
-	let cmds = parsed.lineRoutines;
-	if (cmds = parsed.lineRoutines) {
+	const cmds = parsed.lineRoutines;
+	if (cmds) {
 		for (let i = 0; i < cmds.length; i++) {
 			if (cmds[i].mRoutine.match(/(d|do)/i) && !cmds[i].mArguments) {
 				return true;
@@ -49,11 +49,11 @@ function lineContainsNoParamDo(parsed) {
 
 async function autoSpaceTab() {
 
-	let editor = vscode.window.activeTextEditor
+	const editor = vscode.window.activeTextEditor
 	if (editor) {
-		let pos = editor.selection.active
-		let currentLine = editor.document.lineAt(pos.line).text;
-		let parsed = em.parse(currentLine);
+		const pos = editor.selection.active
+		const currentLine = editor.document.lineAt(pos.line).text;
+		const parsed = em.parse(currentLine);
 		if ((parsed[0].lineRoutines === undefined || parsed[0].lineRoutines.length === 0) &&
 			currentLine.indexOf(";") === -1 && parsed[0].lineIndentationArray !== undefined &&
 			parsed[0].lineIndentationArray.length > 0) {

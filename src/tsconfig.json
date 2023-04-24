@@ -2,7 +2,6 @@
 	"compilerOptions": {
 		"module": "commonjs",
 		"target": "es6",
-
 		"noImplicitAny": false,
 		"removeComments": false,
 		"noUnusedLocals": true,
@@ -12,6 +11,7 @@
 		"outDir": "../out",
 		"preserveConstEnums": true,
 		"strictNullChecks": true,
-		"noUnusedParameters": false
+		"noUnusedParameters": false,
+		"resolveJsonModule": true
 	}
 }

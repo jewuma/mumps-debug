@@ -61,5 +61,7 @@
 * Fixed incorrect Editor-Line-jump
 ## 1.1.5
 * Better Variable-Display on hover, fixed ZBREAK-Error
+## 1.1.6
+* Minor Error-Fix, more strict linting, package updates
 
 

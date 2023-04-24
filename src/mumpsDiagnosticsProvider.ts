@@ -18,17 +18,17 @@ interface GeneralSubroutine {
 }
 interface VariableState {
 	newedAtLine?: number[],
-	newedAtPostion?: number[],
+	newedAtPostion: number[],
 	newedAtLevel?: number[],
 	isExcluded?: boolean,
 	isParameter?: boolean,
 	isUsed?: boolean
-	parameterPosition?: number
+	parameterPosition: number
 }
 interface VariableStates {
 	name: VariableState
 }
-let symbols: vscode.SymbolInformation[] = [];
+const symbols: vscode.SymbolInformation[] = [];
 
 /**
  * Checks if mumps routines NEWs variables correctly
@@ -40,15 +40,15 @@ export default class MumpsDiagnosticsProvider {
 	private _linetokens: LineToken[][] = [];
 	private _diags: vscode.Diagnostic[] = [];
 	private _variablesToBeIgnored: string[] = [];
-	private _enableVariableCheck: boolean = true;
+	private _enableVariableCheck = true;
 	private _varStates: VariableStates;
 	private _levelExclusiveNew: number[];
 	private _subroutines: Subroutine[] = [];
 	private _document: vscode.TextDocument;
 	private _routine: Subroutine = { startLine: -1, endLine: -1, parameters: [] };
-	private _level: number = 0;
-	private _lineWithDo: number = -2;
-	private _isBehindQuit: boolean = false;
+	private _level = 0;
+	private _lineWithDo = -2;
+	private _isBehindQuit = false;
 	private _startUnreachable: vscode.Position | false = false;
 	private _activeSubroutine: GeneralSubroutine = { name: '', startLine: -1, endLine: -1 }
 
@@ -66,8 +66,8 @@ export default class MumpsDiagnosticsProvider {
 		if (document && document.languageId === 'mumps') {
 			collection.clear();
 			for (let i = 0; i < document.lineCount; i++) {
-				let line = document.lineAt(i);
-				let lineInfo: LineInformation = parser.analyzeLine(line.text);
+				const line = document.lineAt(i);
+				const lineInfo: LineInformation = parser.analyzeLine(line.text);
 				if (lineInfo.error.text !== '') {
 					this._addWarning(lineInfo.error.text, i, lineInfo.error.position, -1, vscode.DiagnosticSeverity.Error)
 				}
@@ -103,8 +103,7 @@ export default class MumpsDiagnosticsProvider {
 				for (let j = 0; j < this._linetokens[i].length; j++) {
 					let token = this._linetokens[i][j];
 					if (i === routine.startLine && j === 0) { // skip parameters
-						while (++j < this._linetokens[i].length && this._linetokens[i][j].type === TokenType.local) {
-						}
+						while (++j < this._linetokens[i].length && this._linetokens[i][j].type === TokenType.local) { /* empty */ }
 						if (j < this._linetokens[i].length) {
 							token = this._linetokens[i][j];
 						} else {
@@ -113,7 +112,7 @@ export default class MumpsDiagnosticsProvider {
 					}
 					if (token.type === TokenType.intendation) {
 						intendationFound = true;
-						let newLevel = token.name.length
+						const newLevel = token.name.length
 						if (newLevel < level) {
 							this._reduceIntendationLevel(level, newLevel);
 						}
@@ -130,7 +129,7 @@ export default class MumpsDiagnosticsProvider {
 							level = 0;
 						}
 						if (token.longName === "NEW") {
-							let anyVariablesNewed: boolean = false;
+							let anyVariablesNewed = false;
 							let containsExclusions = false;
 							while (++j < this._linetokens[i].length &&
 								(this._linetokens[i][j].type === TokenType.local ||
@@ -141,9 +140,9 @@ export default class MumpsDiagnosticsProvider {
 									containsExclusions = true;
 								}
 								if (token.type === TokenType.local) {
-									let varName = token.name;
+									const varName = token.name;
 									let message = '';
-									let varState: VariableState = this._varStates[varName] ? this._varStates[varName] : { isExcluded: token.isExcludedVariable }
+									const varState: VariableState = this._varStates[varName] ? this._varStates[varName] : { isExcluded: token.isExcludedVariable }
 									// Variable is already NEWed or used
 									if (varState.isParameter) {
 										if (token.isExcludedVariable) {
@@ -163,7 +162,9 @@ export default class MumpsDiagnosticsProvider {
 												message = "Variable " + varName + " already mentioned in NEW command"
 											} else {
 												varState.newedAtLevel.push(level);
+												// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 												varState.newedAtLine!.push(i);
+												// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 												varState.newedAtPostion!.push(token.position);
 											}
 										}
@@ -191,7 +192,7 @@ export default class MumpsDiagnosticsProvider {
 							}
 						}
 					} else if (token.type === TokenType.local) {  // local variable found at a non NEW command
-						let varName = token.name;
+						const varName = token.name;
 						this._checkNewed(varName, level, i, token.position);
 					}
 				}
@@ -205,16 +206,16 @@ export default class MumpsDiagnosticsProvider {
 	 * @param varStates array of found variable-states
 	 */
 	private _checkVariableUsage(routine: Subroutine): void {
-		for (let key in this._varStates) {
-			let state: VariableState = this._varStates[key];
+		for (const key in this._varStates) {
+			const state: VariableState = this._varStates[key];
 			if (state.isParameter && !state.isUsed && !this._isIgnoredVariable(key)) {
 				this._addWarning("Variable " + key + " is a formal parameter but not used", routine.startLine,
-					state.parameterPosition!,
+					state.parameterPosition,
 					key.length);
 			} else if (state.newedAtLine && state.newedAtLine.length > 0 && !state.isUsed && !this._isIgnoredVariable(key)) {
 				this._addWarning("Variable " + key + " is NEWed but not used",
 					state.newedAtLine[0],
-					state.newedAtPostion![0],
+					state.newedAtPostion[0],
 					key.length);
 			}
 		}
@@ -347,7 +348,7 @@ export default class MumpsDiagnosticsProvider {
 				if (this._isBehindQuit && this._startUnreachable === false) {
 					this._startUnreachable = new vscode.Position(line, token.position);
 				}
-				let command = token.longName;
+				const command = token.longName;
 				if (command === "IF" || command === "ELSE") {
 					ifFlag = true;
 				}
@@ -378,7 +379,7 @@ export default class MumpsDiagnosticsProvider {
 				}
 			}
 			if (token.type === TokenType.intendation) { //check if new intendation level is OK and remember new level
-				let expectedLevel = line === this._lineWithDo + 1 ? this._level + 1 : this._level;
+				const expectedLevel = line === this._lineWithDo + 1 ? this._level + 1 : this._level;
 				this._level = token.name.length;
 				intendationFound = true;
 				if (this._level > expectedLevel) {
@@ -413,25 +414,25 @@ export default class MumpsDiagnosticsProvider {
 	 */
 	private _reduceIntendationLevel(level: number, newLevel: number) {
 		for (let k = newLevel + 1; k <= level; k++) {
-			let index = this._levelExclusiveNew.indexOf(k);
+			const index = this._levelExclusiveNew.indexOf(k);
 			if (index > -1) {
 				this._levelExclusiveNew.splice(index, 1);
 			}
 		}
-		for (let key in this._varStates) {
-			let state = this._varStates[key];
+		for (const key in this._varStates) {
+			const state = this._varStates[key];
 			let found = false;
 			let memLine = 0;
 			let memPosition = 0;
 			if (state.newedAtLevel) {
 				for (let k = newLevel + 1; k <= level; k++) {
-					let index = state.newedAtLevel?.indexOf(k)
+					const index = state.newedAtLevel?.indexOf(k)
 					if (index > -1) {
-						memLine = state.newedAtLine![index];
-						memPosition = state.newedAtPostion![index];
+						memLine = state.newedAtLine[index];
+						memPosition = state.newedAtPostion[index];
 						state.newedAtLevel.splice(index, 1);
-						state.newedAtLine!.splice(index, 1);
-						state.newedAtPostion!.splice(index, 1);
+						state.newedAtLine.splice(index, 1);
+						state.newedAtPostion.splice(index, 1);
 						found = true;
 						this._varStates[key] = state;
 					}
@@ -446,9 +447,9 @@ export default class MumpsDiagnosticsProvider {
 		}
 	}
 	private _addSymbol(name: string, startLine: number, endLine: number) {
-		let startPosition = new vscode.Position(startLine, 0);
-		let endPosition = new vscode.Position(endLine, 0);
-		let methodRange = new vscode.Location(this._document.uri, new vscode.Range(startPosition, endPosition));
+		const startPosition = new vscode.Position(startLine, 0);
+		const endPosition = new vscode.Position(endLine, 0);
+		const methodRange = new vscode.Location(this._document.uri, new vscode.Range(startPosition, endPosition));
 		symbols.push(new vscode.SymbolInformation(name, vscode.SymbolKind.Function, '', methodRange));
 	}
 }

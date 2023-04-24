@@ -1,13 +1,13 @@
 import * as vscode from 'vscode';
 import { TokenType, MumpsLineParser } from './mumpsLineParser';
 const parser = new MumpsLineParser();
-const definitionsArray = require('./../language-definitions.json');
+import { definitionsArray } from './language-definitions';
 const definitions = {};
-let fs = require('fs');
-let path = require('path');
-let Uri = vscode.Uri;
+import fs = require('fs');
+import path = require('path');
+const Uri = vscode.Uri;
 const EXTENSIONS = ['.m', '.int', '.zwr', '.M', '.INT', '.ZWR'];
-let cache: any = {};
+const cache: { fsPath: string, text: string } = { fsPath: "", text: "" };
 interface LocationInfo { location: vscode.Location, commentText: string, labelLine: string }
 interface ParameterDefinition {
 	name: string,
@@ -22,7 +22,7 @@ interface TokenDefinition {
 	commentText?: string,
 	description: string,
 	parameters?: ParameterDefinition[],
-	returns: string
+	returns?: { type: string }
 	location?: vscode.Location
 }
 interface TokenData {
@@ -38,7 +38,7 @@ function addDefinition(name: string, definition: TokenDefinition) {
 	}
 }
 if (Object.keys(definitions).length === 0) {
-	for (let definition of definitionsArray) {
+	for (const definition of definitionsArray) {
 		addDefinition(definition.name, definition);
 		if (definition.abbreviation) {
 			addDefinition(definition.abbreviation, definition);
@@ -68,33 +68,33 @@ export class MumpsTokenHelper {
 		}
 	}
 	public getTokenSignature(): vscode.SignatureHelp | undefined {
-		let line = this._document.lineAt(this._position);
+		const line = this._document.lineAt(this._position);
 		if (!line) {
 			return;
 		}
-		let text = line.text;
-		let myToken = this._getFunctionToken(text);
+		const text = line.text;
+		const myToken = this._getFunctionToken(text);
 		if (myToken === undefined || (myToken.type !== TokenType.ifunction && myToken.type !== TokenType.exfunction)) {
 			return;
 		}
-		let definition = this.getTokenData(myToken.name, myToken.type);
+		const definition = this.getTokenData(myToken.name, myToken.type);
 		if (!definition) {
 			return;
 		}
-		let help = new vscode.SignatureHelp();
+		const help = new vscode.SignatureHelp();
 		help.signatures = [this.convertDefinition(definition)];
 		help.activeSignature = 0;
 		help.activeParameter = this._calculateActiveParameter(line.text, myToken.position + myToken.name.length, this._position.character);
 		return help;
 	}
 	public getTokenHoverInfo(): vscode.Hover | undefined {
-		let myToken = parser.getTokenAt(this._document.lineAt(this._position).text, this._position.character);
+		const myToken = parser.getTokenAt(this._document.lineAt(this._position).text, this._position.character);
 		if (myToken === undefined) {
 			return;
 		}
 		if (myToken.type === TokenType.exfunction || myToken.type === TokenType.ifunction ||
 			myToken.type === TokenType.entryref || myToken.type === TokenType.keyword) {
-			let definition = this.getTokenData(myToken.name, myToken.type);
+			const definition = this.getTokenData(myToken.name, myToken.type);
 			if (!definition) {
 				return;
 			}
@@ -108,7 +108,7 @@ export class MumpsTokenHelper {
 				}
 				definition.name += ")";
 			}
-			let snippet = { language: 'mumps', value: definition.name };
+			const snippet = { language: 'mumps', value: definition.name };
 			return new vscode.Hover([snippet, definition.commentText || definition.description]);
 		}
 	}
@@ -117,7 +117,7 @@ export class MumpsTokenHelper {
 		let depth = 0;
 		let isInsideString = false;
 		for (let i = parametersStartIndex + 1; i < insertIndex; i++) {
-			let char = lineText.charAt(i);
+			const char = lineText.charAt(i);
 			if (char === '(' && !isInsideString) {
 				depth++;
 			} else if (char === ')' && !isInsideString) {
@@ -131,12 +131,12 @@ export class MumpsTokenHelper {
 		return active;
 	}
 	public getTokenRefLocation(): vscode.Location | undefined {
-		let myToken = parser.getTokenAt(this._document.lineAt(this._position).text, this._position.character);
+		const myToken = parser.getTokenAt(this._document.lineAt(this._position).text, this._position.character);
 		if (myToken === undefined) {
 			return;
 		}
 		if (myToken.type === TokenType.entryref || myToken.type === TokenType.exfunction) {
-			let tokendata = this.getTokenData(myToken.name, myToken.type);
+			const tokendata = this.getTokenData(myToken.name, myToken.type);
 			if (tokendata) {
 				return tokendata.location;
 			}
@@ -146,9 +146,9 @@ export class MumpsTokenHelper {
 	// get Information for given function or keyword
 	public getTokenData(functionName: string, functionType: TokenType): TokenDefinition | undefined {
 		if (functionType === TokenType.ifunction || functionType === TokenType.keyword) {
-			let matches = definitions[functionName.toUpperCase()];
+			const matches = definitions[functionName.toUpperCase()];
 			if (matches) {
-				for (let definition of matches) {
+				for (const definition of matches) {
 					if (definition.type !== 'function' && definition.type !== "command") {
 						continue;
 					}
@@ -158,7 +158,7 @@ export class MumpsTokenHelper {
 				return;
 			}
 		} else if (functionType === TokenType.exfunction || functionType === TokenType.entryref) {
-			let locationInfo = this.getPositionForLabel(functionName);
+			const locationInfo = this.getPositionForLabel(functionName);
 			if (locationInfo) {
 				return this._extractDefinition(locationInfo);
 			}
@@ -167,7 +167,7 @@ export class MumpsTokenHelper {
 		}
 	}
 	public convertDefinition(definition: TokenDefinition): vscode.SignatureInformation {
-		let data: TokenData = {
+		const data: TokenData = {
 			name: "",
 			description: "",
 			parameters: []
@@ -176,7 +176,7 @@ export class MumpsTokenHelper {
 		if (definition.parameters) {
 			data.name = definition.name + '(';
 			for (let i = 0; i < definition.parameters.length; i++) {
-				let parameter = definition.parameters[i];
+				const parameter = definition.parameters[i];
 				let description = parameter.optional ? '(optional) ' : '';
 				description += parameter.description || parameter.name;
 				data.parameters.push(new vscode.ParameterInformation(parameter.name, description));
@@ -194,7 +194,7 @@ export class MumpsTokenHelper {
 				data.name += ':' + definition.returns;
 			}
 		}
-		let signature = new vscode.SignatureInformation(data.name, data.description);
+		const signature = new vscode.SignatureInformation(data.name, data.description);
 		signature.parameters = data.parameters;
 		return signature;
 	}
@@ -213,8 +213,8 @@ export class MumpsTokenHelper {
 				fileName = '_' + fileName.substring(1);
 			}
 			let fullPath = path.resolve(this._document.uri.fsPath, '../' + fileName);
-			for (let extension of EXTENSIONS) {
-				let extendedPath = fullPath + extension;
+			for (const extension of EXTENSIONS) {
+				const extendedPath = fullPath + extension;
 				if (fs.existsSync(extendedPath)) {
 					fullPath = extendedPath;
 					break;
@@ -222,10 +222,10 @@ export class MumpsTokenHelper {
 			}
 			fileUri = Uri.file(fullPath);
 		}
-		let lines: string[] = this._getText(fileUri).split("\n");
+		const lines: string[] = this._getText(fileUri).split("\n");
 		let commentText = "";
 		let i = 0;
-		let labelLength = nakedLabel.length;
+		const labelLength = nakedLabel.length;
 		for (i = 0; i < lines.length; i++) {
 			if (lines[i].substr(0, labelLength) === nakedLabel && lines[i].substr(labelLength, 1).match(/(;|\s|\()/) !== null) {
 				labelLine = lines[i];
@@ -251,18 +251,18 @@ export class MumpsTokenHelper {
 		return;
 	}
 	private _extractDefinition(locationInfo: LocationInfo): TokenDefinition | undefined {
-		let definition: TokenDefinition = {
+		const definition: TokenDefinition = {
 			name: '',
 			type: 'function',
 			commentText: '',
 			description: '',
-			returns: '',
+			returns: { type: '' },
 			location: locationInfo.location
 		};
-		let labelLines = locationInfo.commentText;
+		const labelLines = locationInfo.commentText;
 		definition.commentText = labelLines
-		let definitionRegex = /^([%A-Z][A-Z0-9]*)(\((,?[%A-Z][A-Z0-9]*)+\))?/i;
-		let result = definitionRegex.exec(locationInfo.labelLine);
+		const definitionRegex = /^([%A-Z][A-Z0-9]*)(\((,?[%A-Z][A-Z0-9]*)+\))?/i;
+		const result = definitionRegex.exec(locationInfo.labelLine);
 		if (!result) {
 			return;
 		}
@@ -271,7 +271,7 @@ export class MumpsTokenHelper {
 			definition.commentText = labelLines.substring(labelLines.indexOf(';') + 1);
 		}
 		let parameterNames: string[] = [];
-		let parametersByName = {};
+		const parametersByName = {};
 		if (result[2] !== undefined) {
 			parameterNames = result[2].substring(1, result[2].length - 1).split(',')
 			definition.parameters = [];
@@ -285,22 +285,23 @@ export class MumpsTokenHelper {
 			}
 		}
 		if (labelLines !== "") {
-			let description = labelLines.match(/DESCRIPTION:.*/i)
+			const description = labelLines.match(/DESCRIPTION:.*/i)
 			if (description !== null) { definition.description = description[0]; }
 
-			for (let param in parametersByName) {
-				let paramDescription = labelLines.match(new RegExp("\\s" + param + "(\\(.*\\))?:.*", 'i'))
+			for (const param in parametersByName) {
+				const paramDescription = labelLines.match(new RegExp("\\s" + param + "(\\(.*\\))?:.*", 'i'))
+				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 				if (paramDescription !== null) { definition.parameters![parametersByName[param]].description = paramDescription[0] }
-			};
+			}
 		}
 		return definition;
 	}
 	private _getFunctionToken(lineText: string) {
 		let depth = 1;
 		let index: number;
-		let linePosition = this._position.character;
+		const linePosition = this._position.character;
 		for (index = linePosition - 1; index > 0 && depth > 0; index--) {
-			let char = lineText.charAt(index);
+			const char = lineText.charAt(index);
 			if (char === ')') {
 				depth++;
 			} else if (char === '(') {

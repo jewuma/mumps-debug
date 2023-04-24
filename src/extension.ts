@@ -18,7 +18,7 @@ import expandCompress from './mumpsCompExp';
 import MumpsDiagnosticsProvider from './mumpsDiagnosticsProvider';
 import fs = require('fs');
 let timeout: ReturnType<typeof setTimeout> | undefined;
-let entryRef: string | undefined = "";
+const entryRef: string | undefined = "";
 export async function activate(context: vscode.ExtensionContext) {
 	const MUMPS_MODE: vscode.DocumentFilter = { language: 'mumps', scheme: 'file' };
 	// register a configuration provider for 'mumps' debug type
@@ -62,7 +62,7 @@ export function deactivate() {
 
 class InlineDebugAdapterFactory implements vscode.DebugAdapterDescriptorFactory {
 
-	createDebugAdapterDescriptor(_session: vscode.DebugSession): vscode.ProviderResult<vscode.DebugAdapterDescriptor> {
+	createDebugAdapterDescriptor(): vscode.ProviderResult<vscode.DebugAdapterDescriptor> {
 		return new vscode.DebugAdapterInlineImplementation(new MumpsDebugSession());
 	}
 }

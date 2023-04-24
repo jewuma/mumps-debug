@@ -17,13 +17,14 @@ export default class MumpsEvalutableExpressionProvider {
 			return this.getExpression(position.line, lineContent.substring(0, position.character))
 		}
 		let result: RegExpExecArray | null = null;
-		let expression = /([ (.,+\-\*_:=])([\^\$]?%?[a-zA-Z][a-zA-Z\d]*)/g;
+		const expression = /([ (.,+\-*_:=])([\^$]?%?[a-zA-Z][a-zA-Z\d]*)/g;
 
 		// find the word under the cursor
+		// eslint-disable-next-line no-cond-assign
 		while (result = expression.exec(lineContent)) {
 			let start = result.index;
 			start += result[0].length - result[2].length; // ignore first part of expression
-			let end = start + result[2].length - 1;
+			const end = start + result[2].length - 1;
 
 			if (start <= position.character && end >= position.character) {
 				return new vscode.EvaluatableExpression(new vscode.Range(position.line, start, position.line, end), result[2]);
@@ -45,7 +46,7 @@ export default class MumpsEvalutableExpressionProvider {
 		let level = 1;
 		let position = 0;
 		for (let i = content.length - 1; i > -1; i--) {
-			let char = content.charAt(i);
+			const char = content.charAt(i);
 			if (char === '"') {
 				isInsideString = !isInsideString;
 			}
@@ -61,9 +62,9 @@ export default class MumpsEvalutableExpressionProvider {
 			}
 		}
 		if (level === 0) { // Corresponding opening bracket found
-			let part = content.substring(0, position);
-			let expression = /([ (,+\-\*_:=])([\^\$]?%?[a-zA-Z][a-zA-Z\d]*)$/
-			let match = part.match(expression);
+			const part = content.substring(0, position);
+			const expression = /([ (,+\-*_:=])([\^$]?%?[a-zA-Z][a-zA-Z\d]*)$/
+			const match = part.match(expression);
 			if (match) {
 				return new vscode.EvaluatableExpression(new vscode.Range(line, position - match[2].length, line, content.length + 1));
 			}

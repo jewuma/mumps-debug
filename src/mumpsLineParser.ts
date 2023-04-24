@@ -1,4 +1,7 @@
-const fs = require('fs');
+/* eslint-disable no-cond-assign */
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+/* eslint-disable no-prototype-builtins */
+import fs = require('fs');
 interface ErrorInformation {
 	text: string,
 	position: number,
@@ -64,15 +67,15 @@ const lvn = /^[A-Za-z%][A-Za-z0-9]*/
 const gvn = /^\^[A-Za-z%][A-Za-z0-9]*/
 const isv = /^\$(DEVICE|ECODE|EC|ESTACK|ES|ETRAP|ET|HALT|HOROLOG|H|IO|I|JOB|J|KEY|K|NAMESPACE|PRINCIPAL|P|QUIT|Q|REFERENCE|R|STACK|ST|STORAGE|S|SYSTEM|TEST|THIS|TLEVEL|TL|T|USERNAME|X|Y|ZALLOCSTOR|ZA|ZB|ZCHSET|ZCLOSE|ZCMDLINE|ZCM|ZCOMPILE|ZCO|ZCSTATUS|ZCH[A-Z]*|ZC|ZDATEFORM|ZDA|ZDIRECTORY|ZD|ZEDITOR|ZED|ZEOF|ZEO|ZE[A-Z]*|ZGBLDIR|ZG|ZHRORLOG|ZH|ZININTERRUPT|ZINI|ZINTERRUPT|ZINT|ZIO|ZJOB|ZJ|ZKEY|ZLEVEL|ZL|ZMAXTPTIME|ZMAXTPTI|ZMODE|ZMO|ZONLNRLBK|ZPATNUMERIC|ZPATN|ZPIN|ZPOSITION|ZPOS|ZPOUT|ZPROMPT|ZQUIT|ZREALSTOR|ZRELDATE|ZRO[A-Z]*|ZSOURCE|ZSO|ZSTA[A-Z]*|ZSTEP|ZSTRP|ZSTRPLLIM|ZST|ZSYSTEM|ZSY|ZS|ZTEXIT|ZTE|ZTIMEOUT|ZTIM|ZTRAP|ZT|ZUSEDSTOR|ZUT|ZVERSION|ZV[A-Z]*|ZYERROR|ZYRELEASE|ZTDATA|ZTDELIM|ZTLEVEL|ZTNAME|ZTOLDVAL|ZTRIGGEROP|ZTSLATE|ZTUPDATE|ZTVALUE|ZTWORMHOLE)/i
 const ifunction = /^\$(ASCII|A|CHAR|C|DATA|D|EXTRACT|E|FIND|F|FNUMBER|FN|GET|G|INCREMENT|INCR|I|JUSTIFY|J|LENGTH|L|NAME|NA|NEXT|N|ORDER|O|PIECE|P|QLENGTH|QL|QSUBSCRIPT|QS|QUERY|Q|RANDOM|R|REVERSE|RE|SELECT|S|STACK|ST|TEXT|T|TRANSLATE|TR|VIEW|V|ZAHANDLE|ZAH|ZASCII|ZATRANSFORM|ZAT|ZBITAND|ZBITCOUNT|ZBITFIND|ZBITGET|ZBITLEN|ZBITNOT|ZBITOR|ZBITSET|ZBITSTR|ZBITXOR|ZCHAR|ZCH|ZCOLLATE|ZCONVERT|ZCO|ZDATE|ZDATA|ZD|ZEXTRACT|ZE|ZFIND|ZF|ZGETJPI|ZG|ZINCREMENT|ZINCR|ZJOBEXAM|ZJUSTIFY|ZJ|ZLENGTH|ZL|ZMESSAGE|ZPARSE|ZPEEK|ZPIECE|ZPI|ZPREVIOUS|ZP|ZQGBLMOD|ZSEARCH|ZSIGPROC|ZSOCKET|ZSUBSTR|ZSUB|ZSYSLOG|ZTRANSLATE|ZTRIGGER|ZTRI|ZTRNLNM|ZTR|ZWIDTH|ZWRITE|ZW)(?=\()/i;
-const nonMfunction = /^\$\&([A-Za-z%0-9][A-Za-z0-9]*\.)?([A-Za-z%0-9][A-Za-z0-9]*)(\^[A-Za-z%][A-Za-z0-9]*)?/
-const entryref = /^(\&[A-Za-z0-9]*\.?)?@?([A-Za-z%0-9][A-Za-z0-9]*)?(\^@?[A-Za-z%][A-Za-z0-9]*)?/
+const nonMfunction = /^\$&([A-Za-z%0-9][A-Za-z0-9]*\.)?([A-Za-z%0-9][A-Za-z0-9]*)(\^[A-Za-z%][A-Za-z0-9]*)?/
+const entryref = /^(&[A-Za-z0-9]*\.?)?@?([A-Za-z%0-9][A-Za-z0-9]*)?(\^@?[A-Za-z%][A-Za-z0-9]*)?/
 const routineref = /^\^@?[A-Za-z%][A-Za-z0-9]*/
 const numlit = /^(\d*\.?\d*(E-?\d+)?)/
 //const strlit = /^"([^"]*("")*)*"/
 const strlit = /^"(""|[^"])*"/
 const command = /^[B|BREAK|C|CLOSE|D|DO|E|ELSE|F|FOR|G|GOTO|H|HALT|HANG|I|IF|J|JOB|K|KILL|L|LOCK|M|MERGE|N|NEW|O|OPEN|Q|QUIT|R|READ|S|SET|U|USE|V|VIEW|W|WRITE|X|XECUTE|ZA|ZALLOCATE|ZBR|ZBREAK|ZC|ZCONTINUE|ZD|ZDEALLOCATE|ZE|ZEDIT|ZG|ZGOTO|ZHALT|ZH|ZHELP|ZK|ZKILL|ZL|ZLINK|ZM|ZMESSAGE|ZP|ZPRINT|ZRUPDATE|ZSH|ZSHOW|ZST|ZSTEP|ZSY|ZSYSTEM|ZTC|ZTCOMMIT|ZTR|ZTRIGGER|ZTS|ZTSTART|ZWI|ZWITHDRAW|ZWR|ZWRITE]/i
-const binoperator = /^('=|'>|'<|<=|>=|'&|'!|'\?|'\[|'\]|\*\*|\+|\-|\*|\/|\\|#|'|&|!|_|<|>|=|\[|\]\]|\]|\?|@)/
-const unaryoperator = /(\-|'|\+|@)/
+const binoperator = /^('=|'>|'<|<=|>=|'&|'!|'\?|'\[|'\]|\*\*|\+|-|\*|\/|\\|#|'|&|!|_|<|>|=|\[|\]\]|\]|\?|@)/
+const unaryoperator = /(-|'|\+|@)/
 const patcode = /^([A|C|E|L|N|P|U]|^("([^"]("")*)*"))+/i
 const repititionCount = /^\d*\.?\d*/
 const openkeywords = /^APPEND|ATTACH=|BLOCK(SIZE)?=|COMMAND=|CONNECT=|(NO)?DELIM(ITER)?=?|EXC(EPTION)?=|FIFO|(NO)?FIXED|GROUP=|[IO]?CHSET=|KEY|IKEY|INDEPENDANT|IOERROR=|NEW[A-Z]*|MOREREADTIME=|OKEY|OWNER=|(NO)?RCHK|(NO)?READ(ONLY)?|RECORD(SIZE)?=|(NO)?RETRY|REWIND|SEEK=|SHELL=|STDERR=|(NO)?STREAM|SYSTEM=|(NO)?TRUNCATE|UIC=|VARIABLE|WORLD=|Z?(NO)?WRAP|WRITE(ONLY)?|ZBFSIZE|Z(NO)?DELAY|Z(NO)?FF|ZIBFSIZE|Z?LISTEN=/i
@@ -575,14 +578,14 @@ class MumpsLineParser {
 	private cmdCompressions: object;
 	private funcCompressions: object;
 	private isvCompressions: object;
-	private linePosition: number = 0;
+	private linePosition = 0;
 	/**
 	 * Checks if the given File is correct M-Code
 	 * @param filename
 	 * @returns Array with list of errors or an empty array if no errors found in file
 	 */
 	public checkFile(filename: string): ErrorInformation[] {
-		let errlist: ErrorInformation[] = [];
+		const errlist: ErrorInformation[] = [];
 		let content: string;
 		try {
 			content = fs.readFileSync(filename, "utf8");
@@ -590,10 +593,10 @@ class MumpsLineParser {
 			errlist.push({ text: 'File read error: ' + filename, position: 0, line: 0 });
 			return errlist;
 		}
-		let lines = content.split('\n');
+		const lines = content.split('\n');
 		for (let i = 0; i < lines.length; i++) {
 			lines[i] = lines[i].replace(/\r/g, '');
-			let info = this.checkLine(lines[i]);
+			const info = this.checkLine(lines[i]);
 			if (info.text !== '') {
 				info.line = i + 1;
 				errlist.push(info);
@@ -604,7 +607,7 @@ class MumpsLineParser {
 	public checkLine(line: string): ErrorInformation {
 		this._tokens = [];
 		this.linePosition = 0;
-		let parsed = this._parseLine(line);
+		const parsed = this._parseLine(line);
 		if (parsed.lineLabel) {
 			this._splitLabelAndParameters(parsed.lineLabel);
 		}
@@ -624,7 +627,7 @@ class MumpsLineParser {
 		let result: ErrorInformation = { text: '', position: 0 }
 		if (parsed.lineRoutines) {
 			for (let i = 0; i < parsed.lineRoutines.length; i++) {
-				let code = parsed.lineRoutines[i];
+				const code = parsed.lineRoutines[i];
 				if (code.mCommand.length > 0) {
 					let cmd = code.mCommand.toUpperCase();
 					if (cmd === 'H') {
@@ -669,12 +672,12 @@ class MumpsLineParser {
 	public analyzeLine(line: string): LineInformation {
 		this._tokens = [];
 		line = line.replace(/\r/g, '');
-		let errInfo = this.checkLine(line);
+		const errInfo = this.checkLine(line);
 		return { error: errInfo, tokens: this._tokens }
 	}
 	public analyzeLines(input: string): Array<Array<LineToken>> {
-		let lines = input.split('\n');
-		let linetokens: Array<Array<LineToken>> = [];
+		const lines = input.split('\n');
+		const linetokens: Array<Array<LineToken>> = [];
 		for (let i = 0; i < lines.length; i++) {
 			lines[i] = lines[i].replace(/\r/g, '');
 			this.checkLine(lines[i]);
@@ -704,8 +707,8 @@ class MumpsLineParser {
 		}
 		lines = content.split('\n');
 		for (let i = 0; i < lines.length; i++) {
-			lines[i] = lines[i].replace(/\r/g, '');
-			let info = this.expandCompressLine(lines[i], doExpand);
+			//lines[i] = lines[i].replace(/\r/g, '');
+			const info = this.expandCompressLine(lines[i], doExpand);
 			if (info.errorText !== '') {
 				lines = [];
 				lines[0] = "Error in Line " + i + " : " + info.errorText;
@@ -716,6 +719,7 @@ class MumpsLineParser {
 		return lines.join("\n");
 	}
 	public expandCompressLine(line: string, doExpand: boolean): ModifiedLine {
+		line = line.replace(/\r/g, '');
 		if (doExpand === false && this.cmdCompressions === undefined) {
 			this.cmdCompressions = {};
 			Object.keys(cmdExpansions).forEach(shortCommand => {
@@ -730,20 +734,21 @@ class MumpsLineParser {
 				this.isvCompressions[isvExpansions[shortIsv]] = shortIsv;
 			});
 		}
-		let outline: ModifiedLine = { lineText: line, errorText: '' }
-		let errorinfo = this.checkLine(line);
+		const outline: ModifiedLine = { lineText: line, errorText: '' }
+		const errorinfo = this.checkLine(line);
 		let outText = line;
 		if (errorinfo.text !== "") {
 			outline.errorText = errorinfo.text;
 		} else {
 			let posCorrector = 0;
 			for (let i = 0; i < this._tokens.length; i++) {
-				let token = this._tokens[i];
+				const token = this._tokens[i];
 				if (token.hasOwnProperty("longName")) {
-					let name = token.name;
+					const name = token.name;
 					let longName = name;
-					let position = token.position;
+					const position = token.position;
 					if (doExpand) {
+						// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 						longName = token.longName!.toLowerCase();
 						if (longName[0] === "$") {
 							longName = "$" + longName[1].toUpperCase() + longName.substring(2);
@@ -778,10 +783,10 @@ class MumpsLineParser {
 		return outline;
 	}
 	public getLabels(text: string): LabelInformation[] {
-		let labels: LabelInformation[] = [];
-		let lines = text.split('\n');
+		const labels: LabelInformation[] = [];
+		const lines = text.split('\n');
 		for (let i = 0; i < lines.length; i++) {
-			let parsed = this._parseLine(lines[i]);
+			const parsed = this._parseLine(lines[i]);
 			if (parsed.lineLabel) {
 				labels.push({ name: parsed.lineLabel, line: i });
 			}
@@ -793,7 +798,7 @@ class MumpsLineParser {
 		let memPosition = 0
 		let tokenId = -1
 		for (let i = 0; i < this._tokens.length; i++) {
-			let token = this._tokens[i];
+			const token = this._tokens[i];
 			if (token.position >= memPosition && token.position < position) {
 				memPosition = token.position;
 				tokenId = i;
@@ -832,7 +837,7 @@ class MumpsLineParser {
 					result = this._evaluateExpression(expressiontype.Atom, line, ++result.position);
 				} else {
 					if (line.substring(result.position).match(entryref)) {
-						let ref = line.substring(result.position).match(entryref)![0];
+						const ref = line.substring(result.position).match(entryref)![0];
 						result.position += ref.length;
 					} else {
 						result.text = 'Invalid EntryRef';
@@ -845,9 +850,9 @@ class MumpsLineParser {
 			}
 		} else if (line.substring(result.position).match(entryref)) { //No Indirection and a valid entryref
 			let ref = line.substring(result.position).match(entryref)![0];
-			let merkpos = result.position;
+			const merkpos = result.position;
 			result.position += ref.length;
-			let char = line[result.position];
+			const char = line[result.position];
 			if (result.position >= line.length) {
 				if (ref.length > 0) {
 					if (ref[0] === '&') {
@@ -868,7 +873,7 @@ class MumpsLineParser {
 					return result
 				}
 				if (line.substring(result.position).match(routineref)) {
-					let routine = line.substring(result.position).match(routineref)![0];
+					const routine = line.substring(result.position).match(routineref)![0];
 					ref += routine;
 					result.position += routine.length;
 				}
@@ -923,19 +928,19 @@ class MumpsLineParser {
 					}
 					result.position++;
 					if (line.substring(result.position).match(lvn)) {
-						let global = line.substring(result.position).match(lvn)![0];
+						const global = line.substring(result.position).match(lvn)![0];
 						this._tokens.push({ name: global, type: TokenType.global, position: result.position + this.linePosition });
 						varFound = true;
 						result.position += global.length;
 					}
 				} else {
-					let global = line.substring(result.position).match(gvn)![0];
+					const global = line.substring(result.position).match(gvn)![0];
 					this._tokens.push({ name: global, type: TokenType.global, position: result.position + this.linePosition });
 					varFound = true;
 					result.position += global.length;
 				}
 			} else if (line.substring(result.position).match(lvn)) {  // local variable found
-				let local = line.substring(result.position).match(lvn)![0];
+				const local = line.substring(result.position).match(lvn)![0];
 				this._tokens.push({ name: local, type: TokenType.local, position: result.position + this.linePosition, isExcludedVariable: isExluded });
 				varFound = true;
 				result.position += local.length;
@@ -955,7 +960,7 @@ class MumpsLineParser {
 				result.text = 'Index not allowed here';
 				throw result;
 			}
-			let provResult = this._evaluateExpression(expressiontype.Index, line, ++result.position, 1);
+			const provResult = this._evaluateExpression(expressiontype.Index, line, ++result.position, 1);
 			result.position = provResult.position;
 			result.indexFound = true;
 		}
@@ -976,7 +981,7 @@ class MumpsLineParser {
 	private _checkKeyword(keywords: RegExp, line: string, position: number): ErrorInformation {
 		let result: ErrorInformation = { text: '', position };
 		if (line.substring(result.position).match(keywords)) {
-			let keyword = line.substring(result.position).match(keywords)![0];
+			const keyword = line.substring(result.position).match(keywords)![0];
 			result.position += keyword.length;
 			if (keyword.slice(-1) === '=') {
 				result = this._evaluateExpression(expressiontype.Standard, line, result.position);
@@ -1037,7 +1042,7 @@ class MumpsLineParser {
 		let result: ErrorInformation = { text: '', position };
 		if (argNumber > 1) { //If it's not the first Argument the Options are possible: F I=1:2:3,4 or F I=1:2:3,I=4:1:6
 			try {
-				let provResult = this._checkVar(line, result.position, false);
+				const provResult = this._checkVar(line, result.position, false);
 				if (line[provResult.position] === '"') {
 					result.position = provResult.position + 1;
 				}
@@ -1066,13 +1071,13 @@ class MumpsLineParser {
 		return result;
 	}
 	private _checkJobKeyword(line: string, position: number): ErrorInformation {
-		let result: ErrorInformation = { text: '', position };
+		const result: ErrorInformation = { text: '', position };
 		if (line.substring(result.position).match(jobkeywords)) {
-			let keyword = line.substring(result.position).match(jobkeywords)![0];
+			const keyword = line.substring(result.position).match(jobkeywords)![0];
 			result.position += keyword.length;
 			if (keyword[keyword.length - 1] === '=') {
 				if (line.substring(result.position).match(strlit)) {
-					let stringlit = line.substring(result.position).match(strlit)![0];
+					const stringlit = line.substring(result.position).match(strlit)![0];
 					result.position += stringlit.length;
 					if (stringlit.length === 0) {
 						result.text = 'String literal expected';
@@ -1212,7 +1217,7 @@ class MumpsLineParser {
 			let braceComplete = false;
 			do {
 				if (line.substring(result.position).match(isv)) {
-					let sysvariable = line.substring(result.position).match(isv)![0];
+					const sysvariable = line.substring(result.position).match(isv)![0];
 					let longName = sysvariable.toUpperCase();
 					if (isvExpansions[longName.substring(1)] !== undefined) {
 						longName = "$" + isvExpansions[longName.substring(1)];
@@ -1241,7 +1246,7 @@ class MumpsLineParser {
 			}
 		} else {
 			if (line.substring(result.position).match(isv)) {
-				let sysvariable = line.substring(result.position).match(isv)![0];
+				const sysvariable = line.substring(result.position).match(isv)![0];
 				let longName = sysvariable.toUpperCase();
 				if (isvExpansions[longName.substring(1)] !== undefined) {
 					longName = "$" + isvExpansions[longName.substring(1)];
@@ -1264,7 +1269,7 @@ class MumpsLineParser {
 			starDetected = true;
 		}
 		try {
-			let provResult = this._checkVar(line, result.position);
+			const provResult = this._checkVar(line, result.position);
 			result.position = provResult.position;
 			if (line[result.position] === '#') {
 				result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
@@ -1315,7 +1320,7 @@ class MumpsLineParser {
 		do {
 			if (line[result.position] === '@') {
 				try {
-					let provResult = this._checkVar(line, result.position);
+					const provResult = this._checkVar(line, result.position);
 					result.position = provResult.position;
 					if (this._isEndOfArgument(line, result.position) || line[result.position] === ',') {
 						return result;
@@ -1458,7 +1463,7 @@ class MumpsLineParser {
 		let mat: string[] | null;
 		if (mat = line.substring(result.position).match(/^\/(EOF|PASS|ACCEPT|LISTEN|L|TLS|WAIT|W)/i)) {
 			result.position += mat[0].length;
-			let fname = mat![0].toUpperCase();
+			const fname = mat![0].toUpperCase();
 			if (fname === '/EOF') {
 				return result;
 			}
@@ -1568,10 +1573,10 @@ class MumpsLineParser {
 		return result;
 	}
 	private _checkCommand(line: string, longcmd: string, code: TmpFunction): ErrorInformation {
-		let para = cmdParams[longcmd];
+		const para = cmdParams[longcmd];
 		let position = code.pcPosition
-		let postcondPossible = para.postcondition;
-		let argFormat = para.parameter;
+		const postcondPossible = para.postcondition;
+		const argFormat = para.parameter;
 		let result: ErrorInformation = { text: '', position: 0 }
 		if (!postcondPossible && code.mPostCondition !== '') {
 			throw { text: 'Poscondition not allowed', position }
@@ -1822,7 +1827,7 @@ class MumpsLineParser {
 				}
 				continue;
 			} else if (line[result.position] !== undefined) {
-				let char = line[result.position];
+				const char = line[result.position];
 				if (char === " " || char === "\t" || char === ";") { break; }
 				result.text = 'Unexpected Character "' + line[result.position] + '"';
 				throw result;
@@ -1832,13 +1837,13 @@ class MumpsLineParser {
 	}
 	private _checkFunction(longfunc: string, line: string, position: number): ErrorInformation {
 		let result: ErrorInformation = { text: '', position: position };
-		let params = funcParams[longfunc];
+		const params = funcParams[longfunc];
 		if (params === undefined) {
 			result.text = "Unknown Function " + longfunc;
 			throw result;
 		}
-		let minArguments = params.minparams !== undefined ? params.minparams : 1;
-		let formats = params.format !== undefined ? params.format.split(',') : undefined;
+		const minArguments = params.minparams !== undefined ? params.minparams : 1;
+		const formats = params.format !== undefined ? params.format.split(',') : undefined;
 		let argCount = 0;
 		longfunc = '$' + longfunc;
 		if (minArguments === 0 && line[result.position] === ')') {
@@ -1883,7 +1888,7 @@ class MumpsLineParser {
 				}
 			}
 			argCount++;
-			let char = line[result.position];
+			const char = line[result.position];
 			if (char === ',') {
 				if (argCount > params.maxparams) {
 					result.text = 'More Arguments for ' + longfunc + ' than expected';
@@ -1927,7 +1932,7 @@ class MumpsLineParser {
 					case 'pattern':
 						throw { text: 'Unecpected "("', position };
 				}
-				let result = this._evaluateExpression(subExType, line, ++position, level + 1);
+				const result = this._evaluateExpression(subExType, line, ++position, level + 1);
 				if (exType === expressiontype.Atom) {
 					return result;
 				}
@@ -1950,9 +1955,9 @@ class MumpsLineParser {
 			}
 			if (char === '.' && exType === expressiontype.eArgument) {
 				position++;
-				let evalString = line.substring(position);
+				const evalString = line.substring(position);
 				if (evalString.match(lvn)) {
-					let localname = evalString.match(lvn)![0];
+					const localname = evalString.match(lvn)![0];
 					this._tokens.push({ type: TokenType.local, name: localname, position: position + this.linePosition });
 					position += localname.length;
 					char = line.charAt(position);
@@ -1991,12 +1996,12 @@ class MumpsLineParser {
 					return { text: '', position }
 				}
 				if (line.substring(position).match(binoperator)) {
-					let operator = line.substring(position).match(binoperator)![0];
+					const operator = line.substring(position).match(binoperator)![0];
 					this._tokens.push({ name: operator, position: position + this.linePosition, type: TokenType.operator });
 					position += operator.length;
 					expressionComplete = false;
 					if (operator === '?' || operator === "'?") {
-						let result = this._evaluatePattern(line, position);
+						const result = this._evaluatePattern(line, position);
 						position = result.position;
 						expressionComplete = true;
 						lastExpression = 'pattern';
@@ -2006,38 +2011,39 @@ class MumpsLineParser {
 					return { text: '', position }
 				}
 			}
-			let evalString = line.substring(position);
+			const evalString = line.substring(position);
 			try {
-				let provResult = this._checkVar(line, position);
+				const provResult = this._checkVar(line, position);
 				expressionComplete = true;
 				position = provResult.position;
 			} catch (provResult) {
 				if (evalString.substring(0, 2) === '$$') {
 					position += 2;
+					// eslint-disable-next-line no-ex-assign
 					provResult = this._checkEntryRef(line, position, true, true);
 					expressionComplete = true;
 					position = provResult.position;
 					expressionComplete = true;
 				} else if (evalString.match(nonMfunction)) {
-					let functionname = evalString.match(nonMfunction)![0];
+					const functionname = evalString.match(nonMfunction)![0];
 					this._tokens.push({ type: TokenType.nonMfunction, name: functionname, position });
 					position += functionname.length;
 					lastExpression = 'exfunction'
 					expressionComplete = true;
 				} else if (evalString.match(ifunction)) {
-					let functionname = evalString.match(ifunction)![0].substring(1).toUpperCase();
+					const functionname = evalString.match(ifunction)![0].substring(1).toUpperCase();
 					position += functionname.length + 2
 					let longName = functionname;
 					if (funcExpansions[functionname] !== undefined) {
 						longName = funcExpansions[functionname];
 					}
 					this._tokens.push({ name: "$" + functionname, position: position - functionname.length - 2, type: TokenType.ifunction, longName: "$" + longName });
-					let result = this._checkFunction(longName, line, position);
+					const result = this._checkFunction(longName, line, position);
 					position = result.position;
 					lastExpression = '';
 					expressionComplete = true;
 				} else if (evalString.match(isv)) {
-					let specialvarname = evalString.match(isv)![0];
+					const specialvarname = evalString.match(isv)![0];
 					let longName = specialvarname.toUpperCase();
 					if (isvExpansions[longName.substring(1)] !== undefined) {
 						longName = "$" + isvExpansions[longName.substring(1)];
@@ -2046,12 +2052,12 @@ class MumpsLineParser {
 					position += specialvarname.length
 					expressionComplete = true;
 				} else if (evalString.match(numlit) && evalString.match(numlit)![0] !== '') {
-					let numericliteral = evalString.match(numlit)![0];
+					const numericliteral = evalString.match(numlit)![0];
 					this._tokens.push({ name: numericliteral, type: TokenType.number, position: position + this.linePosition });
 					position += numericliteral.length;
 					expressionComplete = true;
 				} else if (evalString.match(strlit)) {
-					let stringlit = evalString.match(strlit)![0];
+					const stringlit = evalString.match(strlit)![0];
 					this._tokens.push({ name: stringlit, type: TokenType.string, position: position + this.linePosition });
 					position += stringlit.length;
 					expressionComplete = true;
@@ -2093,7 +2099,7 @@ class MumpsLineParser {
 				break;
 			}
 			if (line.substring(result.position).match(repititionCount)) {
-				let repCount = line.substring(result.position).match(repititionCount)![0];
+				const repCount = line.substring(result.position).match(repititionCount)![0];
 				if (repCount !== '') {
 					patternComplete = false;
 					result.position += repCount.length;
@@ -2158,9 +2164,9 @@ class MumpsLineParser {
 	private _extractCommands(inputObject: LineObject): LineObject {
 
 		let tmpFunction: TmpFunction;
-		let tmpFunctionArray: Array<TmpFunction> = [];
+		const tmpFunctionArray: Array<TmpFunction> = [];
 		//Divide Routines and Arguments.
-		let splitLine = this._splitCommandsAndArguments(inputObject);
+		const splitLine = this._splitCommandsAndArguments(inputObject);
 		//Loop, even is function, odd is arguments.
 		let i = 0;
 		tmpFunction = { mCommand: '', mPostCondition: '', mArguments: '', cmdPosition: 0, argPosition: 0, pcPosition: 0 }
@@ -2175,7 +2181,7 @@ class MumpsLineParser {
 
 				//Custom handler for trailing argument spacing.
 				//Go until splitline hits a non empty val.
-				let ii = i + 1;
+				const ii = i + 1;
 				while (ii < splitLine.length) {
 					if (splitLine[ii].command === "") {
 						splitLine.splice(ii, 1);
@@ -2200,7 +2206,7 @@ class MumpsLineParser {
 
 
 		//Extract and output Post Conditionals.
-		let postConditionFunctionArray = this._extractPostConditional(tmpFunctionArray);
+		const postConditionFunctionArray = this._extractPostConditional(tmpFunctionArray);
 		if (postConditionFunctionArray.length > 0) {
 			inputObject.lineRoutines = postConditionFunctionArray;
 		}
@@ -2209,7 +2215,7 @@ class MumpsLineParser {
 
 	//Extract Comments.
 	private _extractComment(inputObject: LineObject): LineObject {
-		let inputLine = inputObject.lineExpression!;
+		const inputLine = inputObject.lineExpression!;
 		//Semicolon identifies comments.
 		if (inputLine.search(";") >= 0) {
 			let isInsideString = false;
@@ -2233,13 +2239,13 @@ class MumpsLineParser {
 	//Assumes inputLine has extracted comments/spacing.
 	private _extractIndentation(inputObject: LineObject): LineObject {
 
-		let lineIndentationArray: string[] = [];
+		const lineIndentationArray: string[] = [];
 		let lineIndentation = 0;
-		let inputLine = inputObject.lineExpression!;
+		const inputLine = inputObject.lineExpression!;
 		let spacer = '';
 		let i = 0;
 		for (i = 0; i <= inputLine.length; i++) {
-			let char = inputLine[i];
+			const char = inputLine[i];
 			if (char === ".") {
 				if (lineIndentation > 0) {
 					lineIndentationArray.push(spacer);
@@ -2264,12 +2270,12 @@ class MumpsLineParser {
 	}
 	private _extractLabel(inputObject: LineObject): LineObject {
 		inputObject.lineLabel = '';
-		let inputLine = inputObject.lineExpression;
+		const inputLine = inputObject.lineExpression;
 		inputObject.lineExpression = '';
 		if (inputLine.match(label)) {
 			inputObject.lineLabel = inputLine.match(label)![0];
 		}
-		let position = inputObject.lineLabel.length;
+		const position = inputObject.lineLabel.length;
 		if (position === inputLine.length) {
 			return inputObject
 		}
@@ -2296,10 +2302,10 @@ class MumpsLineParser {
 	private _extractPostConditional(tmpFunctionArray: TmpFunction[]): TmpFunction[] {
 
 		//Assign to new variable to truncate Routines.
-		let tmpObject = tmpFunctionArray;
+		const tmpObject = tmpFunctionArray;
 		for (let i = 0; i < tmpObject.length; i++) {
 			//Colon indicates Post-Conditionals.
-			let tmpIndex = tmpObject[i].mCommand!.indexOf(":");
+			const tmpIndex = tmpObject[i].mCommand!.indexOf(":");
 			if (tmpIndex > -1) {
 				tmpObject[i].mPostCondition = tmpObject[i].mCommand.substring(tmpIndex + 1);
 				tmpObject[i].mCommand = tmpObject[i].mCommand.substring(0, tmpIndex);
@@ -2311,7 +2317,7 @@ class MumpsLineParser {
 
 	private _isEndOfArgument(line: string, position: number): boolean {
 		let isEndOfArgument = false;
-		let char = line[position];
+		const char = line[position];
 		if (char === undefined || char === " " || char === "\t" || char === ";") { isEndOfArgument = true; }
 		return isEndOfArgument;
 	}
@@ -2341,11 +2347,11 @@ class MumpsLineParser {
 	//Divide commands and arguments into array, used by extractRoutines.
 	private _splitCommandsAndArguments(inputObject: LineObject): LineComand[] {
 
-		let lineCommands: LineComand[] = [];
+		const lineCommands: LineComand[] = [];
 		let tmpCursor = 0;
 		let isInsideString = false;
-		let inputLine = inputObject.lineExpression!;
-		let start = inputObject.expressionPosition!;
+		const inputLine = inputObject.lineExpression!;
+		const start = inputObject.expressionPosition!;
 		for (let i = 0; i < inputLine.length; i++) {
 
 			//Ensure space isn't quoted.
@@ -2364,7 +2370,7 @@ class MumpsLineParser {
 				tmpCursor = i + 1;
 			}
 		}
-		let i = inputLine.length;
+		const i = inputLine.length;
 		if (inputLine.substring(tmpCursor, i).length > 0) {
 			lineCommands.push({ command: inputLine.substring(tmpCursor, i), position: start + tmpCursor });
 			//Gather empty commands from end of line.
@@ -2378,11 +2384,11 @@ class MumpsLineParser {
 		if (label.indexOf('(') === -1) {
 			this._tokens.push({ name: label, position: 0, type: TokenType.label });
 		} else {
-			let labelparts = label.split('(');
-			let labeltext = labelparts[0];
+			const labelparts = label.split('(');
+			const labeltext = labelparts[0];
 			this._tokens.push({ name: labeltext, position: 0, type: TokenType.label });
-			let parameters = labelparts[1].split(')')[0];
-			let parameterVars = parameters.split(',');
+			const parameters = labelparts[1].split(')')[0];
+			const parameterVars = parameters.split(',');
 			let position = labeltext.length + 1		// Position = lengths of Label + trailing "("
 			for (let i = 0; i < parameterVars.length; i++) {
 				this._tokens.push({ name: parameterVars[i], position, type: TokenType.local });

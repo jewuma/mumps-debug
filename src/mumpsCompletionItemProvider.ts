@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { MumpsLineParser, LabelInformation } from './mumpsLineParser';
 const parser = new MumpsLineParser();
-const fs = require('fs');
+import fs = require('fs');
 
 interface ItemHint {
 	lineStatus: string,
@@ -14,7 +14,7 @@ interface LabelItem {
 }
 interface DbItem {
 	labels: LabelItem[],
-	routines: {}
+	routines: { path: string }
 }
 export default class CompletionItemProvider {
 	/**
@@ -35,21 +35,21 @@ export default class CompletionItemProvider {
 		this._dbfile = labeldb;
 		this._refreshLabelDB();
 	}
-	provideCompletionItems(document: vscode.TextDocument, position: vscode.Position, token: vscode.CancellationToken) {
+	provideCompletionItems(document: vscode.TextDocument, position: vscode.Position) {
 		//let word = document.getText(document.getWordRangeAtPosition(position));
-		let line = document.getText(new vscode.Range(new vscode.Position(position.line, 0), position))
-		let status = getLineStatus(line, position.character);
+		const line = document.getText(new vscode.Range(new vscode.Position(position.line, 0), position))
+		const status = getLineStatus(line, position.character);
 		this._document = document;
 		let clean: Array<vscode.CompletionItem> = [];
 		if (this._labelsReady && status.lineStatus === 'jumplabel') {
-			let replaceRange = new vscode.Range(new vscode.Position(position.line, position.character - status.startstring.length), position)
+			const replaceRange = new vscode.Range(new vscode.Position(position.line, position.character - status.startstring.length), position)
 			clean = this._findLabel(status.startstring, clean, replaceRange);
 		}
 		return clean;
 	}
 	private _refreshLabelDB() { // Look for all Labels in .m-Routines and them + Comments
 		if (!fs.existsSync(this._dbfile)) {
-			let db = {
+			const db = {
 				labels: [{ routine: '', label: '' }],
 				routines: {}
 			}
@@ -57,15 +57,15 @@ export default class CompletionItemProvider {
 		}
 		fs.readFile(this._dbfile, (err, data) => {
 			if (!err) {
-				this._labelDB = JSON.parse(data);
+				this._labelDB = JSON.parse(data.toString());
 				let dbChanged = false;
 				vscode.workspace.findFiles('*.m').then((files) => {
 					this._filesToCheck = files.length;
 					for (let i = 0; i < files.length; i++) {
-						let path = files[i].fsPath;
-						fs.stat(path, false, (err, stats) => {
+						const path = files[i].fsPath;
+						fs.stat(path, (err, stats) => {
 							if (!err) {
-								let ms = this._labelDB.routines[path];
+								const ms = this._labelDB.routines[path];
 								if (ms === undefined || stats.mtimeMs > ms) {
 									this._labelDB.routines[path] = stats.mtimeMs;
 									dbChanged = true;
@@ -100,10 +100,10 @@ export default class CompletionItemProvider {
 	}
 	private _refreshFileLabels(path: string) {  // Refresh all Labels of a changed .m File
 		let routine = path.replace(/\\\\/g, '/').split('/').pop();
-		routine = routine!.split('.')[0].replace('_', '%');
+		routine = routine?.split('.')[0].replace('_', '%') ?? "";
 		fs.readFile(path, 'utf8', (err, content: string) => {
 			if (!err) {
-				let lines = content.split('\n');
+				const lines = content.split('\n');
 				let label: RegExpMatchArray | null = null;
 				this._labelDB.labels = this._labelDB.labels.filter((label) => {
 					return label.routine !== routine;
@@ -125,19 +125,19 @@ export default class CompletionItemProvider {
 	private _findLabel(startstring: string, list: Array<vscode.CompletionItem>, replaceRange: vscode.Range) {
 		//let hits = 0;
 		let hitlist: LabelItem[] = [];
-		let localLabels: LabelInformation[] = parser.getLabels(this._document.getText());
+		const localLabels: LabelInformation[] = parser.getLabels(this._document.getText());
 		let sortText = '';
 		if (startstring.charAt(0) === '^') {
-			let suchstring = startstring.substring(1);
+			const suchstring = startstring.substring(1);
 			hitlist = this._labelDB.labels.filter((item) => {
 				return item.routine.startsWith(suchstring);
 			});
 		} else {
 			if (startstring.indexOf('^') !== -1) {
-				let label = startstring.split('^')[0];
-				let routinepart = startstring.split('^')[1];
+				const label = startstring.split('^')[0];
+				const routinepart = startstring.split('^')[1];
 				hitlist = this._labelDB.labels.filter((item) => {
-					let fits = item.label === label && item.routine.startsWith(routinepart);
+					const fits = item.label === label && item.routine.startsWith(routinepart);
 					return fits;
 				});
 			} else {
@@ -147,14 +147,14 @@ export default class CompletionItemProvider {
 					}
 				}
 				hitlist = hitlist.concat(this._labelDB.labels.filter((item) => {
-					let fits = item.label.startsWith(startstring);
+					const fits = item.label.startsWith(startstring);
 					return fits;
 				}));
 			}
 		}
 		for (let i = 0; i < hitlist.length && i < 100; i++) {
 			sortText = '100';
-			let item = hitlist[i];
+			const item = hitlist[i];
 			let label = item.routine !== '' ? item.label + '^' + item.routine : item.label;
 			if (label === startstring) {
 				continue;
@@ -192,10 +192,10 @@ function getLineStatus(line: string | undefined, position: number): ItemHint {
 	let isInsidePostcond = false;
 	if (line) {
 		while (lookPosition < position) {
-			let char = line.substring(lookPosition, ++lookPosition);
-			let isWhiteSpace = (char === " " || char === "\t");
-			let isBeginOfVariable = char.match(/[A-Za-z%^]/);
-			let isAlphaChar = char.match(/[A-Za-z]/);
+			const char = line.substring(lookPosition, ++lookPosition);
+			const isWhiteSpace = (char === " " || char === "\t");
+			const isBeginOfVariable = char.match(/[A-Za-z%^]/);
+			const isAlphaChar = char.match(/[A-Za-z]/);
 			//let isAlphanumeric=char.match(/[A-Za-z0-9%]/);
 			//let isOperand = char.match(/[*+-/\[\]']/);
 			if (lineStatus !== 'string' && char === ';') {
@@ -278,7 +278,7 @@ function getLineStatus(line: string | undefined, position: number): ItemHint {
 				case 'label': {
 					if (isWhiteSpace) {
 						lineStatus = 'command';
-					} else if (char = '(') {
+					} else if (char === '(') {
 						lineStatus = 'variable';
 					}
 					break;

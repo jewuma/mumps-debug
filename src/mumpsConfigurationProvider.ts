@@ -25,7 +25,7 @@ export default class MumpsConfigurationProvider implements vscode.DebugConfigura
 		}
 
 		if (!config.program) {
-			return vscode.window.showInformationMessage("Cannot find a program to debug").then(_ => {
+			return vscode.window.showInformationMessage("Cannot find a program to debug").then(() => {
 				return undefined;	// abort launch
 			});
 		}

@@ -2,10 +2,11 @@
 	Connector to MDEBUG-Server by Jens Wulf
 	License: LGPL
 */
-import { DebugProtocol } from 'vscode-debugprotocol';
+import { DebugProtocol } from '@vscode/debugprotocol';
 import { Socket } from "net";
 import { EventEmitter } from 'events';
 import { readFileSync } from 'fs';
+//import { Variable } from '@vscode/debugadapter';
 export interface MumpsBreakpoint {
 	id: number,
 	file: string,
@@ -25,14 +26,27 @@ interface FrameInfo {
 	file: string,
 	line: number
 }
+interface StackInfo {
+	frames: FrameInfo[];
+	count: number;
+}
+interface MumpsVariable {
+	[variableType: string]: {
+		[variableName: string]: string
+	}
+}
+interface IVariables {
+	[varName: string]: string;
+}
 enum connectState {
 	disconnected, waitingforStart, waitingForVars, waitingForBreakpoints, waitingForSingleVar, waitingForSingleVarContent, waitingForErrorReport, waitingForHints
 }
+
 export class MumpsConnect extends EventEmitter {
 	private _socket = new Socket();
 	private _connectState: connectState;
 	private _readedData: string;
-	private _mVars: Object;
+	private _mVars: MumpsVariable;
 	private _mStack: Array<string>;
 	private _activeBreakpoints: Array<string>;
 	private _event = new EventEmitter();
@@ -45,11 +59,11 @@ export class MumpsConnect extends EventEmitter {
 	private _hints: string[];
 	private _breakPoints: MumpsBreakpoint[];
 	private _localRoutinesPath: string;
-	private _breakpointId: number = 1;
+	private _breakpointId = 1;
 	private _commandQueue: string[];
-	private _logging: boolean = false;
-	private _singleVar: string = "";
-	private _singleVarContent: string = "";
+	private _logging = false;
+	private _singleVar = "";
+	private _singleVarContent = "";
 	constructor() {
 		super();
 		this._commandQueue = [];
@@ -65,7 +79,7 @@ export class MumpsConnect extends EventEmitter {
 		this._hints = [];
 		this._event.on('varsComplete', () => {
 			if (typeof (this._mVars["I"]) !== 'undefined') {
-				let internals = this._mVars["I"];
+				const internals = this._mVars["I"];
 				this.checkEvents(internals);
 			}
 		})
@@ -84,7 +98,7 @@ export class MumpsConnect extends EventEmitter {
 					this._readedData += chunk.toString();
 					let n = this._readedData.indexOf('\n');
 					while (n !== -1) {
-						let data = this._readedData.substring(0, n);
+						const data = this._readedData.substring(0, n);
 						this.processLine(data)
 						this._readedData = this._readedData.substring(n + 1);
 						n = this._readedData.indexOf('\n');
@@ -211,6 +225,7 @@ export class MumpsConnect extends EventEmitter {
 				} else {
 					this._hints.push(line);
 				}
+				break;
 			}
 			default: {
 				console.error("Unexpected Message: " + line);
@@ -225,6 +240,7 @@ export class MumpsConnect extends EventEmitter {
 		}
 		if (this._connectState !== connectState.disconnected) {
 			while (this._commandQueue.length) {
+				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
 				message = this._commandQueue.shift()!;
 				try {
 					this._socket.write(message + "\n");
@@ -271,7 +287,7 @@ export class MumpsConnect extends EventEmitter {
 	/**
 	 * Fire events if line has a breakpoint or hs stopped beacause of a different reason
 	 */
-	private checkEvents(internals: Array<string>): void {
+	private checkEvents(internals: IVariables): void {
 		const mumpsposition = internals["$ZPOSITION"];
 		const mumpsstatus = internals["$ZSTATUS"];
 		const parts = mumpsposition.split("^");
@@ -310,7 +326,7 @@ export class MumpsConnect extends EventEmitter {
 	/**
 	 * Returns the actual Stack
 	 */
-	public stack(startFrame: number, endFrame: number): any {
+	public stack(startFrame: number, endFrame: number): StackInfo {
 
 		const frames = new Array<FrameInfo>();
 
@@ -337,11 +353,11 @@ export class MumpsConnect extends EventEmitter {
 	 * Set breakpoint in file with given line.
 	 */
 	public setBreakPoint(file: string, breakpoints: DebugProtocol.SourceBreakpoint[] | undefined): DebugProtocol.Breakpoint[] {
-		let confirmedBreakpoints: DebugProtocol.Breakpoint[] = [];
+		const confirmedBreakpoints: DebugProtocol.Breakpoint[] = [];
 		if (breakpoints) {
 			for (let i = 0; i < breakpoints.length; i++) {
-				let breakpoint = breakpoints[i];
-				let line = breakpoint.line
+				const breakpoint = breakpoints[i];
+				const line = breakpoint.line
 				confirmedBreakpoints.push({ id: this._breakpointId, verified: false })
 				this._breakPoints.push({ verified: false, file, line, id: this._breakpointId++ });
 				this.sendBreakpoint(file, line, true, breakpoint.condition);
@@ -354,7 +370,7 @@ export class MumpsConnect extends EventEmitter {
 	 * Clear breakpoint in file with given line.
 	 */
 	public clearBreakPoint(file: string, line: number): MumpsBreakpoint | undefined {
-		let bps = this._breakPoints;
+		const bps = this._breakPoints;
 		if (bps) {
 			const index = bps.findIndex(bp => bp.file === file && bp.line === line);
 			if (index >= 0) {
@@ -375,11 +391,11 @@ export class MumpsConnect extends EventEmitter {
 	}
 
 	private verifyBreakpoints(): void {
-		let merk: boolean[] = [];
+		const merk: boolean[] = [];
 		this._breakPoints.forEach(bp => {
 			bp.verified = false;
 			for (let i = 0; i < this._activeBreakpoints.length; i++) {
-				let internalBp = this.convertMumpsPosition(this._activeBreakpoints[i])
+				const internalBp = this.convertMumpsPosition(this._activeBreakpoints[i])
 				internalBp.file = this.normalizeDrive(internalBp.file.replace(/\\/g, "/"));
 				bp.file = this.normalizeDrive(bp.file.replace(/\\/g, "/"));
 				if (internalBp.file === bp.file && bp.line === internalBp.line) {
@@ -393,8 +409,8 @@ export class MumpsConnect extends EventEmitter {
 		});
 		for (let i = 0; i < this._activeBreakpoints.length; i++) {
 			if (!merk[i]) {
-				let internalBp = this.convertMumpsPosition(this._activeBreakpoints[i])
-				let bp: MumpsBreakpoint = { 'verified': true, 'file': internalBp.file, 'line': internalBp.line, 'id': this._breakpointId++ }
+				const internalBp = this.convertMumpsPosition(this._activeBreakpoints[i])
+				const bp: MumpsBreakpoint = { 'verified': true, 'file': internalBp.file, 'line': internalBp.line, 'id': this._breakpointId++ }
 				this.sendEvent('breakpointValidated', bp);
 			}
 		}
@@ -415,7 +431,7 @@ export class MumpsConnect extends EventEmitter {
 		}
 	}
 	public async checkRoutine(lines: string[]) {
-		return new Promise((resolve, reject) => {
+		return new Promise((resolve) => {
 			this._event.on('ErrorreportReceived', function ErrorreportReceived(event: EventEmitter, errorLines: string[]) {
 				event.removeListener('ErrorreportReceived', ErrorreportReceived);
 				resolve(errorLines);
@@ -427,9 +443,9 @@ export class MumpsConnect extends EventEmitter {
 			this.writeln("***ENDPROGRAM");
 		})
 	}
-	public async getSingleVar(expression: string) {
-		return new Promise((resolve, reject) => {
-			let reply: VarData = { name: expression, indexCount: 0, content: "undefined", bases: [] }
+	public async getSingleVar(expression: string): Promise<VarData> {
+		return new Promise((resolve) => {
+			const reply: VarData = { name: expression, indexCount: 0, content: "undefined", bases: [] }
 			let varType = "V";
 			if (expression.charAt(0) === "$") {
 				varType = "I";
@@ -468,16 +484,16 @@ export class MumpsConnect extends EventEmitter {
 	}
 
 	private convertMumpsPosition(positionstring: string) {
-		let parts = positionstring.split("^");
-		let position = parts[0];
+		const parts = positionstring.split("^");
+		const position = parts[0];
 		if (parts[1] !== undefined) {
 
-			let program = parts[1].split(" ", 1)[0];
-			let file = (this._localRoutinesPath + program + ".m").replace(/%/g, "_");
+			const program = parts[1].split(" ", 1)[0];
+			const file = (this._localRoutinesPath + program + ".m").replace(/%/g, "_");
 			try {
-				let filecontent = readFileSync(file).toString().split('\n');
-				let startlabel = position.split("+")[0];
-				let labelRegexp = new RegExp("^" + startlabel + "[(\\s;]");
+				const filecontent = readFileSync(file).toString().split('\n');
+				const startlabel = position.split("+")[0];
+				const labelRegexp = new RegExp("^" + startlabel + "[(\\s;]");
 				let offset = 0;
 				if (position.split("+")[1] !== undefined) {
 					offset = parseInt(position.split("+")[1]);
@@ -502,7 +518,7 @@ export class MumpsConnect extends EventEmitter {
 		}
 	}
 
-	private sendEvent(event: string, ...args: any[]) {
+	private sendEvent(event: string, ...args: unknown[]) {
 		this.emit(event, ...args);
 	}
 }

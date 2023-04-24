@@ -1,4 +1,19 @@
-[{
+interface ParameterDefinition {
+	name: string,
+	type: string,
+	description?: string
+	optional?: boolean
+}
+export interface languageToken {
+	name: string,
+	type: string,
+	abbreviation: string,
+	description: string,
+	parameters?: ParameterDefinition[],
+	returns?: { type: string }
+}
+export const definitionsArray: languageToken[] =
+	[{
 		"name": "BREAK",
 		"type": "command",
 		"abbreviation": "B",
@@ -68,7 +83,7 @@
 		"name": "KILL",
 		"type": "command",
 		"abbreviation": "K",
-		"description": "Delete a local or global variable"
+		"description": "Deletes a local or global variable"
 	},
 	{
 		"name": "MERGE",
@@ -402,16 +417,16 @@
 		"abbreviation": "$A",
 		"description": "ASCII numeric code of a character",
 		"parameters": [{
-				"name": "VALUE",
-				"type": "string",
-				"description": "A string to get a code from"
-			},
-			{
-				"name": "POS",
-				"type": "number",
-				"optional": true,
-				"description": "The 1-based position of the character in VALUE; defaults to 1"
-			}
+			"name": "VALUE",
+			"type": "string",
+			"description": "A string to get a code from"
+		},
+		{
+			"name": "POS",
+			"type": "number",
+			"optional": true,
+			"description": "The 1-based position of the character in VALUE; defaults to 1"
+		}
 		],
 		"returns": {
 			"type": "number"
@@ -423,16 +438,16 @@
 		"abbreviation": "$C",
 		"description": "ASCII character from numeric code",
 		"parameters": [{
-				"name": "CODE",
-				"type": "number",
-				"description": "Numeric code to convert to a character"
-			},
-			{
-				"name": "...",
-				"type": "number",
-				"optional": true,
-				"description": "Additional codes to convert to characters"
-			}
+			"name": "CODE",
+			"type": "number",
+			"description": "Numeric code to convert to a character"
+		},
+		{
+			"name": "...",
+			"type": "number",
+			"optional": true,
+			"description": "Additional codes to convert to characters"
+		}
 		],
 		"returns": {
 			"type": "string"
@@ -458,22 +473,22 @@
 		"abbreviation": "$E",
 		"description": "Extract a substring",
 		"parameters": [{
-				"name": "VALUE",
-				"type": "string",
-				"description": "The string to get a substring from"
-			},
-			{
-				"name": "START",
-				"type": "number",
-				"optional": true,
-				"description": "The 1-based start index; defaults to 1"
-			},
-			{
-				"name": "END",
-				"type": "number",
-				"optional": true,
-				"description": "The 1-based end index; defaults to 2"
-			}
+			"name": "VALUE",
+			"type": "string",
+			"description": "The string to get a substring from"
+		},
+		{
+			"name": "START",
+			"type": "number",
+			"optional": true,
+			"description": "The 1-based start index; defaults to 1"
+		},
+		{
+			"name": "END",
+			"type": "number",
+			"optional": true,
+			"description": "The 1-based end index; defaults to 2"
+		}
 		],
 		"returns": {
 			"type": "string"
@@ -485,21 +500,21 @@
 		"abbreviation": "$F",
 		"description": "Find the 1-based index after the end of a substring or 0 if not found",
 		"parameters": [{
-				"name": "WITHIN",
-				"type": "string",
-				"description": "The string to search in"
-			},
-			{
-				"name": "SUBSTRING",
-				"type": "string",
-				"description": "The substring to search for"
-			},
-			{
-				"name": "START",
-				"type": "number",
-				"optional": true,
-				"description": "The 1-based index to start searching from; defaults to 1"
-			}
+			"name": "WITHIN",
+			"type": "string",
+			"description": "The string to search in"
+		},
+		{
+			"name": "SUBSTRING",
+			"type": "string",
+			"description": "The substring to search for"
+		},
+		{
+			"name": "START",
+			"type": "number",
+			"optional": true,
+			"description": "The 1-based index to start searching from; defaults to 1"
+		}
 		],
 		"returns": {
 			"type": "number"
@@ -511,21 +526,21 @@
 		"abbreviation": "$FN",
 		"description": "Format a number",
 		"parameters": [{
-				"name": "NUMBER",
-				"type": "number",
-				"description": "The number to format"
-			},
-			{
-				"name": "FORMAT",
-				"type": "string",
-				"description": "One or more of the following: +: forces \"+\" on positive numbers; -: omits the \"-\" on negative numbers; ,: comma-separates the number by thousands; T: puts the sign in the trailing position; P: wraps negative numbers in parentheses and wraps positive numbers in spaces and may only be combined with comma (,)"
-			},
-			{
-				"name": "DIGITS",
-				"type": "number",
-				"optional": true,
-				"description": "The numer of digits after the decimal point"
-			}
+			"name": "NUMBER",
+			"type": "number",
+			"description": "The number to format"
+		},
+		{
+			"name": "FORMAT",
+			"type": "string",
+			"description": "One or more of the following: +: forces \"+\" on positive numbers; -: omits the \"-\" on negative numbers; ,: comma-separates the number by thousands; T: puts the sign in the trailing position; P: wraps negative numbers in parentheses and wraps positive numbers in spaces and may only be combined with comma (,)"
+		},
+		{
+			"name": "DIGITS",
+			"type": "number",
+			"optional": true,
+			"description": "The numer of digits after the decimal point"
+		}
 		],
 		"returns": {
 			"type": "any"
@@ -537,16 +552,16 @@
 		"abbreviation": "$G",
 		"description": "Get default or actual value",
 		"parameters": [{
-				"name": "VAR",
-				"type": "reference",
-				"description": "The variable to query, e.g. ^X(THIS,THAT)"
-			},
-			{
-				"name": "DEFAULT",
-				"type": "any",
-				"optional": true,
-				"description": "A value to use if VAR has no value; defaults to \"\""
-			}
+			"name": "VAR",
+			"type": "reference",
+			"description": "The variable to query, e.g. ^X(THIS,THAT)"
+		},
+		{
+			"name": "DEFAULT",
+			"type": "any",
+			"optional": true,
+			"description": "A value to use if VAR has no value; defaults to \"\""
+		}
 		],
 		"returns": {
 			"type": "any"
@@ -558,20 +573,20 @@
 		"abbreviation": "$J",
 		"description": "Right-justify a number or string by prefixing with spaces",
 		"parameters": [{
-				"name": "VALUE",
-				"type": "string",
-				"description": "The string to justify"
-			},
-			{
-				"name": "MINLENGTH",
-				"type": "number",
-				"description": "The minimum length of the result"
-			},
-			{
-				"name": "DIGITS",
-				"type": "number",
-				"description": "The number of digits after the decimal point; providing this argument makes $JUSTIFY treat VALUE as a number"
-			}
+			"name": "VALUE",
+			"type": "string",
+			"description": "The string to justify"
+		},
+		{
+			"name": "MINLENGTH",
+			"type": "number",
+			"description": "The minimum length of the result"
+		},
+		{
+			"name": "DIGITS",
+			"type": "number",
+			"description": "The number of digits after the decimal point; providing this argument makes $JUSTIFY treat VALUE as a number"
+		}
 		],
 		"returns": {
 			"type": "string"
@@ -583,16 +598,16 @@
 		"abbreviation": "$L",
 		"description": "Determine string length",
 		"parameters": [{
-				"name": "VALUE",
-				"type": "string",
-				"description": "The string"
-			},
-			{
-				"name": "SUBSTRING",
-				"type": "string",
-				"optional": true,
-				"description": "If present, $LENGTH returns one more than the number of occurences of SUBSTRING in VALUE"
-			}
+			"name": "VALUE",
+			"type": "string",
+			"description": "The string"
+		},
+		{
+			"name": "SUBSTRING",
+			"type": "string",
+			"optional": true,
+			"description": "If present, $LENGTH returns one more than the number of occurences of SUBSTRING in VALUE"
+		}
 		],
 		"returns": {
 			"type": "number"
@@ -604,16 +619,16 @@
 		"abbreviation": "$NA",
 		"description": "Evaluate and describe a variable",
 		"parameters": [{
-				"name": "VAR",
-				"type": "reference",
-				"description": "The variable to evaluate, including naked references"
-			},
-			{
-				"name": "MAXSUBSCRIPT",
-				"type": "number",
-				"optional": true,
-				"description": "The maximum number of subscripts to evaluate if VAR is an array"
-			}
+			"name": "VAR",
+			"type": "reference",
+			"description": "The variable to evaluate, including naked references"
+		},
+		{
+			"name": "MAXSUBSCRIPT",
+			"type": "number",
+			"optional": true,
+			"description": "The maximum number of subscripts to evaluate if VAR is an array"
+		}
 		],
 		"returns": {
 			"type": "string"
@@ -625,16 +640,16 @@
 		"abbreviation": "$O",
 		"description": "Find the subscript of the next or previous node",
 		"parameters": [{
-				"name": "VAR",
-				"type": "reference",
-				"description": "The array to query, e.g. ^AR"
-			},
-			{
-				"name": "DIRECTION",
-				"type": "number",
-				"optional": true,
-				"description": "1: forward, -1: reverse; defaults to 1"
-			}
+			"name": "VAR",
+			"type": "reference",
+			"description": "The array to query, e.g. ^AR"
+		},
+		{
+			"name": "DIRECTION",
+			"type": "number",
+			"optional": true,
+			"description": "1: forward, -1: reverse; defaults to 1"
+		}
 		],
 		"returns": {
 			"type": "string|number"
@@ -646,27 +661,27 @@
 		"abbreviation": "$P",
 		"description": "Extract substring based on pattern",
 		"parameters": [{
-				"name": "VALUE",
-				"type": "string",
-				"description": "The string"
-			},
-			{
-				"name": "SUBSTRING",
-				"type": "string",
-				"description": "A delimiting string within VALUE"
-			},
-			{
-				"name": "PIECE",
-				"type": "number",
-				"optional": true,
-				"description": "Which 1-based piece of the split string to return; defaults to 1"
-			},
-			{
-				"name": "LASTPIECE",
-				"type": "number",
-				"optional": true,
-				"description": "The 1-based index of the last piece of the split string to return; defaults to PIECE"
-			}
+			"name": "VALUE",
+			"type": "string",
+			"description": "The string"
+		},
+		{
+			"name": "SUBSTRING",
+			"type": "string",
+			"description": "A delimiting string within VALUE"
+		},
+		{
+			"name": "PIECE",
+			"type": "number",
+			"optional": true,
+			"description": "Which 1-based piece of the split string to return; defaults to 1"
+		},
+		{
+			"name": "LASTPIECE",
+			"type": "number",
+			"optional": true,
+			"description": "The 1-based index of the last piece of the split string to return; defaults to PIECE"
+		}
 		],
 		"returns": {
 			"type": "any"
@@ -692,15 +707,15 @@
 		"abbreviation": "$QS",
 		"description": "Value of specified subscript",
 		"parameters": [{
-				"name": "VAR",
-				"type": "reference",
-				"description": "The array to query, e.g. ^AR"
-			},
-			{
-				"name": "SUBSCRIPT",
-				"type": "number",
-				"description": "The 1-based index of the subscript to find; special values include -1: environment and 0: unsubscripted name"
-			}
+			"name": "VAR",
+			"type": "reference",
+			"description": "The array to query, e.g. ^AR"
+		},
+		{
+			"name": "SUBSCRIPT",
+			"type": "number",
+			"description": "The 1-based index of the subscript to find; special values include -1: environment and 0: unsubscripted name"
+		}
 		],
 		"returns": {
 			"type": "string|number"
@@ -754,16 +769,16 @@
 		"abbreviation": "$S",
 		"description": "Value of first true argument",
 		"parameters": [{
-				"name": "TVEXPR",
-				"type": "expression",
-				"description": "An expression to test for truth, followed by a colon and a value, e.g. i=42:\"Answered!\""
-			},
-			{
-				"name": "...",
-				"type": "expression",
-				"optional": true,
-				"description": "Additional truth value expressions to test; the last expression often starts with 1: to avoid errors"
-			}
+			"name": "TVEXPR",
+			"type": "expression",
+			"description": "An expression to test for truth, followed by a colon and a value, e.g. i=42:\"Answered!\""
+		},
+		{
+			"name": "...",
+			"type": "expression",
+			"optional": true,
+			"description": "Additional truth value expressions to test; the last expression often starts with 1: to avoid errors"
+		}
 		],
 		"returns": {
 			"type": "any"
@@ -775,16 +790,16 @@
 		"abbreviation": "$ST",
 		"description": "Returns information about the process stack",
 		"parameters": [{
-				"name": "LEVEL",
-				"type": "number",
-				"description": "-1: returns the highest stack level; 0: returns information about how the program was started; 1 to $STACK(-1): returns information about how the stack level was created"
-			},
-			{
-				"name": "FIELD",
-				"type": "string",
-				"optional": true,
-				"description": "\"MCODE\": the line of code that was executed; \"PLACE\": location of the executed code; \"ECODE\": the error code(s) added at the stack level, if any"
-			}
+			"name": "LEVEL",
+			"type": "number",
+			"description": "-1: returns the highest stack level; 0: returns information about how the program was started; 1 to $STACK(-1): returns information about how the stack level was created"
+		},
+		{
+			"name": "FIELD",
+			"type": "string",
+			"optional": true,
+			"description": "\"MCODE\": the line of code that was executed; \"PLACE\": location of the executed code; \"ECODE\": the error code(s) added at the stack level, if any"
+		}
 		],
 		"returns": {
 			"type": "string|number"
@@ -810,21 +825,21 @@
 		"abbreviation": "$TR",
 		"description": "Translate characters in a string",
 		"parameters": [{
-				"name": "VALUE",
-				"type": "string",
-				"description": "The value to translate"
-			},
-			{
-				"name": "OLD",
-				"type": "string",
-				"description": "Characters in VALUE to replace"
-			},
-			{
-				"name": "NEW",
-				"type": "string",
-				"optional": true,
-				"description": "Characters to replace OLD characters with; if not provided then OLD characters will be removed"
-			}
+			"name": "VALUE",
+			"type": "string",
+			"description": "The value to translate"
+		},
+		{
+			"name": "OLD",
+			"type": "string",
+			"description": "Characters in VALUE to replace"
+		},
+		{
+			"name": "NEW",
+			"type": "string",
+			"optional": true,
+			"description": "Characters to replace OLD characters with; if not provided then OLD characters will be removed"
+		}
 		],
 		"returns": {
 			"type": "string"
@@ -856,16 +871,16 @@
 		"abbreviation": "$ZA",
 		"description": "ASCII numeric code of a 8-bit character",
 		"parameters": [{
-				"name": "VALUE",
-				"type": "string",
-				"description": "A string to get a code from"
-			},
-			{
-				"name": "POS",
-				"type": "number",
-				"optional": true,
-				"description": "The 1-based position of the byte in VALUE; defaults to 1"
-			}
+			"name": "VALUE",
+			"type": "string",
+			"description": "A string to get a code from"
+		},
+		{
+			"name": "POS",
+			"type": "number",
+			"optional": true,
+			"description": "The 1-based position of the byte in VALUE; defaults to 1"
+		}
 		],
 		"returns": {
 			"type": "number"
@@ -877,28 +892,28 @@
 		"abbreviation": "$ZATR",
 		"description": "Returns the transformed representation of the first argument expr in a normalized form using the alternative transform specified by the second argument intexpr; the return can be used as an operand to the follows (]) or sorts-after (]]) operator such that, if both operands are in the normalized form, the result is independent of alternative collation.",
 		"parameters": [{
-				"name": "VALUE",
-				"type": "string",
-				"description": "String to transform"
-			},
-			{
-				"name": "ID",
-				"type": "Number",
-				"optional": false,
-				"description": "ID of the alternative transform to use"
-			},
-			{
-				"name": "NORMALIZE",
-				"type": "Number",
-				"optional": true,
-				"description": "whether the transform is to normalized form, by default or if zero (0), or, if one (1), the reverse transform from the normalized to the native form"
-			},
-			{
-				"name": "MCOLLATION",
-				"type": "Number",
-				"optional": true,
-				"description": "whether to use standard M collation of numbers before strings, the default or zero (0), or to sort all values as strings (1)"
-			}
+			"name": "VALUE",
+			"type": "string",
+			"description": "String to transform"
+		},
+		{
+			"name": "ID",
+			"type": "Number",
+			"optional": false,
+			"description": "ID of the alternative transform to use"
+		},
+		{
+			"name": "NORMALIZE",
+			"type": "Number",
+			"optional": true,
+			"description": "whether the transform is to normalized form, by default or if zero (0), or, if one (1), the reverse transform from the normalized to the native form"
+		},
+		{
+			"name": "MCOLLATION",
+			"type": "Number",
+			"optional": true,
+			"description": "whether to use standard M collation of numbers before strings, the default or zero (0), or to sort all values as strings (1)"
+		}
 		],
 		"returns": {
 			"type": "string"
@@ -910,16 +925,16 @@
 		"abbreviation": "$ZBITAND",
 		"description": "Performs a logical AND function on two bit strings and returns a bit string equal in length to the shorter of the two arguments (containing set bits in those positions where both of the input strings have set bits). Positions corresponding to positions where either of the input strings have a cleared bit, also have cleared bits in the resulting string",
 		"parameters": [{
-				"name": "FIRSTEXPR",
-				"type": "string",
-				"description": "first expression"
-			},
-			{
-				"name": "2NDEXPR",
-				"type": "string",
-				"optional": false,
-				"description": "second expression"
-			}
+			"name": "FIRSTEXPR",
+			"type": "string",
+			"description": "first expression"
+		},
+		{
+			"name": "2NDEXPR",
+			"type": "string",
+			"optional": false,
+			"description": "second expression"
+		}
 		],
 		"returns": {
 			"type": "string"
@@ -945,22 +960,22 @@
 		"abbreviation": "$ZBITFIND",
 		"description": "Performs the analog of $FIND() on a bit string. It returns an integer that identifies the position after the first position equal to a truth-valued expression that occurs at, or after, the specified starting position",
 		"parameters": [{
-				"name": "VALUE",
-				"type": "string",
-				"description": "The expression specifies the bit string to examine"
-			},
-			{
-				"name": "TRUTHVALUE",
-				"type": "Number",
-				"optional": true,
-				"description": "The truth-valued expression specifies the bit value for which $ZBITFIND() searches (1 or 0)"
-			},
-			{
-				"name": "POS",
-				"type": "Number",
-				"optional": true,
-				"description": "The optional integer argument specifies the starting position at which to begin the search"
-			}
+			"name": "VALUE",
+			"type": "string",
+			"description": "The expression specifies the bit string to examine"
+		},
+		{
+			"name": "TRUTHVALUE",
+			"type": "Number",
+			"optional": true,
+			"description": "The truth-valued expression specifies the bit value for which $ZBITFIND() searches (1 or 0)"
+		},
+		{
+			"name": "POS",
+			"type": "Number",
+			"optional": true,
+			"description": "The optional integer argument specifies the starting position at which to begin the search"
+		}
 		],
 		"returns": {
 			"type": "number"
@@ -972,16 +987,16 @@
 		"abbreviation": "$ZBITGET",
 		"description": "",
 		"parameters": [{
-				"name": "VALUE",
-				"type": "string",
-				"description": "The expression specifies the bit string to examine"
-			},
-			{
-				"name": "POS",
-				"type": "Number",
-				"optional": false,
-				"description": "The integer argument specifies the position in the string for which the value is requested"
-			}
+			"name": "VALUE",
+			"type": "string",
+			"description": "The expression specifies the bit string to examine"
+		},
+		{
+			"name": "POS",
+			"type": "Number",
+			"optional": false,
+			"description": "The integer argument specifies the position in the string for which the value is requested"
+		}
 		],
 		"returns": {
 			"type": "number"
@@ -1021,16 +1036,16 @@
 		"abbreviation": "$ZBITOR",
 		"description": "Performs a bitwise logical OR on two bit strings, and returns a bit string equal in length to the longer of the two arguments (containing set bits in those positions where either or both of the input strings have set bits). Positions that correspond to positions where neither input string has a set bit have cleared bits in the resulting string",
 		"parameters": [{
-				"name": "FIRSTEXPR",
-				"type": "string",
-				"description": "first expression"
-			},
-			{
-				"name": "2NDEXPR",
-				"type": "string",
-				"optional": false,
-				"description": "second expression"
-			}
+			"name": "FIRSTEXPR",
+			"type": "string",
+			"description": "first expression"
+		},
+		{
+			"name": "2NDEXPR",
+			"type": "string",
+			"optional": false,
+			"description": "second expression"
+		}
 		],
 		"returns": {
 			"type": "string"
@@ -1042,22 +1057,22 @@
 		"abbreviation": "$ZBITSET",
 		"description": "Returns an edited copy of the input bit string with a specified bit set to the value of the truth-valued expression",
 		"parameters": [{
-				"name": "VALUE",
-				"type": "string",
-				"description": "The expression specifies the input bit string"
-			},
-			{
-				"name": "POS",
-				"type": "Number",
-				"optional": false,
-				"description": "The integer expression specifies the position of the bit to manipulate. Arguments that are negative, zero, or exceed the length of the bit string produce a run-time error. $ZBIT functions count the first bit as position one (1)"
-			},
-			{
-				"name": "TRUTHVALUE",
-				"type": "Number",
-				"optional": false,
-				"description": "The truth-valued expression specifies the value to which to set the specified bit (0 or 1)"
-			}
+			"name": "VALUE",
+			"type": "string",
+			"description": "The expression specifies the input bit string"
+		},
+		{
+			"name": "POS",
+			"type": "Number",
+			"optional": false,
+			"description": "The integer expression specifies the position of the bit to manipulate. Arguments that are negative, zero, or exceed the length of the bit string produce a run-time error. $ZBIT functions count the first bit as position one (1)"
+		},
+		{
+			"name": "TRUTHVALUE",
+			"type": "Number",
+			"optional": false,
+			"description": "The truth-valued expression specifies the value to which to set the specified bit (0 or 1)"
+		}
 		],
 		"returns": {
 			"type": "string"
@@ -1069,16 +1084,16 @@
 		"abbreviation": "$ZBITSTR",
 		"description": "Returns a bit string of a specified length with all bit positions initially set to either zero or one",
 		"parameters": [{
-				"name": "LENGTH",
-				"type": "Number",
-				"description": "The integer expression specifies the length of the bit string to return; arguments that exceed the maximum length of 253,952 produce a run-time error"
-			},
-			{
-				"name": "TRUTHVALUE",
-				"type": "Number",
-				"optional": true,
-				"description": "The optional truth-valued expression specifies the value to which all bit positions should initially be set (0 or 1). If this argument is missing, the bits are set to zero"
-			}
+			"name": "LENGTH",
+			"type": "Number",
+			"description": "The integer expression specifies the length of the bit string to return; arguments that exceed the maximum length of 253,952 produce a run-time error"
+		},
+		{
+			"name": "TRUTHVALUE",
+			"type": "Number",
+			"optional": true,
+			"description": "The optional truth-valued expression specifies the value to which all bit positions should initially be set (0 or 1). If this argument is missing, the bits are set to zero"
+		}
 		],
 		"returns": {
 			"type": "number"
@@ -1090,16 +1105,16 @@
 		"abbreviation": "$ZBITXOR",
 		"description": "Performs a bitwise exclusive OR on two bit strings, and returns a bit string equal in length to the shorter of the two arguments (containing set bits in those positions where either (but not both) of the input strings have set bits). Positions that correspond to positions where neither or both input strings have a set bit have cleared bits in the resulting string",
 		"parameters": [{
-				"name": "FIRSTEXPR",
-				"type": "string",
-				"description": "first expression"
-			},
-			{
-				"name": "2NDEXPR",
-				"type": "string",
-				"optional": false,
-				"description": "second expression"
-			}
+			"name": "FIRSTEXPR",
+			"type": "string",
+			"description": "first expression"
+		},
+		{
+			"name": "2NDEXPR",
+			"type": "string",
+			"optional": false,
+			"description": "second expression"
+		}
 		],
 		"returns": {
 			"type": "string"
@@ -1111,16 +1126,16 @@
 		"abbreviation": "$ZCH",
 		"description": "Returns a string composed of bytes represented by the integer octet values specified in its argument(s).",
 		"parameters": [{
-				"name": "Integer",
-				"type": "Number",
-				"description": "The integer expression(s) specify the numeric byte value of the byte(s) $ZCHAR() returns"
-			},
-			{
-				"name": "...",
-				"type": "number",
-				"optional": true,
-				"description": "Additional codes to convert to characters"
-			}
+			"name": "Integer",
+			"type": "Number",
+			"description": "The integer expression(s) specify the numeric byte value of the byte(s) $ZCHAR() returns"
+		},
+		{
+			"name": "...",
+			"type": "number",
+			"optional": true,
+			"description": "Additional codes to convert to characters"
+		}
 		],
 		"returns": {
 			"type": "string"
@@ -1132,21 +1147,21 @@
 		"abbreviation": "$ZCO",
 		"description": "Returns the transformed representation of the first argument glvn in a normalized form using the alternative transform specified by the second argument intexpr; the return can be used as an operand to the follows (]) or sorts-after (]]) operator such that, if both operands are in the normalized form, the result is independent of alternative collation.",
 		"parameters": [{
-				"name": "var",
-				"type": "reference",
-				"description": "The subscripted or unsubscripted global or local variable name specifies the key to transform"
-			},
-			{
-				"name": "TransformId",
-				"type": "number",
-				"description": "Specifies the ID of the alternative transform to use"
-			},
-			{
-				"name": "NormForm",
-				"type": "number",
-				"optional": true,
-				"description": "Specifies whether the transform is to normalized form, by default or if zero (0), or, if one (1), the reverse transform from the normalized to the native form."
-			}
+			"name": "var",
+			"type": "reference",
+			"description": "The subscripted or unsubscripted global or local variable name specifies the key to transform"
+		},
+		{
+			"name": "TransformId",
+			"type": "number",
+			"description": "Specifies the ID of the alternative transform to use"
+		},
+		{
+			"name": "NormForm",
+			"type": "number",
+			"optional": true,
+			"description": "Specifies whether the transform is to normalized form, by default or if zero (0), or, if one (1), the reverse transform from the normalized to the native form."
+		}
 		],
 		"returns": {
 			"type": "string"
@@ -1156,22 +1171,23 @@
 		"name": "$ZCONVERT",
 		"type": "function",
 		"description": "Returns its first argument as a string or value converted to a different encoding or numeric base. The two argument form changes the encoding for case within the ASCII character set. The three argument form changes the encoding scheme or base. Supported bases are decimal 'DEC' and 'HEX', case insensitive).",
+		"abbreviation": "$ZCO",
 		"parameters": [{
-				"name": "expr1",
-				"type": "any",
-				"description": "string or value to convert. $ZCONVERT() generates a run-time error if for Unicode conversion if the string contains a code-point value that is not in the character set, or for base conversion if the value to be converted is out of range"
-			},
-			{
-				"name": "expr2",
-				"type": "code",
-				"description": "Specifies a code that determines the form of the result."
-			},
-			{
-				"name": "expr3",
-				"type": "code",
-				"optional": true,
-				"description": "Code that specifies the character set or base of the result"
-			}
+			"name": "expr1",
+			"type": "any",
+			"description": "string or value to convert. $ZCONVERT() generates a run-time error if for Unicode conversion if the string contains a code-point value that is not in the character set, or for base conversion if the value to be converted is out of range"
+		},
+		{
+			"name": "expr2",
+			"type": "code",
+			"description": "Specifies a code that determines the form of the result."
+		},
+		{
+			"name": "expr3",
+			"type": "code",
+			"optional": true,
+			"description": "Code that specifies the character set or base of the result"
+		}
 		],
 		"returns": {
 			"type": "string"
@@ -1180,6 +1196,7 @@
 	{
 		"name": "$ZDATA",
 		"type": "function",
+		"abbreviation": "$ZDATA",
 		"description": "Extends $DATA() to reflect the current alias state of the lvn or name argument to identify alias and alias container variables. It treats variables joined through pass-by-reference as well as TP RESTART variables within a transaction as alias variables. However, it does not distinguish nodes having alias containers among their descendants.",
 		"parameters": [{
 			"name": "var",
@@ -1194,29 +1211,30 @@
 		"name": "$ZDATE",
 		"type": "function",
 		"description": "Returns a date and/or time formatted as text based on an argument formatted in the manner of $HOROLOG",
+		"abbreviation": "$ZDATE",
 		"parameters": [{
-				"name": "expr1",
-				"type": "any",
-				"description": "$HOROLOG format of the date and/or time"
-			},
-			{
-				"name": "expr2",
-				"type": "string",
-				"optional": true,
-				"description": "Pattern of desired output p.e. 'YEAR-MM-DD'"
-			},
-			{
-				"name": "expr3",
-				"type": "string",
-				"optional": true,
-				"description": "Specifies a list of 12 month codes, separated by commas (,)"
-			},
-			{
-				"name": "expr4",
-				"type": "string",
-				"optional": true,
-				"description": "Specifies a list of seven day codes, separated by commas (,)"
-			}
+			"name": "expr1",
+			"type": "any",
+			"description": "$HOROLOG format of the date and/or time"
+		},
+		{
+			"name": "expr2",
+			"type": "string",
+			"optional": true,
+			"description": "Pattern of desired output p.e. 'YEAR-MM-DD'"
+		},
+		{
+			"name": "expr3",
+			"type": "string",
+			"optional": true,
+			"description": "Specifies a list of 12 month codes, separated by commas (,)"
+		},
+		{
+			"name": "expr4",
+			"type": "string",
+			"optional": true,
+			"description": "Specifies a list of seven day codes, separated by commas (,)"
+		}
 		],
 		"returns": {
 			"type": "string"
@@ -1227,22 +1245,22 @@
 		"abbreviation": "$ZE",
 		"description": "Returns a byte sequence from a given sequence of octets (8-bit bytes).",
 		"parameters": [{
-				"name": "expr1",
-				"type": "any",
-				"description": "Specifies a sequence of octets (8-bit bytes) from which $ZEXTRACT() derives a byte sequence"
-			},
-			{
-				"name": "intexpr1",
-				"type": "number",
-				"optional": true,
-				"description": "Specifies the starting byte position in the byte string"
-			},
-			{
-				"name": "intexpr2",
-				"type": "number",
-				"optional": true,
-				"description": "Specifies the ending byte position for the result"
-			}
+			"name": "expr1",
+			"type": "any",
+			"description": "Specifies a sequence of octets (8-bit bytes) from which $ZEXTRACT() derives a byte sequence"
+		},
+		{
+			"name": "intexpr1",
+			"type": "number",
+			"optional": true,
+			"description": "Specifies the starting byte position in the byte string"
+		},
+		{
+			"name": "intexpr2",
+			"type": "number",
+			"optional": true,
+			"description": "Specifies the ending byte position for the result"
+		}
 		],
 		"returns": {
 			"type": "string"
@@ -1253,21 +1271,21 @@
 		"abbreviation": "$ZF",
 		"description": "Returns an integer byte position that locates the occurrence of a byte sequence within a sequence of octets(8-bit bytes).",
 		"parameters": [{
-				"name": "expr1",
-				"type": "string",
-				"description": "Specifies the sequence of octets (8-bit bytes) in which $ZFIND() searches for the byte sequence"
-			},
-			{
-				"name": "expr2",
-				"type": "string",
-				"description": " specifies the byte sequence for which $ZFIND() searches"
-			},
-			{
-				"name": "expr3",
-				"type": "number",
-				"optional": true,
-				"description": "Identifies the starting byte position for the $ZFIND() search"
-			}
+			"name": "expr1",
+			"type": "string",
+			"description": "Specifies the sequence of octets (8-bit bytes) in which $ZFIND() searches for the byte sequence"
+		},
+		{
+			"name": "expr2",
+			"type": "string",
+			"description": " specifies the byte sequence for which $ZFIND() searches"
+		},
+		{
+			"name": "expr3",
+			"type": "number",
+			"optional": true,
+			"description": "Identifies the starting byte position for the $ZFIND() search"
+		}
 		],
 		"returns": {
 			"type": "number"
@@ -1276,16 +1294,17 @@
 		"name": "$ZGETJPI",
 		"type": "function",
 		"description": "Returns job or process information of the specified process",
+		"abbreviation": "$ZGETJPI",
 		"parameters": [{
-				"name": "expr1",
-				"type": "any",
-				"description": "Identifies the PID of the target job. If expr1 is an empty string (“”), $ZGETJPI() returns information about the current process."
-			},
-			{
-				"name": "expr2",
-				"type": "string",
-				"description": "Specifies the item keyword identifying the type of information returned"
-			}
+			"name": "expr1",
+			"type": "any",
+			"description": "Identifies the PID of the target job. If expr1 is an empty string (“”), $ZGETJPI() returns information about the current process."
+		},
+		{
+			"name": "expr2",
+			"type": "string",
+			"description": "Specifies the item keyword identifying the type of information returned"
+		}
 		],
 		"returns": {
 			"type": "string"
@@ -1294,17 +1313,18 @@
 		"name": "$ZJOBEXAM",
 		"type": "function",
 		"description": "Returns the full specification of the file specified by the optional expr1 argument into which the function places a ZSHOW output specified by expr2",
+		"abbreviation": "$ZJOBEXAM",
 		"parameters": [{
-				"name": "expr1",
-				"type": "any",
-				"description": "A template output device specification. It can be a device, a file directory, or a file name."
-			},
-			{
-				"name": "expr2",
-				"type": "",
-				"optional": true,
-				"description": "Defaulting to '*', expr2 specifies the ZSHOW Information Codes of data to be included in the output"
-			}
+			"name": "expr1",
+			"type": "any",
+			"description": "A template output device specification. It can be a device, a file directory, or a file name."
+		},
+		{
+			"name": "expr2",
+			"type": "",
+			"optional": true,
+			"description": "Defaulting to '*', expr2 specifies the ZSHOW Information Codes of data to be included in the output"
+		}
 		],
 		"returns": {
 			"type": "string"
@@ -1315,21 +1335,21 @@
 		"abbreviation": "$ZJ",
 		"description": "",
 		"parameters": [{
-				"name": "expr1",
-				"type": "any",
-				"description": "The expression specifies the sequence of octets formatted by $ZJUSTIFY()."
-			},
-			{
-				"name": "expr2",
-				"type": "number",
-				"description": "Specifies the minimum size of the resulting byte sequence."
-			},
-			{
-				"name": "expr3",
-				"type": "",
-				"optional": true,
-				"description": "The number of digits after the decimal point; providing this argument makes $ZJUSTIFY treat expr1 as a number"
-			}
+			"name": "expr1",
+			"type": "any",
+			"description": "The expression specifies the sequence of octets formatted by $ZJUSTIFY()."
+		},
+		{
+			"name": "expr2",
+			"type": "number",
+			"description": "Specifies the minimum size of the resulting byte sequence."
+		},
+		{
+			"name": "expr3",
+			"type": "",
+			"optional": true,
+			"description": "The number of digits after the decimal point; providing this argument makes $ZJUSTIFY treat expr1 as a number"
+		}
 		],
 		"returns": {
 			"type": "string"
@@ -1340,16 +1360,16 @@
 		"type": "function",
 		"description": "Returns the length of a sequence of octets measured in bytes, or in “pieces” separated by a delimiter specified by one of its arguments",
 		"parameters": [{
-				"name": "expr1",
-				"type": "any",
-				"description": "Specifies the sequence of octets that $ZLENGTH() “measures”."
-			},
-			{
-				"name": "expr2",
-				"type": "number",
-				"optional": true,
-				"description": "specifies the delimiter that defines the measure; if this argument is missing, $ZLENGTH() returns the number of bytes in the sequence of octets."
-			}
+			"name": "expr1",
+			"type": "any",
+			"description": "Specifies the sequence of octets that $ZLENGTH() “measures”."
+		},
+		{
+			"name": "expr2",
+			"type": "number",
+			"optional": true,
+			"description": "specifies the delimiter that defines the measure; if this argument is missing, $ZLENGTH() returns the number of bytes in the sequence of octets."
+		}
 		],
 		"returns": {
 			"type": "string"
@@ -1358,6 +1378,7 @@
 		"name": "$ZMESSAGE",
 		"type": "function",
 		"description": "Returns a message string associated with a specified status code .",
+		"abbreviation": "ZM",
 		"parameters": [{
 			"name": "expr1",
 			"type": "number",
@@ -1370,35 +1391,36 @@
 		"name": "$ZPARSE",
 		"type": "function",
 		"description": "Expands a file name to a full pathname and then returns the full pathname or one of its fields (directory, name, or extension).",
+		"abbreviation": "$ZPARSE",
 		"parameters": [{
-				"name": "expr1",
-				"type": "any",
-				"description": "Specifies the file name; if the file name is not valid, $ZPARSE() returns a null string"
-			},
-			{
-				"name": "expr2",
-				"type": "string",
-				"optional": true,
-				"description": "Specifies the field of the pathname that $ZPARSE() returns"
-			},
-			{
-				"name": "expr3",
-				"type": "",
-				"optional": true,
-				"description": "Specify default values to use during file name expansion for missing fields (directory, name, or extension)"
-			},
-			{
-				"name": "expr4",
-				"type": "",
-				"optional": true,
-				"description": "Specify default values to use during file name expansion for missing fields (directory, name, or extension)"
-			},
-			{
-				"name": "expr5",
-				"type": "",
-				"optional": true,
-				"description": "Specifies the mode or type of parse that $ZPARSE() performs."
-			}
+			"name": "expr1",
+			"type": "any",
+			"description": "Specifies the file name; if the file name is not valid, $ZPARSE() returns a null string"
+		},
+		{
+			"name": "expr2",
+			"type": "string",
+			"optional": true,
+			"description": "Specifies the field of the pathname that $ZPARSE() returns"
+		},
+		{
+			"name": "expr3",
+			"type": "",
+			"optional": true,
+			"description": "Specify default values to use during file name expansion for missing fields (directory, name, or extension)"
+		},
+		{
+			"name": "expr4",
+			"type": "",
+			"optional": true,
+			"description": "Specify default values to use during file name expansion for missing fields (directory, name, or extension)"
+		},
+		{
+			"name": "expr5",
+			"type": "",
+			"optional": true,
+			"description": "Specifies the mode or type of parse that $ZPARSE() performs."
+		}
 		],
 		"returns": {
 			"type": "string"
@@ -1409,27 +1431,27 @@
 		"type": "function",
 		"description": "Return a sequence of bytes delimited by a specified byte sequence made up of one or more bytes.",
 		"parameters": [{
-				"name": "expr1",
-				"type": "any",
-				"description": "specifies the sequence of octets from which $ZPIECE() takes its result."
-			},
-			{
-				"name": "expr2",
-				"type": "string",
-				"description": "Specifies the delimiting byte sequence that determines the piece 'boundaries'"
-			},
-			{
-				"name": "expr3",
-				"type": "",
-				"optional": true,
-				"description": "Specifies the beginning piece to return"
-			},
-			{
-				"name": "expr4",
-				"type": "",
-				"optional": true,
-				"description": "Specifies the last piece to return"
-			}
+			"name": "expr1",
+			"type": "any",
+			"description": "specifies the sequence of octets from which $ZPIECE() takes its result."
+		},
+		{
+			"name": "expr2",
+			"type": "string",
+			"description": "Specifies the delimiting byte sequence that determines the piece 'boundaries'"
+		},
+		{
+			"name": "expr3",
+			"type": "",
+			"optional": true,
+			"description": "Specifies the beginning piece to return"
+		},
+		{
+			"name": "expr4",
+			"type": "",
+			"optional": true,
+			"description": "Specifies the last piece to return"
+		}
 		],
 		"returns": {
 			"type": "string"
@@ -1451,6 +1473,7 @@
 		"name": "$ZQGBLMOD",
 		"type": "function",
 		"description": "Enables an application to determine whether it can safely apply a lost transaction to the database.",
+		"abbreviation": "$ZQGBLMOD",
 		"parameters": [{
 			"name": "gvn",
 			"type": "reference",
@@ -1463,17 +1486,18 @@
 		"name": "$ZSEARCH",
 		"type": "function",
 		"description": "Attempts to locate a file matching the specified file name. If the file exists, it returns the file name; if the file does not exist, it returns the null string.",
+		"abbreviation": "$ZSEARCH",
 		"parameters": [{
-				"name": "expr1",
-				"type": "any",
-				"description": "Contains a file name, with or without wildcards, for which $ZSEARCH() attempts to locate a matching file."
-			},
-			{
-				"name": "expr2",
-				"type": "number",
-				"optional": true,
-				"description": "Specifies an integer expression that is a stream number. It can be any value from 0 to 255 for each search"
-			}
+			"name": "expr1",
+			"type": "any",
+			"description": "Contains a file name, with or without wildcards, for which $ZSEARCH() attempts to locate a matching file."
+		},
+		{
+			"name": "expr2",
+			"type": "number",
+			"optional": true,
+			"description": "Specifies an integer expression that is a stream number. It can be any value from 0 to 255 for each search"
+		}
 		],
 		"returns": {
 			"type": "string"
@@ -1482,16 +1506,17 @@
 		"name": "$ZSIGPROC",
 		"type": "function",
 		"description": "Sends a signal to a process. The format for the $ZSIGPROC function is",
+		"abbreviation": "$ZSIGPROC",
 		"parameters": [{
-				"name": "expr1",
-				"type": "number",
-				"description": "The pid of the process to which the signal is to be sent."
-			},
-			{
-				"name": "expr2",
-				"type": "string",
-				"description": "The system signal name (e.g., 'SIGUSR1' or just 'USR1')."
-			}
+			"name": "expr1",
+			"type": "number",
+			"description": "The pid of the process to which the signal is to be sent."
+		},
+		{
+			"name": "expr2",
+			"type": "string",
+			"description": "The system signal name (e.g., 'SIGUSR1' or just 'USR1')."
+		}
 		],
 		"returns": {
 			"type": "string"
@@ -1500,31 +1525,32 @@
 		"name": "$ZSOCKET",
 		"type": "function",
 		"description": "Returns information about a SOCKET device and its attached sockets",
+		"abbreviation": "$ZSOCKET",
 		"parameters": [{
-				"name": "expr1",
-				"type": "any",
-				"description": "Specifies the SOCKET device name"
-			},
-			{
-				"name": "expr2",
-				"type": "string",
-				"description": "Specifies a keyword identifying the type of information returned"
-			},
-			{
-				"name": "expr3",
-				"type": "number",
-				"optional": true,
-				"description": "Specifies the index (starting at zero) of a socket attached to the device"
-			},
-			{
-				"name": "expr4",
-				"type": "string",
-				"optional": true,
-				"description": "Specifies an individual delimiter when the second expression specifies DELIMITER."
-			}
+			"name": "expr1",
+			"type": "any",
+			"description": "Specifies the SOCKET device name"
+		},
+		{
+			"name": "expr2",
+			"type": "string",
+			"description": "Specifies a keyword identifying the type of information returned"
+		},
+		{
+			"name": "expr3",
+			"type": "number",
+			"optional": true,
+			"description": "Specifies the index (starting at zero) of a socket attached to the device"
+		},
+		{
+			"name": "expr4",
+			"type": "string",
+			"optional": true,
+			"description": "Specifies an individual delimiter when the second expression specifies DELIMITER."
+		}
 		],
 		"returns": {
 			"type": "string"
 		}
 	}
-]
+	];

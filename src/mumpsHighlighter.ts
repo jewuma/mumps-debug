@@ -18,10 +18,10 @@ const MumpsHighlighter: vscode.DocumentSemanticTokensProvider = {
 		const result = parser.analyzeLines(text);
 		const tokensBuilder = new vscode.SemanticTokensBuilder(SemanticTokens);
 		for (let line = 0; line < result.length; line++) {
-			let tokens = result[line];
+			const tokens = result[line];
 			for (let tokenId = 0; tokenId < tokens.length; tokenId++) {
-				let t = tokens[tokenId];
-				let type = t.type;
+				const t = tokens[tokenId];
+				const type = t.type;
 				if (type === TokenType.exfunction) {
 					t.position -= 2;			//Correct Position because of leading $$
 					t.name = "$$" + t.name;

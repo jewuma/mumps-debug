@@ -10,7 +10,7 @@ export class CompletionItem extends vscode.CompletionItem {
 	file: string;
 	line: number;
 	count: number;
-	details: String[];
+	details: string[];
 	constructor(word: string | vscode.CompletionItemLabel, file: string) {
 		super(word);
 		this.kind = vscode.CompletionItemKind.Text;
@@ -19,7 +19,7 @@ export class CompletionItem extends vscode.CompletionItem {
 	}
 
 	static copy(item: CompletionItem) {
-		let newItem = new CompletionItem(item.label, item.file);
+		const newItem = new CompletionItem(item.label, item.file);
 		newItem.count = item.count;
 		newItem.details = item.details;
 		return newItem;

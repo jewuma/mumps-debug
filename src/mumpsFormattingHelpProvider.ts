@@ -1,24 +1,24 @@
 import * as vscode from 'vscode';
 export default class MumpsFormattingHelpProvider {
-	provideDocumentFormattingEdits(document: vscode.TextDocument, options, token) {
-		let textEdits: vscode.TextEdit[] = []
+	provideDocumentFormattingEdits(document: vscode.TextDocument) {
+		const textEdits: vscode.TextEdit[] = []
 		for (let i = 0; i < document.lineCount; i++) {
-			let line = document.lineAt(i).text;
+			const line = document.lineAt(i).text;
 			formatDocumentLine(line, i, textEdits);
 		}
 		return textEdits;
 	}
-	provideDocumentRangeFormattingEdits(document, range, options, token) {
-		let textEdits: vscode.TextEdit[] = []
+	provideDocumentRangeFormattingEdits(document, range) {
+		const textEdits: vscode.TextEdit[] = []
 		for (let i = range.start.line; i <= range.end.line; i++) {
-			let line = document.lineAt(i).text;
+			const line = document.lineAt(i).text;
 			formatDocumentLine(line, i, textEdits);
 		}
 		return textEdits;
 	}
 }
 function formatDocumentLine(line: string, lineNumber: number, textEdits) {
-	let emptyLine = line.replace(/(\ |\t)/ig, "");
+	const emptyLine = line.replace(/( |\t)/ig, "");
 	if (emptyLine.length === 0) {
 		textEdits.push(vscode.TextEdit.insert(new vscode.Position(lineNumber, 0), "\t;"))
 	}
@@ -36,7 +36,7 @@ function formatDocumentLine(line: string, lineNumber: number, textEdits) {
 	}
 	if (line.match(/^([A-Za-z%][A-Za-z0-9]*(\([A-Za-z%][A-Za-z0-9]*(,[A-Za-z%][A-Za-z0-9]*)*\))?)?[\t ]+\./)) { //labeled or unlabeled Line with .
 		let replacementString = ". ";
-		let dotPosition = line.indexOf(".");
+		const dotPosition = line.indexOf(".");
 		let dotCount = 1;
 		let spaceCount = 0;
 		let char = "";
