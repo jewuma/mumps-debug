@@ -63,5 +63,6 @@
 * Better Variable-Display on hover, fixed ZBREAK-Error
 ## 1.1.6
 * Minor Error-Fix, more strict linting, package updates
-
+## 1.1.7
+* Syntax-Check on TSTART and OPEN Parameters didn't work correctly
 
