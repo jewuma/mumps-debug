@@ -65,4 +65,6 @@
 * Minor Error-Fix, more strict linting, package updates
 ## 1.1.7
 * Syntax-Check on TSTART and OPEN Parameters didn't work correctly
+## 1.1.8
+* Syntax-Check on SET *VAR=$$FUNC() didn't work correctly
 

@@ -1310,7 +1310,16 @@ class MumpsLineParser {
 				result.text = 'Equal-Sign expected';
 				throw result;
 			}
-			result = this._checkVar(line, ++result.position, false);
+			const savePosition = ++result.position;
+			try {
+				result = this._checkVar(line, result.position, false);
+			} catch (varResult) {
+				if (line[savePosition] !== '$') {
+					result.text = "Local Variable or Aliascontainer expected";
+				} else {
+					result = this._evaluateExpression(expressiontype.Standard, line, savePosition)
+				}
+			}
 			return result;
 		}
 		if (line[result.position] === '(') {
