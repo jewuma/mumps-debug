@@ -161,7 +161,7 @@ export const definitionsArray: languageToken[] =
 		"name": "WRITE",
 		"type": "command",
 		"abbreviation": "W",
-		"description": "Write to device"
+		"description": "Writes to device"
 	},
 	{
 		"name": "XECUTE",

@@ -3,9 +3,12 @@
 	License: LGPL
 */
 import { DebugProtocol } from '@vscode/debugprotocol';
-import { Socket } from "net";
 import { EventEmitter } from 'events';
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
+import { Socket } from "net";
+import * as vscode from 'vscode';
+import { MumpsLineParser, TokenType } from './mumpsLineParser';
+import { getLocalRoutinesPath, getWworkspaceFolder } from './extension';
 //import { Variable } from '@vscode/debugadapter';
 export interface MumpsBreakpoint {
 	id: number,
@@ -13,6 +16,10 @@ export interface MumpsBreakpoint {
 	line: number,
 	verified: boolean,
 	condition?: string
+}
+export interface FilePosition {
+	file: string,
+	line: number
 }
 interface VarData {
 	name: string,
@@ -30,16 +37,20 @@ interface StackInfo {
 	frames: FrameInfo[];
 	count: number;
 }
-interface MumpsVariable {
-	[variableType: string]: {
-		[variableName: string]: string
-	}
-}
+type MumpsVariable = {
+	[variableType in VariableType]: {
+		[variableName: string]: string;
+	};
+};
 interface IVariables {
 	[varName: string]: string;
 }
 enum connectState {
 	disconnected, waitingforStart, waitingForVars, waitingForBreakpoints, waitingForSingleVar, waitingForSingleVarContent, waitingForErrorReport, waitingForHints
+}
+
+export enum VariableType {
+	system, local
 }
 
 export class MumpsConnect extends EventEmitter {
@@ -53,23 +64,25 @@ export class MumpsConnect extends EventEmitter {
 	private _hostname: string;
 	private _port: number;
 	private _sourceFile: string;
-	private _sourceLines: string[];
 	private _currentLine = 0;
 	private _errorLines: string[];
 	private _hints: string[];
 	private _breakPoints: MumpsBreakpoint[];
-	private _localRoutinesPath: string;
 	private _breakpointId = 1;
 	private _commandQueue: string[];
 	private _logging = false;
 	private _singleVar = "";
 	private _singleVarContent = "";
+	private _lastError = "";
 	constructor() {
 		super();
 		this._commandQueue = [];
 		this._connectState = connectState.disconnected;
 		this._readedData = "";
-		this._mVars = {};
+		this._mVars = {
+			[VariableType.system]: {},
+			[VariableType.local]: {}
+		};
 		this._mStack = [];
 		this._activeBreakpoints = [];
 		this._breakPoints = [];
@@ -78,15 +91,14 @@ export class MumpsConnect extends EventEmitter {
 		this._singleVarContent = "";
 		this._hints = [];
 		this._event.on('varsComplete', () => {
-			if (typeof (this._mVars["I"]) !== 'undefined') {
-				const internals = this._mVars["I"];
+			if (Object.keys(this._mVars[VariableType.system]).length > 0) {
+				const internals = this._mVars[VariableType.system];
 				this.checkEvents(internals);
 			}
 		})
 	}
 
-	public async init(hostname: string, port: number, localRoutinesPath: string) {
-		this._localRoutinesPath = localRoutinesPath;
+	public async init(hostname: string, port: number): Promise<Socket> {
 		this._hostname = hostname;
 		this._port = port;
 
@@ -113,10 +125,10 @@ export class MumpsConnect extends EventEmitter {
 		})
 		// Put a friendly message on the terminal of the server.
 	}
-	private _log(msg: string) {
+	private _log(msg: string): void {
 		if (this._logging) { console.log(msg); }
 	}
-	private processLine(line: string) {
+	private processLine(line: string): void {
 		this._log("Line:  " + line);
 
 		let varname: string;
@@ -127,7 +139,10 @@ export class MumpsConnect extends EventEmitter {
 				if (line === "***STARTVAR") {
 					this._connectState = connectState.waitingForVars;
 					this._mStack = [];
-					this._mVars = {};
+					this._mVars = {
+						[VariableType.system]: {},
+						[VariableType.local]: {}
+					};
 					break;
 				}
 				if (line === "***STARTBP") {
@@ -167,14 +182,15 @@ export class MumpsConnect extends EventEmitter {
 					vartype = line.substring(0, 1); //I=internal,V=local Variable,S=Stackframe
 					if (vartype === "S") {
 						this._mStack.push(line.substring(2));
+						break;
 					}
 					varname = line.substring(2, line.indexOf('='));
 					while ((varname.split('"').length - 1) % 2 !== 0) {
 						varname = line.substring(0, line.indexOf('=', varname.length + 1));
 					}
 					value = line.substring(varname.length + 3).replace(/^"/, "").replace(/"$/, "");
-					if (typeof (this._mVars[vartype]) === 'undefined') { this._mVars[vartype] = {}; }
-					this._mVars[vartype][varname] = value;
+					const variableType = vartype === "V" ? VariableType.local : VariableType.system;
+					this._mVars[variableType][varname] = value;
 				}
 				break;
 			}
@@ -281,47 +297,10 @@ export class MumpsConnect extends EventEmitter {
 	public requestBreakpoints(): void {
 		this.writeln("REQUESTBP");
 	}
-	public restart(file: string) {
+	public restart(file: string): void {
 		this.writeln("RESTART;" + file);
 	}
-	/**
-	 * Fire events if line has a breakpoint or hs stopped beacause of a different reason
-	 */
-	private checkEvents(internals: IVariables): void {
-		const mumpsposition = internals["$ZPOSITION"];
-		const mumpsstatus = internals["$ZSTATUS"];
-		const parts = mumpsposition.split("^");
-		const position = parts[0];
-		const program = parts[1];
-		const file = this._localRoutinesPath + program + ".m";
-		this.loadSource(file);
-		const startlabel = position.split("+")[0];
-		let offset = 0;
-		if (position.split("+")[1] !== undefined) {
-			offset = parseInt(position.split("+")[1]);
-		}
-		let line = 0
-		if (startlabel !== "") {
-			for (let ln = 0; ln < this._sourceLines.length; ln++) {
-				if (this._sourceLines[ln].substring(0, startlabel.length) === startlabel) {
-					line = ln;
-					break;
-				}
-			}
-		}
-		this._currentLine = line + offset;
-		if (mumpsstatus !== "" && internals["$ZTRAP"] === internals["$ZSTEP"]) {
-			this.sendEvent('stopOnException', mumpsstatus);
-			this._log(mumpsstatus);
-		} else {
-			const bps = this._breakPoints.filter(bp => bp.file === this._sourceFile && bp.line === this._currentLine);
-			if (bps.length > 0) {
-				this.sendEvent('stopOnBreakpoint');
-			} else {
-				this.sendEvent('stopOnStep');
-			}
-		}
-	}
+
 
 	/**
 	 * Returns the actual Stack
@@ -333,7 +312,7 @@ export class MumpsConnect extends EventEmitter {
 		for (let i = startFrame; i < this._mStack.length; i++) {
 			const position = this._mStack[i];
 			if (position.indexOf("^") !== -1) {
-				const fileposition = this.convertMumpsPosition(position);
+				const fileposition = convertMumpsPosition(position);
 				frames.push({
 					index: i,
 					name: `${position}(${i})`,
@@ -359,7 +338,13 @@ export class MumpsConnect extends EventEmitter {
 				const breakpoint = breakpoints[i];
 				const line = breakpoint.line
 				confirmedBreakpoints.push({ id: this._breakpointId, verified: false })
-				this._breakPoints.push({ verified: false, file, line, id: this._breakpointId++ });
+				const newBreakpoint = { verified: false, file, line, id: this._breakpointId++ };
+				const existingBreakpoint = this._breakPoints.find(bp => bp.file === file && bp.line === line);
+				if (!existingBreakpoint) {
+					this._breakPoints.push(newBreakpoint);
+				} else {
+					existingBreakpoint.condition = breakpoint.condition;
+				}
 				this.sendBreakpoint(file, line, true, breakpoint.condition);
 			}
 		}
@@ -395,7 +380,7 @@ export class MumpsConnect extends EventEmitter {
 		this._breakPoints.forEach(bp => {
 			bp.verified = false;
 			for (let i = 0; i < this._activeBreakpoints.length; i++) {
-				const internalBp = this.convertMumpsPosition(this._activeBreakpoints[i])
+				const internalBp = convertMumpsPosition(this._activeBreakpoints[i])
 				internalBp.file = this.normalizeDrive(internalBp.file.replace(/\\/g, "/"));
 				bp.file = this.normalizeDrive(bp.file.replace(/\\/g, "/"));
 				if (internalBp.file === bp.file && bp.line === internalBp.line) {
@@ -409,13 +394,13 @@ export class MumpsConnect extends EventEmitter {
 		});
 		for (let i = 0; i < this._activeBreakpoints.length; i++) {
 			if (!merk[i]) {
-				const internalBp = this.convertMumpsPosition(this._activeBreakpoints[i])
+				const internalBp = convertMumpsPosition(this._activeBreakpoints[i])
 				const bp: MumpsBreakpoint = { 'verified': true, 'file': internalBp.file, 'line': internalBp.line, 'id': this._breakpointId++ }
 				this.sendEvent('breakpointValidated', bp);
 			}
 		}
 	}
-	private normalizeDrive(path) {
+	private normalizeDrive(path: string): string {
 		const parts = path.split(':');
 		if (parts.length === 2) {
 			return parts[0].toLowerCase() + ':' + parts[1];
@@ -423,17 +408,40 @@ export class MumpsConnect extends EventEmitter {
 			return path;
 		}
 	}
-	public getVariables(type: string) {
-		if (type === "system") {
-			return this._mVars["I"];
-		} else if (type === "local") {
-			return this._mVars["V"];
-		}
+	public getVariables(type: VariableType): { [variableName: string]: string } {
+		return this._mVars[type];
 	}
-	public async checkRoutine(lines: string[]) {
+	/**
+	 *
+	 * @param lines M-Code to check
+	 * @returns Error-Report by Mumps-Compiler
+	 */
+	public async checkRoutine(lines: string[]): Promise<string[]> {
 		return new Promise((resolve) => {
 			this._event.on('ErrorreportReceived', function ErrorreportReceived(event: EventEmitter, errorLines: string[]) {
 				event.removeListener('ErrorreportReceived', ErrorreportReceived);
+				errorLines = errorLines.filter(line => !line.includes("I-SRCNAM"));
+				for (let i = 0; i < errorLines.length; i++) {
+					if (errorLines[i].indexOf("E-LABELMISSING")) {
+						const label = errorLines[i].match(/: ([A-Za-z%0-9][A-Za-z0-9]*)/)
+						if (label !== null && label.length > 1) {
+							const searchLabel = label[1];
+							for (let j = 0; j < lines.length; j++) {
+								if (lines[j].indexOf(searchLabel) !== -1) {
+									const lineInfo = new MumpsLineParser().analyzeLine(lines[j]);
+									if (lineInfo.tokens.length > 0) {
+										for (let k = 0; k < lineInfo.tokens.length; k++) {
+											if (lineInfo.tokens[k].type === TokenType.entryref && lineInfo.tokens[k].name === searchLabel) {
+												errorLines[i] = (lineInfo.tokens[k].position + 1) + ";" + (j + 1) + ";" + errorLines[i].substring(3);
+												break;
+											}
+										}
+									}
+								}
+							}
+						}
+					}
+				}
 				resolve(errorLines);
 			});
 			this.writeln("ERRCHK");
@@ -443,82 +451,102 @@ export class MumpsConnect extends EventEmitter {
 			this.writeln("***ENDPROGRAM");
 		})
 	}
+	/**
+	 *
+	 * @param expression Name of the Variable to get
+	 * @returns Variable Content
+	 */
 	public async getSingleVar(expression: string): Promise<VarData> {
 		return new Promise((resolve) => {
 			const reply: VarData = { name: expression, indexCount: 0, content: "undefined", bases: [] }
-			let varType = "V";
-			if (expression.charAt(0) === "$") {
-				varType = "I";
-			}
-			if (this._mVars[varType] !== undefined) {
-				if (this._mVars[varType][expression] !== undefined) {
-					reply.content = this._mVars[varType][expression];
-					resolve(reply);
-				} else {
-					this._event.on('SingleVarReceived', function SingleVarReceived(event, singleVar, singleVarContent) {
-						event.removeListener('SingleVarReceived', SingleVarReceived);
-						reply.name = singleVar;
-						reply.content = singleVarContent;
-						resolve(reply);
-					});
-					this.writeln("GETVAR;" + expression);
-				}
-			} else {
+			const varType = expression.charAt(0) === "$" ? VariableType.system : VariableType.local;
+			if (this._mVars[varType][expression] !== undefined) {
+				reply.content = this._mVars[varType][expression];
 				resolve(reply);
+			} else {
+				this._event.on('SingleVarReceived', function SingleVarReceived(event, singleVar, singleVarContent) {
+					event.removeListener('SingleVarReceived', SingleVarReceived);
+					reply.name = singleVar;
+					reply.content = singleVarContent;
+					resolve(reply);
+				});
+				this.writeln("GETVAR;" + expression);
 			}
 		});
 	}
 
-	// private methods
-
-	private loadSource(file: string) {
-		file = file.replace(/%/g, "_");
-		if (this._sourceFile !== file) {
-			this._sourceFile = file;
-			try {
-				this._sourceLines = readFileSync(this._sourceFile).toString().split('\n');
-			} catch {
-				console.log("Could not read Sourcefile " + file)
+	/**
+	 * Fire events if line has a breakpoint or hs stopped beacause of a different reason
+	 */
+	private checkEvents(internals: IVariables): void {
+		const mumpsposition = internals["$ZPOSITION"];
+		const mumpsstatus = internals["$ZSTATUS"];
+		const filePosition = convertMumpsPosition(mumpsposition);
+		this._currentLine = filePosition.line;
+		if (mumpsstatus !== "" && mumpsstatus !== this._lastError) { //} && (internals["$ZTRAP"] === internals["$ZSTEP"]) || (internals["$ETRAP"] === internals["$ZSTEP"])) {
+			this._lastError = mumpsstatus;
+			const parts = mumpsstatus.split(",");
+			this.sendEvent('stopOnException', mumpsstatus, convertMumpsPosition(parts[1]));
+			this._log(mumpsstatus);
+		} else {
+			const bps = this._breakPoints.filter(bp => bp.file === this._sourceFile && bp.line === this._currentLine);
+			if (bps.length > 0) {
+				this.sendEvent('stopOnBreakpoint');
+			} else {
+				this.sendEvent('stopOnStep');
 			}
 		}
 	}
 
-	private convertMumpsPosition(positionstring: string) {
-		const parts = positionstring.split("^");
-		const position = parts[0];
-		if (parts[1] !== undefined) {
-
-			const program = parts[1].split(" ", 1)[0];
-			const file = (this._localRoutinesPath + program + ".m").replace(/%/g, "_");
-			try {
-				const filecontent = readFileSync(file).toString().split('\n');
-				const startlabel = position.split("+")[0];
-				const labelRegexp = new RegExp("^" + startlabel + "[(\\s;]");
-				let offset = 0;
-				if (position.split("+")[1] !== undefined) {
-					offset = parseInt(position.split("+")[1]);
-					//if (startlabel === "") { offset-- }   //If there's no startlabel M reports +1^XXX
-				}
-				let line = 0;
-				if (startlabel !== "") {
-					for (let ln = 0; ln < filecontent.length; ln++) {
-						if (filecontent[ln].match(labelRegexp)) {
-							line = ln;
-							break;
-						}
-					}
-				}
-				return { "file": file, "line": line + offset };
-			} catch {
-				console.log("Could not read Sourcefile " + file)
-				return { "file": file, "line": 1 };
+	private sendEvent(event: string, ...args: unknown[]): void {
+		this.emit(event, ...args);
+	}
+}
+export function convertMumpsPosition(positionstring: string, showNotFound?: boolean | undefined): FilePosition {
+	if (showNotFound === undefined) { showNotFound = true; }
+	const parts = positionstring.split("^");
+	const position = parts[0];
+	if (parts[1] !== undefined) {
+		const program = parts[1].split(" ", 1)[0].replace(/%/g, "_") + ".m";
+		let file = (getLocalRoutinesPath() + program)
+		if (!existsSync(file)) {
+			if (getWworkspaceFolder() !== undefined) {
+				file = getWworkspaceFolder() + program;
 			}
-		} else {
+		}
+		if (!existsSync(file)) {
+			if (showNotFound) { vscode.window.showErrorMessage("Could not find Routine " + program); }
 			return { "file": "", "line": 1 };
 		}
-	}
 
-	private sendEvent(event: string, ...args: unknown[]) {
-		this.emit(event, ...args);
+		try {
+			const filecontent = readFileSync(file).toString().split('\n');
+			const startlabel = position.split("+")[0];
+			const labelRegexp = new RegExp("^" + startlabel + "[(\\s;]");
+			let offset = 0;
+			if (position.split("+")[1] !== undefined) {
+				offset = parseInt(position.split("+")[1]);
+				if (startlabel === "") { offset-- }   //If there's no startlabel M reports +1^XXX
+			}
+			let line = 0;
+			let labelFound = false;
+			if (startlabel !== "") {
+				for (let ln = 0; ln < filecontent.length; ln++) {
+					if (filecontent[ln].match(labelRegexp)) {
+						line = ln;
+						labelFound = true;
+						break;
+					}
+				}
+				if (!labelFound) return { "file": "", "line": 1 }
+			}
+			if (line + offset >= filecontent.length) return { "file": "", "line": 1 }
+			return { "file": file, "line": line + offset };
+		} catch {
+			console.log("Could not read Sourcefile " + file)
+			return { "file": "", "line": 1 };
+		}
+	} else {
+		return { "file": "", "line": 1 };
 	}
 }

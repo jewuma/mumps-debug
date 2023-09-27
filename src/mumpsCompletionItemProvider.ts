@@ -1,11 +1,14 @@
 import * as vscode from 'vscode';
-import { MumpsLineParser, LabelInformation } from './mumpsLineParser';
-const parser = new MumpsLineParser();
+import { MumpsLineParser, LabelInformation, LineObject, entryref } from './mumpsLineParser';
 import fs = require('fs');
 
+enum LineStatus {
+	noJumplabel, jumplabel
+}
+
 interface ItemHint {
-	lineStatus: string,
-	startstring: string
+	lineStatus: LineStatus,
+	startString: string
 }
 interface LabelItem {
 	routine: string,
@@ -30,22 +33,24 @@ export default class CompletionItemProvider {
 	private _filesToCheck: number;
 	private _dbfile: string;
 	private _document: vscode.TextDocument;
+	private _parser = new MumpsLineParser();
 	constructor(labeldb: string) {
 		this._labelsReady = false;
 		this._dbfile = labeldb;
 		this._refreshLabelDB();
 	}
 	provideCompletionItems(document: vscode.TextDocument, position: vscode.Position) {
-		//let word = document.getText(document.getWordRangeAtPosition(position));
-		const line = document.getText(new vscode.Range(new vscode.Position(position.line, 0), position))
-		const status = getLineStatus(line, position.character);
 		this._document = document;
-		let clean: Array<vscode.CompletionItem> = [];
-		if (this._labelsReady && status.lineStatus === 'jumplabel') {
-			const replaceRange = new vscode.Range(new vscode.Position(position.line, position.character - status.startstring.length), position)
-			clean = this._findLabel(status.startstring, clean, replaceRange);
+		const line = document.getText(new vscode.Range(new vscode.Position(position.line, 0), position))
+		const parsed = this._parser.parseLine(line);
+		const status = getLineStatus(parsed, position.character);
+		this._refreshLocalLabels(document);
+		let completionItems: Array<vscode.CompletionItem> = [];
+		if (this._labelsReady && status.lineStatus === LineStatus.jumplabel) {
+			const replaceRange = new vscode.Range(new vscode.Position(position.line, position.character - status.startString.length), position)
+			completionItems = this._findLabel(status.startString, completionItems, replaceRange);
 		}
-		return clean;
+		return completionItems;
 	}
 	private _refreshLabelDB() { // Look for all Labels in .m-Routines and them + Comments
 		if (!fs.existsSync(this._dbfile)) {
@@ -98,8 +103,63 @@ export default class CompletionItemProvider {
 			}
 		}
 	}
+	private _refreshLocalLabels(document: vscode.TextDocument) {
+		let routine: string = document.fileName.replace(/\\/g, '/').split('/').pop() ?? "";
+		routine = routine?.split('.')[0].replace('_', '%') ?? "";
+		const lines = document.getText().split('\n');
+		const existingLabels = this._labelDB.labels.filter((label) => label.routine === routine);
+
+		// Create a map of existing labels for quick lookup
+		const existingLabelsMap = new Map(existingLabels.map((label) => [label.label, label]));
+
+		// Process each line in the document
+		let labelsinDocumentChanged = false;
+		for (let i = 0; i < lines.length; i++) {
+			if (routine) {
+				if (i === 0) {
+					// Handle special case for the first line
+					const firstLineLabel = { label: '*FL', routine, line: lines[0] };
+					if (!existingLabelsMap.has('*FL') || existingLabelsMap.get('*FL')?.line !== firstLineLabel.line) {
+						// Add or update the first line label
+						existingLabelsMap.set('*FL', firstLineLabel);
+						labelsinDocumentChanged = true;
+					}
+				}
+				const labelMatch = lines[i].match(/^[%A-Za-z0-9][A-Za-z0-9]{0,31}/);
+				if (labelMatch) {
+					const labelName = labelMatch[0];
+					const labelLine = { label: labelName, routine, line: lines[i] };
+					if (existingLabelsMap.has(labelName)) {
+						// Label exists, check if it's different
+						const existingLabel = existingLabelsMap.get(labelName);
+						if (existingLabel?.line !== labelLine.line) {
+							// Update the existing label
+							existingLabelsMap.set(labelName, labelLine);
+							labelsinDocumentChanged = true;
+
+						}
+					} else {
+						// Label doesn't exist, add it
+						existingLabelsMap.set(labelName, labelLine);
+						labelsinDocumentChanged = true;
+					}
+				}
+			}
+		}
+		if (labelsinDocumentChanged) {
+			const updatedLabels: LabelItem[] = [];
+			existingLabelsMap.forEach((labelItem, labelName) => {
+				updatedLabels.push({ label: labelName, routine, line: labelItem.line })
+			})
+			this._labelDB.labels = this._labelDB.labels.filter((label) => {
+				return label.routine !== routine;
+			})
+			this._labelDB.labels.push(...updatedLabels);
+		}
+	}
+
 	private _refreshFileLabels(path: string) {  // Refresh all Labels of a changed .m File
-		let routine = path.replace(/\\\\/g, '/').split('/').pop();
+		let routine = path.replace(/\\/g, '/').split('/').pop();
 		routine = routine?.split('.')[0].replace('_', '%') ?? "";
 		fs.readFile(path, 'utf8', (err, content: string) => {
 			if (!err) {
@@ -125,7 +185,7 @@ export default class CompletionItemProvider {
 	private _findLabel(startstring: string, list: Array<vscode.CompletionItem>, replaceRange: vscode.Range) {
 		//let hits = 0;
 		let hitlist: LabelItem[] = [];
-		const localLabels: LabelInformation[] = parser.getLabels(this._document.getText());
+		const localLabels: LabelInformation[] = this._parser.getLabels(this._document.getText());
 		let sortText = '';
 		if (startstring.charAt(0) === '^') {
 			const suchstring = startstring.substring(1);
@@ -174,145 +234,43 @@ export default class CompletionItemProvider {
 			if (item.line.indexOf(';') !== -1) {
 				detail += item.line.substring(item.line.indexOf(';') + 1);
 			}
-
-			if (detail.length > 0) { sortText = '099'; } //prefer documented lables
+			if (detail.length > 0) {
+				sortText = '099';
+			} //prefer documented lables
 			if (item.routine === '') { // local labels first
 				sortText = '098';
 			}
+
 			list.push({ label, detail, sortText, range: replaceRange });
 		}
 		return list;
 	}
 }
-function getLineStatus(line: string | undefined, position: number): ItemHint {
-	let lineStatus = 'lineStart';
-	let lookPosition = 0;
-	let lastCommand = '';
-	let startstring = '';
-	let isInsidePostcond = false;
-	if (line) {
-		while (lookPosition < position) {
-			const char = line.substring(lookPosition, ++lookPosition);
-			const isWhiteSpace = (char === " " || char === "\t");
-			const isBeginOfVariable = char.match(/[A-Za-z%^]/);
-			const isAlphaChar = char.match(/[A-Za-z]/);
-			//let isAlphanumeric=char.match(/[A-Za-z0-9%]/);
-			//let isOperand = char.match(/[*+-/\[\]']/);
-			if (lineStatus !== 'string' && char === ';') {
-				return { lineStatus: 'comment', startstring: '' };
-			}
-			if (!isBeginOfVariable) {
-				if (startstring !== '' && char.match(/[0-9]/)) {
-					startstring += char
-				} else {
-					startstring = '';
-				}
-			} else {
-				startstring += char;
-			}
-			switch (lineStatus) {
-				case 'argument': {
-					if (isWhiteSpace) {
-						if (isInsidePostcond) {
-							isInsidePostcond = false;
-							if (lastCommand.match(/[D|DO|G|GOTO|J|JOB]/i)) {
-								lineStatus = 'jumplabel'
-							}
-						} else {
-							lineStatus = 'command';
-							lastCommand = '';
-						}
-					} else if (char === '"') {
-						lineStatus = 'string';
-					} else if (isBeginOfVariable) {
-						lineStatus = 'variable';
-					} else if (char === "$") {
-						lineStatus = 'function';
+function getLineStatus(parsed: LineObject, position: number): ItemHint {
+	let lineStatus = LineStatus.noJumplabel
+	let startString = ""
+	if (parsed.lineRoutines && parsed.lineRoutines.length > 0) {
+		for (const i in parsed.lineRoutines) {
+			const cmd = parsed.lineRoutines[i];
+			if (cmd.mPostCondition !== "" && position >= cmd.pcPosition && position <= (cmd.pcPosition + cmd.mPostCondition.length)) {
+				startString = cmd.mPostCondition.substring(0, position - cmd.pcPosition);
+
+			} else if (cmd.mArguments !== "" && position >= cmd.argPosition && position <= (cmd.argPosition + cmd.mArguments.length)) {
+				startString = cmd.mArguments.substring(0, position - cmd.argPosition)
+				if (cmd.mCommand.match(/[D|DO|G|GOTO|J|JOB]/i)) {
+					if (startString.match(entryref)) {
+						lineStatus = LineStatus.jumplabel
 					}
-					break;
-				}
-				case 'command': {
-					if (char === ":") {
-						lineStatus = 'argument';
-						isInsidePostcond = true;
-					} else if (isAlphaChar) {
-						lastCommand += char;
-						break;
-					} else if (isWhiteSpace) {
-						lineStatus = 'argument';
-						if (lastCommand.match(/[D|DO|G|GOTO|J|JOB]/i)) {
-							lineStatus = 'jumplabel'
-						}
-					} else {
-						lineStatus = 'error';
-						return { lineStatus: 'error', startstring: '' };
+				} else if (startString.indexOf("$$") !== -1) {
+					const lastIndex = startString.lastIndexOf("$$");
+					startString = startString.slice(lastIndex + 2);
+					if (startString.match(entryref)) {
+						lineStatus = LineStatus.jumplabel
 					}
-					break;
-				}
-				case 'function': {
-					if (isWhiteSpace) {
-						if (isInsidePostcond) {
-							isInsidePostcond = false;
-						} else {
-							lineStatus = 'command';
-							lastCommand = '';
-						}
-					} else if (char === "$") {
-						lineStatus = 'jumplabel';
-					} else if (!isBeginOfVariable) {
-						lineStatus = 'argument';
-					}
-					break;
-				}
-				case 'jumplabel': {
-					if (isWhiteSpace) {
-						lineStatus = 'command';
-						lastCommand = '';
-					} else if (char === ":") {
-						lineStatus = 'argument';
-					} else if (char === "(") {
-						lineStatus = 'argument';
-					}
-					break;
-				}
-				case 'label': {
-					if (isWhiteSpace) {
-						lineStatus = 'command';
-					} else if (char === '(') {
-						lineStatus = 'variable';
-					}
-					break;
-				}
-				case 'lineStart': {
-					if (isWhiteSpace) {
-						lineStatus = 'command';
-					} else {
-						lineStatus = 'label';
-					}
-					break;
-				}
-				case 'string': {
-					if (char === '"') {
-						lineStatus = 'argument';
-					}
-					break;
-				}
-				case 'variable': {
-					if (isWhiteSpace) {
-						if (isInsidePostcond) {
-							isInsidePostcond = false;
-							lineStatus = 'argument';
-						} else {
-							lineStatus = 'command';
-							lastCommand = '';
-						}
-					} else if (!isBeginOfVariable) {
-						lineStatus = 'argument';
-					}
-					break;
 				}
 			}
 		}
 	}
-	return { lineStatus, startstring };
+	return { lineStatus, startString }
 }
+

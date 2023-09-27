@@ -1,6 +1,6 @@
 MDEBUG  			;Debugging Routine for GT.M/YottaDB by Jens Wulf
-				;Version 0.9.4
-				;2023-04-24
+				;Version 0.9.5
+				;2023-09-06
 				;License: LGPL
 				;Usage on your own Risk - No guaranties
 				;
@@ -42,7 +42,8 @@ INIT    			;Open TCP-Communication-Port
 	S ^%MDEBUG($J,"DEV")=%DEV
 	D OUT("Debugger connected")
 	;If there's no explicit Error-Handling show Errors in Debugger
-	S:$ZTRAP="B" $ZTRAP=$ZSTEP
+	S:($ZTRAP="B")!($ZTRAP="") $ZTRAP=$ZSTEP
+	S:$ETRAP="" $ETRAP=$ZSTEP
 	S $ZSTATUS=""
 	;Set IO back to origin IO
 	U %IO
@@ -54,7 +55,9 @@ WAIT(%ZPOS)   			;Wait for next Command from Editor
 	S %IO=$I
 	S %DEV=^%MDEBUG($J,"DEV"),%SOCKET=^%MDEBUG($J,"SOCKET")
 	U %DEV:(SOCKET=%SOCKET:DELIM=$C(10):EXCEPTION="HALT")
-	S:$ZTRAP="B" $ZTRAP=$ZSTEP	;Error-Handling by Debugger if not set by Debuggee
+	;Error-Handling by Debugger if not set by Debuggee
+	S:($ZTRAP="B")!($ZTRAP="") $ZTRAP=$ZSTEP
+	S:$ETRAP="" $ETRAP=$ZSTEP
 	;D OUT(%ZPOS_" "_$J_" "_^%MDEBUG($J,"DEV"))
 	I %ZPOS[("^"_$T(+0))&($ZSTATUS'="") D   ;Prevent Debugger from jumping into this Program
 	. S %I="" F  S %I=$O(^%MDEBUG($J,"VARS","I",%I)) Q:%I=""  D

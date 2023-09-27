@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { LineToken, TokenType, MumpsLineParser, LineInformation } from './mumpsLineParser'
-const parser = new MumpsLineParser();
+import { convertMumpsPosition } from './mumpsConnect';
 
 interface Parameter {
 	name: string,
@@ -44,6 +44,7 @@ export default class MumpsDiagnosticsProvider {
 	private _varStates: VariableStates;
 	private _levelExclusiveNew: number[];
 	private _subroutines: Subroutine[] = [];
+	private _labelTable: { [key: string]: number } = {};
 	private _document: vscode.TextDocument;
 	private _routine: Subroutine = { startLine: -1, endLine: -1, parameters: [] };
 	private _level = 0;
@@ -51,7 +52,7 @@ export default class MumpsDiagnosticsProvider {
 	private _isBehindQuit = false;
 	private _startUnreachable: vscode.Position | false = false;
 	private _activeSubroutine: GeneralSubroutine = { name: '', startLine: -1, endLine: -1 }
-
+	private _parser = new MumpsLineParser();
 	constructor(document: vscode.TextDocument, collection: vscode.DiagnosticCollection) {
 		this._document = document;
 		this._diags = [];
@@ -64,10 +65,12 @@ export default class MumpsDiagnosticsProvider {
 			this._enableVariableCheck = configuration.mumps.enableVariableCheck;
 		}
 		if (document && document.languageId === 'mumps') {
+			collection.delete(document.uri);
 			collection.clear();
+			this._generateLabelTable(document);
 			for (let i = 0; i < document.lineCount; i++) {
 				const line = document.lineAt(i);
-				const lineInfo: LineInformation = parser.analyzeLine(line.text);
+				const lineInfo: LineInformation = this._parser.analyzeLine(line.text);
 				if (lineInfo.error.text !== '') {
 					this._addWarning(lineInfo.error.text, i, lineInfo.error.position, -1, vscode.DiagnosticSeverity.Error)
 				}
@@ -359,6 +362,11 @@ export default class MumpsDiagnosticsProvider {
 					let hasPostcondition = false;
 					if (command === "GOTO") { //Check if GOTO argument is postconditioned
 						for (let k = tokenId + 1; k < tokens.length; k++) {
+							if (tokens[k].type === TokenType.entryref) {
+								if (!this._labelExists(tokens[k].name) && !/^\+\d+$/.test(tokens[k].name))
+									this._addWarning("Entry-Reference not found", line, tokens[k].position, tokens[k].name.length, vscode.DiagnosticSeverity.Warning);
+							}
+
 							if (tokens[k].type === TokenType.argPostcondition) {
 								hasPostcondition = true;
 								break;
@@ -390,6 +398,32 @@ export default class MumpsDiagnosticsProvider {
 				}
 				this._lineWithDo = -2;
 			}
+			if (token.type === TokenType.entryref || token.type === TokenType.exfunction) {
+				if (!this._labelExists(token.name) && !/\+\d+/.test(token.name)) this._addWarning("Entry-Reference not found", line, token.position, token.name.length, vscode.DiagnosticSeverity.Warning);
+			}
+			//this._addWarning("Entry-Reference or System-Variable found", line, token.position, token.name.length);
+		}
+	}
+	private _generateLabelTable(document: vscode.TextDocument) {
+		this._labelTable = {};
+		for (let i = 0; i < document.lineCount; i++) {
+			const line = document.lineAt(i);
+			const lineInfo: LineInformation = this._parser.analyzeLine(line.text);
+			if (lineInfo.tokens.length > 0 && lineInfo.tokens[0].type === TokenType.label) {
+				this._labelTable[lineInfo.tokens[0].name] = i;
+			}
+		}
+	}
+	private _labelExists(name: string): boolean {
+		if (name.indexOf("^") > -1) {
+			const filePosition = convertMumpsPosition(name, false);
+			if (filePosition.file !== "") {
+				return true;
+			} else {
+				return false;
+			}
+		} else {
+			return this._labelTable[name] !== undefined;
 		}
 	}
 	/**

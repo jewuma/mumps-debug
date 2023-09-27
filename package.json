@@ -1,7 +1,7 @@
 {
 	"name": "mumps-debug",
 	"displayName": "Mumps Language-Pack",
-	"version": "1.1.8",
+	"version": "1.1.9",
 	"publisher": "jewuma",
 	"description": "Debugger for Mumps (M) , GT.M, YottaDB",
 	"author": {
@@ -16,7 +16,7 @@
 		"debug"
 	],
 	"engines": {
-		"vscode": "^1.77.0"
+		"vscode": "^1.82.2"
 	},
 	"icon": "images/mumps-debug-icon.png",
 	"categories": [
@@ -45,21 +45,20 @@
 		"webpack-dev": "webpack --mode development --watch"
 	},
 	"dependencies": {
-		"@vscode/debugadapter": "1.59.0",
-		"await-notify": "1.0.1",
-		"ts-loader": "^9.4.2"
+		"@vscode/debugadapter": "^1.59.0",
+		"await-notify": "^1.0.1",
+		"ts-loader": "^9.4.4"
 	},
 	"devDependencies": {
-		"@types/node": "^18.16.0",
-		"@types/vscode": "^1.77.0",
-		"@typescript-eslint/eslint-plugin": "^5.59.0",
-		"@typescript-eslint/parser": "^5.59.0",
-		"@vscode/vsce": "^2.19.0",
-		"emcellent": "0.0.5",
-		"eslint": "^8.39.0",
-		"typescript": "^5.0.4",
-		"webpack": "^5.80.0",
-		"webpack-cli": "^5.0.2"
+		"@types/node": "^18.18.0",
+		"@types/vscode": "^1.82.0",
+		"@typescript-eslint/eslint-plugin": "^5.62.0",
+		"@typescript-eslint/parser": "^5.62.0",
+		"@vscode/vsce": "^2.21.0",
+		"eslint": "^8.50.0",
+		"typescript": "^5.2.2",
+		"webpack": "^5.88.2",
+		"webpack-cli": "^5.1.4"
 	},
 	"main": "./dist/extension",
 	"contributes": {

@@ -19,6 +19,8 @@ import MumpsDiagnosticsProvider from './mumpsDiagnosticsProvider';
 import fs = require('fs');
 let timeout: ReturnType<typeof setTimeout> | undefined;
 const entryRef: string | undefined = "";
+let dbFile = "";
+let localRoutinesPath = "";
 export async function activate(context: vscode.ExtensionContext) {
 	const MUMPS_MODE: vscode.DocumentFilter = { language: 'mumps', scheme: 'file' };
 	// register a configuration provider for 'mumps' debug type
@@ -29,7 +31,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		if (!fs.existsSync(storage)) {
 			fs.mkdirSync(storage);
 		}
-		const dbFile = storage + "/labeldb.json";
+		dbFile = storage + "/labeldb.json";
 		context.subscriptions.push(vscode.languages.registerCompletionItemProvider(MUMPS_MODE, new CompletionItemProvider(dbFile)));
 	}
 	const wsState = context.workspaceState;
@@ -82,3 +84,16 @@ function getEntryRef() {
 	})
 }
 
+export function getdbFile() {
+	return dbFile;
+}
+
+export function getWworkspaceFolder() {
+	return vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+}
+export function getLocalRoutinesPath() {
+	return localRoutinesPath;
+}
+export function setLocalRoutinesPath(path: string) {
+	localRoutinesPath = path;
+}

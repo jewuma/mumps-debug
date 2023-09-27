@@ -12,9 +12,12 @@ import {
 import { DebugProtocol } from '@vscode/debugprotocol';
 import { basename } from 'path';
 import { Subject } from 'await-notify';
-import { MumpsConnect, MumpsBreakpoint } from './mumpsConnect';
+import { MumpsConnect, MumpsBreakpoint, FilePosition, VariableType } from './mumpsConnect';
 import * as vscode from 'vscode';
 import { readFileSync } from 'fs';
+import MumpsDiagnosticsProvider from './mumpsDiagnosticsProvider';
+import { setLocalRoutinesPath } from './extension';
+
 const MUMPSDIAGNOSTICS = vscode.languages.createDiagnosticCollection("mumps");
 /**
  * This interface describes the mumps-debug specific launch attributes
@@ -84,13 +87,14 @@ export default class MumpsDebugSession extends DebugSession {
 		this._mconnect.on('stopOnDataBreakpoint', () => {
 			this.sendEvent(new StoppedEvent('data breakpoint', MumpsDebugSession.THREAD_ID));
 		});
-		this._mconnect.on('stopOnException', () => {
+		this._mconnect.on('stopOnException', (e: string, filePosition: FilePosition) => {
+			vscode.debug.activeDebugConsole.append(`${filePosition.file}:${filePosition.line + 1}:1`);
+			vscode.debug.activeDebugConsole.appendLine(' Error: ' + e);
 			this.sendEvent(new StoppedEvent('exception', MumpsDebugSession.THREAD_ID));
 		});
 		this._mconnect.on('breakpointValidated', (bp: MumpsBreakpoint) => {
 			this.sendEvent(new BreakpointEvent('changed', <DebugProtocol.Breakpoint>{ verified: bp.verified, id: bp.id }));
 		});
-
 		this._mconnect.on('end', () => {
 			this.sendEvent(new TerminatedEvent());
 		});
@@ -153,15 +157,19 @@ export default class MumpsDebugSession extends DebugSession {
 
 		// wait until configuration has finished (and configurationDoneRequest has been called)
 		await this._configurationDone.wait(1000);
-
+		setLocalRoutinesPath(args.localRoutinesPath);
 		// start the program in the runtime
-		this._mconnect.init(args.hostname, args.port, args.localRoutinesPath).then(async () => {
-			this.refreshDiagnostics(vscode.window.activeTextEditor?.document, MUMPSDIAGNOSTICS);
+		this._mconnect.init(args.hostname, args.port).then(async () => {
+			if (vscode.window.activeTextEditor?.document)
+				new MumpsDiagnosticsProvider(vscode.window.activeTextEditor?.document, MUMPSDIAGNOSTICS)
 			this._mconnect.start(args.program, !!args.stopOnEntry);
 			this._program = args.program;
 			this.sendResponse(response);
 		}).catch(() => {
 			vscode.window.showErrorMessage("Connection to MDEBUG failed. \nPlease start MDEBUG first.");
+			response.success = false;
+			response.message = "Connection to MDEBUG failed. \nPlease start MDEBUG first.";
+			this.sendResponse(response);
 		})
 	}
 
@@ -224,7 +232,7 @@ export default class MumpsDebugSession extends DebugSession {
 		const varReference = args.variablesReference;
 		const varId = this._variableHandles.get(args.variablesReference);
 		if (varReference === this._systemScope) {
-			const varObject = this._mconnect.getVariables("system");
+			const varObject = this._mconnect.getVariables(VariableType.system);
 			for (const varname in varObject) {
 				variables.push({
 					name: varname,
@@ -237,7 +245,7 @@ export default class MumpsDebugSession extends DebugSession {
 			const varparts: string[] = varId.split("|");
 			const indexCount: number = parseInt(varparts.pop() || "0");
 			const varBase = varparts.join("|");
-			const varObject = this._mconnect.getVariables("local");
+			const varObject = this._mconnect.getVariables(VariableType.local);
 			let lastVar: VarData | undefined = undefined;
 			let lastRef = "";
 			for (const varname in varObject) {
@@ -362,13 +370,12 @@ export default class MumpsDebugSession extends DebugSession {
 		const statVariable: VarData = await this._mconnect.getSingleVar("$ZSTATUS");
 		const status = statVariable.content.split(",");
 		const trashlength = status[0].length + status[1].length + status[2].length + 4;
-		const description = statVariable.content.substr(trashlength);
+		const description = 'Line :' + status[1] + " " + statVariable.content.substring(trashlength);
 		response.body = {
 			exceptionId: status[2],
 			description,
 			breakMode: 'always',
 			details: {
-				message: 'Line :' + status[1],
 				typeName: 'ErrorException',
 			}
 		}
@@ -401,28 +408,28 @@ export default class MumpsDebugSession extends DebugSession {
 		return { "name": varname, "indexCount": indexcount, "bases": bases, content };
 	}
 
-	private refreshDiagnostics(doc: vscode.TextDocument | undefined, mumpsDiagnostics: vscode.DiagnosticCollection): void {
-		const diagnostics: vscode.Diagnostic[] = [];
-		if (doc) {
-			const lines: string[] = doc.getText().split("\n");
-			this._mconnect.checkRoutine(lines).then((errLines: string[]) => {
-				for (let i = 0; i < errLines.length; i++) {
-					const errData = errLines[i].split(";");
-					let column = parseInt(errData[0]) - 1;
-					if (isNaN(column)) { column = 0 }
-					let line = parseInt(errData[1]) - 1;
-					if (isNaN(line)) { line = 0 }
-					let endColumn = doc.lineAt(line).text.length
-					if (line === 0 && column === 0) { endColumn = 0 }
-					const message = errData[2];
-					const range = new vscode.Range(line, column, line, endColumn);
-					const diagnostic = new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error);
-					diagnostic.code = message;
-					diagnostics.push(diagnostic);
-				}
-				mumpsDiagnostics.clear();
-				mumpsDiagnostics.set(doc.uri, diagnostics);
-			})
-		}
-	}
+	// private refreshDiagnostics(doc: vscode.TextDocument | undefined, mumpsDiagnostics: vscode.DiagnosticCollection): void {
+	// 	const diagnostics: vscode.Diagnostic[] = [];
+	// 	if (doc) {
+	// 		const lines: string[] = doc.getText().split("\n");
+	// 		this._mconnect.checkRoutine(lines).then((errLines: string[]) => {
+	// 			for (let i = 0; i < errLines.length; i++) {
+	// 				const errData = errLines[i].split(";");
+	// 				let column = parseInt(errData[0]) - 1;
+	// 				if (isNaN(column)) { column = 0 }
+	// 				let line = parseInt(errData[1]) - 1;
+	// 				if (isNaN(line)) { line = 0 }
+	// 				let endColumn = doc.lineAt(line).text.length
+	// 				if (line === 0 && column === 0) { endColumn = 0 }
+	// 				const message = errData[2];
+	// 				const range = new vscode.Range(line, column, line, endColumn);
+	// 				const diagnostic = new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error);
+	// 				diagnostic.code = message;
+	// 				diagnostics.push(diagnostic);
+	// 			}
+	// 			mumpsDiagnostics.clear();
+	// 			mumpsDiagnostics.set(doc.uri, diagnostics);
+	// 		})
+	// 	}
+	// }
 }

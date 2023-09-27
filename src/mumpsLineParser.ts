@@ -31,7 +31,7 @@ interface LineComment {
 	comment: string,
 	position: number
 }
-interface LineObject {
+export interface LineObject {
 	lineComment?: LineComment;
 	lineIndentationArray?: string[];
 	lineRoutines?: TmpFunction[];
@@ -68,7 +68,7 @@ const gvn = /^\^[A-Za-z%][A-Za-z0-9]*/
 const isv = /^\$(DEVICE|ECODE|EC|ESTACK|ES|ETRAP|ET|HALT|HOROLOG|H|IO|I|JOB|J|KEY|K|NAMESPACE|PRINCIPAL|P|QUIT|Q|REFERENCE|R|STACK|ST|STORAGE|S|SYSTEM|TEST|THIS|TLEVEL|TL|T|USERNAME|X|Y|ZALLOCSTOR|ZA|ZB|ZCHSET|ZCLOSE|ZCMDLINE|ZCM|ZCOMPILE|ZCO|ZCSTATUS|ZCH[A-Z]*|ZC|ZDATEFORM|ZDA|ZDIRECTORY|ZD|ZEDITOR|ZED|ZEOF|ZEO|ZE[A-Z]*|ZGBLDIR|ZG|ZHRORLOG|ZH|ZININTERRUPT|ZINI|ZINTERRUPT|ZINT|ZIO|ZJOB|ZJ|ZKEY|ZLEVEL|ZL|ZMAXTPTIME|ZMAXTPTI|ZMODE|ZMO|ZONLNRLBK|ZPATNUMERIC|ZPATN|ZPIN|ZPOSITION|ZPOS|ZPOUT|ZPROMPT|ZQUIT|ZREALSTOR|ZRELDATE|ZRO[A-Z]*|ZSOURCE|ZSO|ZSTA[A-Z]*|ZSTEP|ZSTRP|ZSTRPLLIM|ZST|ZSYSTEM|ZSY|ZS|ZTEXIT|ZTE|ZTIMEOUT|ZTIM|ZTRAP|ZT|ZUSEDSTOR|ZUT|ZVERSION|ZV[A-Z]*|ZYERROR|ZYRELEASE|ZTDATA|ZTDELIM|ZTLEVEL|ZTNAME|ZTOLDVAL|ZTRIGGEROP|ZTSLATE|ZTUPDATE|ZTVALUE|ZTWORMHOLE)/i
 const ifunction = /^\$(ASCII|A|CHAR|C|DATA|D|EXTRACT|E|FIND|F|FNUMBER|FN|GET|G|INCREMENT|INCR|I|JUSTIFY|J|LENGTH|L|NAME|NA|NEXT|N|ORDER|O|PIECE|P|QLENGTH|QL|QSUBSCRIPT|QS|QUERY|Q|RANDOM|R|REVERSE|RE|SELECT|S|STACK|ST|TEXT|T|TRANSLATE|TR|VIEW|V|ZAHANDLE|ZAH|ZASCII|ZATRANSFORM|ZAT|ZBITAND|ZBITCOUNT|ZBITFIND|ZBITGET|ZBITLEN|ZBITNOT|ZBITOR|ZBITSET|ZBITSTR|ZBITXOR|ZCHAR|ZCH|ZCOLLATE|ZCONVERT|ZCO|ZDATE|ZDATA|ZD|ZEXTRACT|ZE|ZFIND|ZF|ZGETJPI|ZG|ZINCREMENT|ZINCR|ZJOBEXAM|ZJUSTIFY|ZJ|ZLENGTH|ZL|ZMESSAGE|ZPARSE|ZPEEK|ZPIECE|ZPI|ZPREVIOUS|ZP|ZQGBLMOD|ZSEARCH|ZSIGPROC|ZSOCKET|ZSUBSTR|ZSUB|ZSYSLOG|ZTRANSLATE|ZTRIGGER|ZTRI|ZTRNLNM|ZTR|ZWIDTH|ZWRITE|ZW)(?=\()/i;
 const nonMfunction = /^\$&([A-Za-z%0-9][A-Za-z0-9]*\.)?([A-Za-z%0-9][A-Za-z0-9]*)(\^[A-Za-z%][A-Za-z0-9]*)?/
-const entryref = /^(&[A-Za-z0-9]*\.?)?@?([A-Za-z%0-9][A-Za-z0-9]*)?(\^@?[A-Za-z%][A-Za-z0-9]*)?/
+export const entryref = /^(&[A-Za-z0-9]*\.?)?@?([A-Za-z%0-9][A-Za-z0-9]*)?(\^@?[A-Za-z%][A-Za-z0-9]*)?/
 const routineref = /^\^@?[A-Za-z%][A-Za-z0-9]*/
 const numlit = /^(\d*\.?\d*(E-?\d+)?)/
 //const strlit = /^"([^"]*("")*)*"/
@@ -594,6 +594,11 @@ class MumpsLineParser {
 			return errlist;
 		}
 		const lines = content.split('\n');
+		this.checkLines(lines);
+		return errlist;
+	}
+	public checkLines(lines: string[]): ErrorInformation[] {
+		const errlist: ErrorInformation[] = [];
 		for (let i = 0; i < lines.length; i++) {
 			lines[i] = lines[i].replace(/\r/g, '');
 			const info = this.checkLine(lines[i]);
@@ -607,7 +612,7 @@ class MumpsLineParser {
 	public checkLine(line: string): ErrorInformation {
 		this._tokens = [];
 		this.linePosition = 0;
-		const parsed = this._parseLine(line);
+		const parsed = this.parseLine(line);
 		if (parsed.lineLabel) {
 			this._splitLabelAndParameters(parsed.lineLabel);
 		}
@@ -786,7 +791,7 @@ class MumpsLineParser {
 		const labels: LabelInformation[] = [];
 		const lines = text.split('\n');
 		for (let i = 0; i < lines.length; i++) {
-			const parsed = this._parseLine(lines[i]);
+			const parsed = this.parseLine(lines[i]);
 			if (parsed.lineLabel) {
 				labels.push({ name: parsed.lineLabel, line: i });
 			}
@@ -866,8 +871,9 @@ class MumpsLineParser {
 				}
 			}
 			if (ref.indexOf('^') === -1 && char === '+') {
-				result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
-				//ref += "+X";
+				const position = ++result.position
+				result = this._evaluateExpression(expressiontype.Standard, line, position);
+				ref += "+" + line.substring(position, result.position);
 				if (result.position >= line.length) {
 					this._tokens.push({ 'type': tokentype, name: ref, position: merkpos + this.linePosition });
 					return result
@@ -2337,7 +2343,7 @@ class MumpsLineParser {
  * @param inputString
  * @returns LineObject
  */
-	private _parseLine(inputString: string): LineObject {
+	public parseLine(inputString: string): LineObject {
 
 		let tmpObject: LineObject = { lineExpression: inputString, expressionPosition: 0 };
 
