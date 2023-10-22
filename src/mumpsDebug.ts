@@ -60,7 +60,7 @@ export default class MumpsDebugSession extends DebugSession {
 
 	private _mconnect: MumpsConnect;
 	private _localScope = this._variableHandles.create("~local|0");
-	private _systemScope = this._variableHandles.create("~system")
+	private _systemScope = this._variableHandles.create("~system");
 	/**
 	 * Creates a new debug adapter that is used for one debug session.
 	 * We configure the default implementation of a debug adapter here.
@@ -219,7 +219,7 @@ export default class MumpsDebugSession extends DebugSession {
 		response.body = {
 			scopes: [
 				new Scope("Local", this._localScope, false),
-				new Scope("System", this._systemScope, false)
+				new Scope("System", this._systemScope, false),
 			]
 		};
 		this.sendResponse(response);
@@ -231,42 +231,47 @@ export default class MumpsDebugSession extends DebugSession {
 		let insertVariable: DebugProtocol.Variable | undefined;
 		const varReference = args.variablesReference;
 		const varId = this._variableHandles.get(args.variablesReference);
-		if (varReference === this._systemScope) {
-			const varObject = this._mconnect.getVariables(VariableType.system);
-			for (const varname in varObject) {
-				variables.push({
-					name: varname,
-					type: 'string',
-					value: varObject[varname],
-					variablesReference: 0
-				})
+		switch (varReference) {
+			case this._systemScope: {
+				const varObject = this._mconnect.getVariables(VariableType.system);
+				for (const varname in varObject) {
+					variables.push({
+						name: varname,
+						type: 'string',
+						value: varObject[varname],
+						variablesReference: 0
+					})
+				}
+				break;
 			}
-		} else {
-			const varparts: string[] = varId.split("|");
-			const indexCount: number = parseInt(varparts.pop() || "0");
-			const varBase = varparts.join("|");
-			const varObject = this._mconnect.getVariables(VariableType.local);
-			let lastVar: VarData | undefined = undefined;
-			let lastRef = "";
-			for (const varname in varObject) {
-				const actualVar = this.varAnalyze(varname, varObject[varname]);
-				if (lastVar === undefined) { //First Variable not processed
+			case this._localScope: {
+				const varparts: string[] = varId.split("|");
+				const indexCount: number = parseInt(varparts.pop() || "0");
+				const varBase = varparts.join("|");
+				const varObject = this._mconnect.getVariables(VariableType.local);
+				let lastVar: VarData | undefined = undefined;
+				let lastRef = "";
+				for (const varname in varObject) {
+					const actualVar = this.varAnalyze(varname, varObject[varname]);
+					if (lastVar === undefined) { //First Variable not processed
+						lastVar = actualVar;
+						continue;
+					}
+					// eslint-disable-next-line no-cond-assign
+					if (insertVariable = this._checkVars(lastVar, actualVar, indexCount, varBase, lastRef)) {
+						if (insertVariable.variablesReference !== 0) { lastRef = lastVar.bases[indexCount]; }
+						variables.push(insertVariable);
+					}
 					lastVar = actualVar;
-					continue;
 				}
-				// eslint-disable-next-line no-cond-assign
-				if (insertVariable = this._checkVars(lastVar, actualVar, indexCount, varBase, lastRef)) {
-					if (insertVariable.variablesReference !== 0) { lastRef = lastVar.bases[indexCount]; }
-					variables.push(insertVariable);
+				if (lastVar !== undefined) { // process Last Variable if there was minimum one
+					const dummyVar: VarData = { name: "", "indexCount": 0, "bases": [], "content": "" }
+					const insertVariable = this._checkVars(lastVar, dummyVar, indexCount, varBase, lastRef)
+					if (insertVariable) {
+						variables.push(insertVariable);
+					}
 				}
-				lastVar = actualVar;
-			}
-			if (lastVar !== undefined) { // process Last Variable if there was minimum one
-				const dummyVar: VarData = { name: "", "indexCount": 0, "bases": [], "content": "" }
-				const insertVariable = this._checkVars(lastVar, dummyVar, indexCount, varBase, lastRef)
-				if (insertVariable) {
-					variables.push(insertVariable);
-				}
+				break;
 			}
 		}
 		response.body = {
@@ -388,16 +393,13 @@ export default class MumpsDebugSession extends DebugSession {
 		const length = varname.length;
 		const klammerpos = varname.indexOf("(");
 		let countKomma = true;
-		//let lastKommaPos = varname.length;
 		if (klammerpos > 0) {
 			bases.push(varname.substring(0, klammerpos));
 			indexcount++;
-			//lastKommaPos = klammerpos;
 			for (let i = klammerpos; i < length; i++) {
 				if (varname.substring(i, i + 1) === "," && countKomma) {
 					bases.push(varname.substring(0, i));
 					indexcount++;
-					//lastKommaPos = i;
 				}
 				if (varname.substring(i, i + 1) === '"') { countKomma = !countKomma; }
 			}
@@ -407,29 +409,4 @@ export default class MumpsDebugSession extends DebugSession {
 		}
 		return { "name": varname, "indexCount": indexcount, "bases": bases, content };
 	}
-
-	// private refreshDiagnostics(doc: vscode.TextDocument | undefined, mumpsDiagnostics: vscode.DiagnosticCollection): void {
-	// 	const diagnostics: vscode.Diagnostic[] = [];
-	// 	if (doc) {
-	// 		const lines: string[] = doc.getText().split("\n");
-	// 		this._mconnect.checkRoutine(lines).then((errLines: string[]) => {
-	// 			for (let i = 0; i < errLines.length; i++) {
-	// 				const errData = errLines[i].split(";");
-	// 				let column = parseInt(errData[0]) - 1;
-	// 				if (isNaN(column)) { column = 0 }
-	// 				let line = parseInt(errData[1]) - 1;
-	// 				if (isNaN(line)) { line = 0 }
-	// 				let endColumn = doc.lineAt(line).text.length
-	// 				if (line === 0 && column === 0) { endColumn = 0 }
-	// 				const message = errData[2];
-	// 				const range = new vscode.Range(line, column, line, endColumn);
-	// 				const diagnostic = new vscode.Diagnostic(range, message, vscode.DiagnosticSeverity.Error);
-	// 				diagnostic.code = message;
-	// 				diagnostics.push(diagnostic);
-	// 			}
-	// 			mumpsDiagnostics.clear();
-	// 			mumpsDiagnostics.set(doc.uri, diagnostics);
-	// 		})
-	// 	}
-	// }
 }

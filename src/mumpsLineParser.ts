@@ -594,8 +594,7 @@ class MumpsLineParser {
 			return errlist;
 		}
 		const lines = content.split('\n');
-		this.checkLines(lines);
-		return errlist;
+		return this.checkLines(lines);
 	}
 	public checkLines(lines: string[]): ErrorInformation[] {
 		const errlist: ErrorInformation[] = [];
@@ -824,13 +823,8 @@ class MumpsLineParser {
 		return result;
 	}
 	private _checkEntryRef(line: string, position: number, withParams: boolean, isUserfunction?: boolean): ErrorInformation {
-		if (isUserfunction === undefined) {
-			isUserfunction = false;
-		}
-		let tokentype: TokenType = TokenType.entryref;
-		if (isUserfunction) {
-			tokentype = TokenType.exfunction;
-		}
+		isUserfunction = isUserfunction === undefined ? false : isUserfunction;
+		let tokentype: TokenType = isUserfunction ? TokenType.exfunction : TokenType.entryref;
 		let result: ErrorInformation = { text: '', position };
 		if (line[result.position] === '@') { //Check Indirection
 			result = this._evaluateExpression(expressiontype.Atom, line, ++result.position);
@@ -2416,8 +2410,8 @@ class MumpsLineParser {
 
 }
 /*
-let dir = "t:\\";
-let test = new MumpsLineParser();
+const test = new MumpsLineParser();
+const dir = "x:\\";
 let erg: Array<ErrorInformation> = [];
 fs.readdir(dir, function (err, files) {
 	//handling error
@@ -2426,11 +2420,12 @@ fs.readdir(dir, function (err, files) {
 	}
 	//listing all files using forEach
 	files.forEach(function (file: string) {
-		if (file.substring(file.length - 2, file.length) === ".m")
+		if (file.substring(file.length - 2) === ".m") {
 			erg = test.checkFile(dir + file);
-		if (erg.length) {
 			console.log(file);
-			console.log(erg);
+			if (erg.length) {
+				console.log(erg);
+			}
 		}
 	});
 });
@@ -2441,7 +2436,8 @@ let lines = expanded.split("\n");
 for (let i = 0; i < lines.length; i++) {
 	console.log(test.expandCompressLine(lines[i], false).lineText);
 }
+
+let result = test.checkLine('	S VGZR=$E(YDL(2),5,6)-1 S:VGZR=0 VGZR=12_($E(YDL(2),1,4)-1)');
+console.log(result);
 */
-//let result = test.checkLine('	S VGZR=$E(YDL(2),5,6)-1 S:VGZR=0 VGZR=12_($E(YDL(2),1,4)-1)');
-//console.log(result);
 export { ifunction, isv, MumpsLineParser }

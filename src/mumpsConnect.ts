@@ -9,7 +9,6 @@ import { Socket } from "net";
 import * as vscode from 'vscode';
 import { MumpsLineParser, TokenType } from './mumpsLineParser';
 import { getLocalRoutinesPath, getWworkspaceFolder } from './extension';
-//import { Variable } from '@vscode/debugadapter';
 export interface MumpsBreakpoint {
 	id: number,
 	file: string,
@@ -63,8 +62,6 @@ export class MumpsConnect extends EventEmitter {
 	private _event = new EventEmitter();
 	private _hostname: string;
 	private _port: number;
-	private _sourceFile: string;
-	private _currentLine = 0;
 	private _errorLines: string[];
 	private _hints: string[];
 	private _breakPoints: MumpsBreakpoint[];
@@ -177,6 +174,8 @@ export class MumpsConnect extends EventEmitter {
 			case connectState.waitingForVars: {
 				if (line === "***ENDVAR") {
 					this._connectState = connectState.waitingforStart;
+					delete this._mVars[VariableType.local]["%STEP"];			//Remove internal debugger variables
+					delete this._mVars[VariableType.local]["%PROGNAME"];
 					this._event.emit("varsComplete");
 				} else {
 					vartype = line.substring(0, 1); //I=internal,V=local Variable,S=Stackframe
@@ -333,6 +332,7 @@ export class MumpsConnect extends EventEmitter {
 	 */
 	public setBreakPoint(file: string, breakpoints: DebugProtocol.SourceBreakpoint[] | undefined): DebugProtocol.Breakpoint[] {
 		const confirmedBreakpoints: DebugProtocol.Breakpoint[] = [];
+		file = file.replace(/\\/g, "/");
 		if (breakpoints) {
 			for (let i = 0; i < breakpoints.length; i++) {
 				const breakpoint = breakpoints[i];
@@ -383,7 +383,7 @@ export class MumpsConnect extends EventEmitter {
 				const internalBp = convertMumpsPosition(this._activeBreakpoints[i])
 				internalBp.file = this.normalizeDrive(internalBp.file.replace(/\\/g, "/"));
 				bp.file = this.normalizeDrive(bp.file.replace(/\\/g, "/"));
-				if (internalBp.file === bp.file && bp.line === internalBp.line) {
+				if (internalBp.file === bp.file && bp.line === internalBp.line + 1) {
 					bp.verified = true;
 					this.sendEvent('breakpointValidated', bp);
 					merk[i] = true;
@@ -395,7 +395,7 @@ export class MumpsConnect extends EventEmitter {
 		for (let i = 0; i < this._activeBreakpoints.length; i++) {
 			if (!merk[i]) {
 				const internalBp = convertMumpsPosition(this._activeBreakpoints[i])
-				const bp: MumpsBreakpoint = { 'verified': true, 'file': internalBp.file, 'line': internalBp.line, 'id': this._breakpointId++ }
+				const bp: MumpsBreakpoint = { 'verified': true, 'file': internalBp.file, 'line': internalBp.line + 1, 'id': this._breakpointId++ }
 				this.sendEvent('breakpointValidated', bp);
 			}
 		}
@@ -482,19 +482,25 @@ export class MumpsConnect extends EventEmitter {
 		const mumpsposition = internals["$ZPOSITION"];
 		const mumpsstatus = internals["$ZSTATUS"];
 		const filePosition = convertMumpsPosition(mumpsposition);
-		this._currentLine = filePosition.line;
-		if (mumpsstatus !== "" && mumpsstatus !== this._lastError) { //} && (internals["$ZTRAP"] === internals["$ZSTEP"]) || (internals["$ETRAP"] === internals["$ZSTEP"])) {
-			this._lastError = mumpsstatus;
-			const parts = mumpsstatus.split(",");
-			this.sendEvent('stopOnException', mumpsstatus, convertMumpsPosition(parts[1]));
-			this._log(mumpsstatus);
-		} else {
-			const bps = this._breakPoints.filter(bp => bp.file === this._sourceFile && bp.line === this._currentLine);
-			if (bps.length > 0) {
-				this.sendEvent('stopOnBreakpoint');
+		if (mumpsstatus !== "") {
+			if (mumpsstatus === this._lastError && internals["$ETRAP"] === internals["$ZSTEP"]) {
+				this.sendEvent("end");
+				return
 			} else {
-				this.sendEvent('stopOnStep');
+				if (mumpsstatus !== this._lastError) {
+					this._lastError = mumpsstatus;
+					const parts = mumpsstatus.split(",");
+					this.sendEvent('stopOnException', mumpsstatus, convertMumpsPosition(parts[1]));
+					this._log(mumpsstatus);
+					return
+				}
 			}
+		}
+		const bps = this._breakPoints.filter(bp => bp.file === filePosition.file && bp.line === filePosition.line + 1);
+		if (bps.length > 0) {
+			this.sendEvent('stopOnBreakpoint');
+		} else {
+			this.sendEvent('stopOnStep');
 		}
 	}
 

@@ -227,7 +227,7 @@ export class MumpsTokenHelper {
 		let i = 0;
 		const labelLength = nakedLabel.length;
 		for (i = 0; i < lines.length; i++) {
-			if (lines[i].substr(0, labelLength) === nakedLabel && lines[i].substr(labelLength, 1).match(/(;|\s|\()/) !== null) {
+			if (labelLength === 0 || (lines[i].startsWith(nakedLabel) && lines[i][labelLength].match(/(;|\s|\()/) !== null)) {
 				labelLine = lines[i];
 				commentText += lines[i] + "\n";
 				for (let j = i - 1; j > 0; j--) {

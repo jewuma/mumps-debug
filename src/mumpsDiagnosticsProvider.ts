@@ -28,6 +28,9 @@ interface VariableState {
 interface VariableStates {
 	name: VariableState
 }
+enum QuitState {
+	noQuit, behindQuit, behindLevelQuit
+}
 const symbols: vscode.SymbolInformation[] = [];
 
 /**
@@ -49,7 +52,7 @@ export default class MumpsDiagnosticsProvider {
 	private _routine: Subroutine = { startLine: -1, endLine: -1, parameters: [] };
 	private _level = 0;
 	private _lineWithDo = -2;
-	private _isBehindQuit = false;
+	private _isBehindQuit: QuitState[] = [];
 	private _startUnreachable: vscode.Position | false = false;
 	private _activeSubroutine: GeneralSubroutine = { name: '', startLine: -1, endLine: -1 }
 	private _parser = new MumpsLineParser();
@@ -57,6 +60,7 @@ export default class MumpsDiagnosticsProvider {
 		this._document = document;
 		this._diags = [];
 		this._linetokens = [];
+		for (let i = 0; i < 32; i++) { this._isBehindQuit.push(QuitState.noQuit) }
 		const configuration = vscode.workspace.getConfiguration();
 		if (configuration.mumps.variablesToBeIgnoredAtNewCheck !== undefined) {
 			this._variablesToBeIgnored = configuration.mumps.variablesToBeIgnoredAtNewCheck.split(",");
@@ -302,6 +306,7 @@ export default class MumpsDiagnosticsProvider {
 				this._lineWithDo = -2;
 			}
 			this._level = 0;
+			this._removeQuits(0);
 		}
 		for (let tokenId = 0; tokenId < tokens.length; tokenId++) { // iterate over every token in actual line
 			let token: LineToken = tokens[tokenId];
@@ -311,31 +316,24 @@ export default class MumpsDiagnosticsProvider {
 			if (tokenId === 0 && token.type === TokenType.label) { 	//If there was unreachable code before this label
 				//save a warning
 				//Remember label in symbol library
-				if (this._activeSubroutine.startLine > -1) {
-					this._addSymbol(this._activeSubroutine.name, this._activeSubroutine.startLine, line)
-				}
-				this._activeSubroutine.startLine = line;
-				this._activeSubroutine.name = token.name;
-				this._isBehindQuit = false;
-				if (this._startUnreachable) { //Only if there were Code lines after a quit or a goto
-					this._diags.push({
-						code: '',
-						message: "Unreachable Code",
-						range: new vscode.Range(this._startUnreachable, new vscode.Position(line, 0)),
-						severity: vscode.DiagnosticSeverity.Warning,
-						source: ''
-					});
-					this._startUnreachable = false;
-				}
-				if (tokens[1] !== undefined && tokens[1].type === TokenType.local) { //Begin of a parametrized subroutine
-					this._routine.startLine = line;
-					while (++tokenId < tokens.length && tokens[tokenId].type === TokenType.local) {
-						this._routine.parameters.push({ name: tokens[tokenId].name, position: tokens[tokenId].position });
+				this._removeQuits(this._level - 1)
+				this._checkUnreachable(line, token)
+				if (tokenId === 0 && token.type === TokenType.label) {
+					if (this._activeSubroutine.startLine > -1) {
+						this._addSymbol(this._activeSubroutine.name, this._activeSubroutine.startLine, line)
 					}
-					if (tokenId >= tokens.length) {
-						continue;
+					this._activeSubroutine.startLine = line;
+					this._activeSubroutine.name = token.name;
+					if (tokens[1] !== undefined && tokens[1].type === TokenType.local) { //Begin of a parametrized subroutine
+						this._routine.startLine = line;
+						while (++tokenId < tokens.length && tokens[tokenId].type === TokenType.local) {
+							this._routine.parameters.push({ name: tokens[tokenId].name, position: tokens[tokenId].position });
+						}
+						if (tokenId >= tokens.length) {
+							continue;
+						}
+						token = tokens[tokenId];
 					}
-					token = tokens[tokenId];
 				}
 			}
 			if (token.type === TokenType.keyword || token.type === TokenType.comment) { //Check intendation level
@@ -345,28 +343,27 @@ export default class MumpsDiagnosticsProvider {
 						this._lineWithDo = -2;
 					}
 					this._level = 0;
+					this._removeQuits(0)
+					this._checkUnreachable(line, token)
 				}
 			}
 			if (token.type === TokenType.keyword) {
-				if (this._isBehindQuit && this._startUnreachable === false) {
-					this._startUnreachable = new vscode.Position(line, token.position);
-				}
+				this._checkUnreachable(line, token)
 				const command = token.longName;
-				if (command === "IF" || command === "ELSE") {
+				if (command === "IF" || command === "ELSE" || command === "FOR") {
 					ifFlag = true;
 				}
 				if (command === "DO" && token.hasArguments === false) {
 					this._lineWithDo = line;
 				}
-				if (!ifFlag && (command === "QUIT" || command === "GOTO" || command === "HALT") && !token.isPostconditioned && this._level === 0) {
+				if (!ifFlag && (command === "QUIT" || command === "GOTO" || command === "HALT") && !token.isPostconditioned) {
 					let hasPostcondition = false;
 					if (command === "GOTO") { //Check if GOTO argument is postconditioned
 						for (let k = tokenId + 1; k < tokens.length; k++) {
 							if (tokens[k].type === TokenType.entryref) {
-								if (!this._labelExists(tokens[k].name) && !/^\+\d+$/.test(tokens[k].name))
+								if (!this._labelExists(tokens[k].name))  // && !/^\+\d+$/.test(tokens[k].name))
 									this._addWarning("Entry-Reference not found", line, tokens[k].position, tokens[k].name.length, vscode.DiagnosticSeverity.Warning);
 							}
-
 							if (tokens[k].type === TokenType.argPostcondition) {
 								hasPostcondition = true;
 								break;
@@ -381,14 +378,19 @@ export default class MumpsDiagnosticsProvider {
 							this._subroutines.push(this._routine);
 							this._routine = { startLine: -1, endLine: -1, parameters: [] };
 						}
-						this._isBehindQuit = true;
-						break;
+						if (line === this._lineWithDo) {
+							this._isBehindQuit[this._level] = QuitState.behindLevelQuit
+						} else {
+							this._isBehindQuit[this._level] = QuitState.behindQuit
+						}
 					}
 				}
 			}
 			if (token.type === TokenType.intendation) { //check if new intendation level is OK and remember new level
 				const expectedLevel = line === this._lineWithDo + 1 ? this._level + 1 : this._level;
 				this._level = token.name.length;
+				this._removeQuits(this._level)
+				this._checkUnreachable(line, token)
 				intendationFound = true;
 				if (this._level > expectedLevel) {
 					this._addWarning("Intendation Level wrong, found: " + this._level + ", expected: " + expectedLevel, line, 0, token.position);
@@ -399,10 +401,35 @@ export default class MumpsDiagnosticsProvider {
 				this._lineWithDo = -2;
 			}
 			if (token.type === TokenType.entryref || token.type === TokenType.exfunction) {
-				if (!this._labelExists(token.name) && !/\+\d+/.test(token.name)) this._addWarning("Entry-Reference not found", line, token.position, token.name.length, vscode.DiagnosticSeverity.Warning);
+				if (!this._labelExists(token.name)) this._addWarning("Entry-Reference not found", line, token.position, token.name.length, vscode.DiagnosticSeverity.Warning);
 			}
 			//this._addWarning("Entry-Reference or System-Variable found", line, token.position, token.name.length);
 		}
+	}
+	private _checkUnreachable(line: number, token: LineToken) {
+		let isBehindQuit = false
+		for (let i = 0; i < this._level; i++) { if (this._isBehindQuit[i] === QuitState.behindQuit) { isBehindQuit = true; break } }
+		if (this._isBehindQuit[this._level] !== QuitState.noQuit) isBehindQuit = true
+		if (isBehindQuit && token.type !== TokenType.comment) {
+			if (this._startUnreachable === false) {
+				this._startUnreachable = new vscode.Position(line, token.position);
+			}
+		} else {
+			if (this._startUnreachable !== false) {
+				//Only if there were Code lines after a quit or a goto
+				this._diags.push({
+					code: '',
+					message: "Unreachable Code",
+					range: new vscode.Range(this._startUnreachable, new vscode.Position(line, 0)),
+					severity: vscode.DiagnosticSeverity.Warning,
+					source: ''
+				});
+				this._startUnreachable = false;
+			}
+		}
+	}
+	private _removeQuits(level: number) {
+		for (let i = level + 1; i < 32; i++) { this._isBehindQuit[i] = QuitState.noQuit }
 	}
 	private _generateLabelTable(document: vscode.TextDocument) {
 		this._labelTable = {};
@@ -423,6 +450,8 @@ export default class MumpsDiagnosticsProvider {
 				return false;
 			}
 		} else {
+			if (name.includes("+")) name = name.split("+")[0];  //In case of label+offset
+			if (name === "") return true
 			return this._labelTable[name] !== undefined;
 		}
 	}

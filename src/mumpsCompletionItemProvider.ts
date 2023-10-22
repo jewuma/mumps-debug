@@ -173,7 +173,8 @@ export default class CompletionItemProvider {
 						if (i === 0) {
 							this._labelDB.labels.push({ label: '*FL', routine, line: lines[0] });
 						}
-						if (label = lines[i].match(/^[%A-Za-z0-9][A-Za-z0-9]{0,31}/)) {
+						label = lines[i].match(/^[%A-Za-z0-9][A-Za-z0-9]{0,31}/)
+						if (label) {
 							this._labelDB.labels.push({ label: label[0], routine, line: lines[i] })
 						}
 					}
@@ -254,7 +255,13 @@ function getLineStatus(parsed: LineObject, position: number): ItemHint {
 			const cmd = parsed.lineRoutines[i];
 			if (cmd.mPostCondition !== "" && position >= cmd.pcPosition && position <= (cmd.pcPosition + cmd.mPostCondition.length)) {
 				startString = cmd.mPostCondition.substring(0, position - cmd.pcPosition);
-
+				if (startString.indexOf("$$") !== -1) {
+					const lastIndex = startString.lastIndexOf("$$");
+					startString = startString.slice(lastIndex + 2);
+					if (startString.match(entryref)) {
+						lineStatus = LineStatus.jumplabel
+					}
+				}
 			} else if (cmd.mArguments !== "" && position >= cmd.argPosition && position <= (cmd.argPosition + cmd.mArguments.length)) {
 				startString = cmd.mArguments.substring(0, position - cmd.argPosition)
 				if (cmd.mCommand.match(/[D|DO|G|GOTO|J|JOB]/i)) {

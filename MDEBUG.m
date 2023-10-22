@@ -1,13 +1,13 @@
 MDEBUG  			;Debugging Routine for GT.M/YottaDB by Jens Wulf
-				;Version 0.9.5
-				;2023-09-06
+				;Version 0.9.6
+				;2023-10-17
 				;License: LGPL
 				;Usage on your own Risk - No guaranties
 				;
 				;
 				;Do Initialization and start Loop to Wait	 for Debugger-Commands
 				;ignoreVars:%PROGNAME
-	S $ZSTEP="ZSHOW ""VIS"":^%MDEBUG($J,""VARS"") S %STEP=$$WAIT^MDEBUG($ZPOS) ZST:%STEP=""I"" INTO ZST:%STEP=""O"" OVER ZST:%STEP=""F"" OUTOF ZC:%STEP=""C"""
+	S $ZSTEP="I '$D(^%MDEBUG($J,""BP"",$$POSCONV^MDEBUG($ZPOS))) ZSHOW ""VIS"":^%MDEBUG($J,""VARS"") S %STEP=$$WAIT^MDEBUG($ZPOS) ZST:%STEP=""I"" INTO ZST:%STEP=""O"" OVER ZST:%STEP=""F"" OUTOF ZC:%STEP=""C"""
 	D INIT
 	F  S %STEP=$$WAIT("") Q:%STEP["^"
 	;Relink and recognize Source-Changes
@@ -16,6 +16,7 @@ MDEBUG  			;Debugging Routine for GT.M/YottaDB by Jens Wulf
 RELINK(%PROG)			;LINK Sourcefile again and Start over
 	S %PROGNAME=%PROG
 	K (%PROGNAME)		;Clean-Up Variables
+	S $ZSTATUS=""		;Clean-Up Status
 	ZGOTO 1:RELINK1		;Clean-Up Stack
 RELINK1				;Entry after Stack-Clearance
 	D REFRESHBP		;Remember Breakpoints
@@ -28,10 +29,10 @@ RELINK1				;Entry after Stack-Clearance
 INIT    			;Open TCP-Communication-Port
 	N %IO,%DEV,%PORT,%SOCKET,%ZTFORM
 	;USE $P:(EXCEPTION="D BYE":CTRAP=$C(3))	;Ensure Clean-Up when Ctrl-C is pressed
-	USE $P	;Ensure Clean-Up when Ctrl-C is pressed
+	U $P
 	S %IO=$I,%PORT=9000,%DEV="|TCP|"_%PORT_"|"_$J
 	O %DEV:(ZLISTEN=%PORT_":TCP":NODELIMITER:ATTACH="listener"):5:"SOCKET"
-	E  U 0 W "DEBUG-Port could not be opened.",! HALT
+	E  U $P W "DEBUG-Port could not be opened.",! HALT
 	U %DEV
 	W /LISTEN(1)
 	; wait for connection, $KEY will be "CONNECT|socket_handle|remote_ipaddress"
@@ -41,28 +42,27 @@ INIT    			;Open TCP-Communication-Port
 	S ^%MDEBUG($J,"SOCKET")=%SOCKET
 	S ^%MDEBUG($J,"DEV")=%DEV
 	D OUT("Debugger connected")
-	;If there's no explicit Error-Handling show Errors in Debugger
-	S:($ZTRAP="B")!($ZTRAP="") $ZTRAP=$ZSTEP
-	S:$ETRAP="" $ETRAP=$ZSTEP
+	;If there's no explicit error-handling show errors in debugger
+	S:($ZTRAP="B")!($ZTRAP="")&($ETRAP="") $ETRAP="ZSHOW ""VIS"":^%MDEBUG($J,""VARS"") S %STEP=$$WAIT^MDEBUG($ZPOS) ZST:%STEP=""I"" INTO ZST:%STEP=""O"" OVER ZST:%STEP=""F"" OUTOF ZC:%STEP=""C"""
 	S $ZSTATUS=""
-	;Set IO back to origin IO
-	U %IO
+	S $ECODE=""		;Clean-Up Errors
+	U %IO			;Set IO back to original IO
 	Q
-WAIT(%ZPOS)   			;Wait for next Command from Editor
+WAIT(%ZPOS)   			;Wait for next command from editor
 	N %DEV,%IO,%CMD,%CMDS,%CMDLINE,%SOCKET,%I,%VAR,%MI
-	;possible Debugger-Commands
+	;possible debugger-commands
 	S %CMDS="START;QUIT;EXIT;INTO;OUTOF;OVER;CONTINUE;SETBP;VARS;INTERNALS;CLEARBP;REQUESTBP;RESET;GETVAR;ERRCHK;RESTART"
 	S %IO=$I
 	S %DEV=^%MDEBUG($J,"DEV"),%SOCKET=^%MDEBUG($J,"SOCKET")
 	U %DEV:(SOCKET=%SOCKET:DELIM=$C(10):EXCEPTION="HALT")
 	;Error-Handling by Debugger if not set by Debuggee
-	S:($ZTRAP="B")!($ZTRAP="") $ZTRAP=$ZSTEP
-	S:$ETRAP="" $ETRAP=$ZSTEP
+	S:($ZTRAP="B")!($ZTRAP="")&($ETRAP="") $ETRAP="ZSHOW ""VIS"":^%MDEBUG($J,""VARS"") S %STEP=$$WAIT^MDEBUG($ZPOS,""E"") ZST:%STEP=""I"" INTO ZST:%STEP=""O"" OVER ZST:%STEP=""F"" OUTOF ZC:%STEP=""C"""
 	;D OUT(%ZPOS_" "_$J_" "_^%MDEBUG($J,"DEV"))
-	I %ZPOS[("^"_$T(+0))&($ZSTATUS'="") D   ;Prevent Debugger from jumping into this Program
+	I %ZPOS[("^"_$T(+0))&($ZSTATUS'="")!($G(^%MDEBUG($J,"VARS","S",1))[("^"_$T(+0))) D   ;Prevent Debugger from jumping into this Program
 	. S %I="" F  S %I=$O(^%MDEBUG($J,"VARS","I",%I)) Q:%I=""  D
 	. . S %VAR=^%MDEBUG($J,"VARS","I",%I) S:$E(%VAR,1,10)="$ZPOSITION" %MI=%I
 	. . S:$E(%VAR,1,8)="$ZSTATUS" ^%MDEBUG($J,"VARS","I",%MI)="$ZPOSITION="""_$P(%VAR,",",2)_""""
+	;
 	I $D(^%MDEBUG($J,"VARS","I")) D	;Sending internal, local Variables and Stack to Debugger
 	. W "***STARTVAR",!
 	. ;D OUT("Sending Vars")
@@ -81,7 +81,6 @@ READLOOP			;Wait for next Command from Editor
 	I %CMD="RESET" G RESET						; Reset States and wait for a new Connection
 	I %CMD="ERRCHK" D ERRCHK G READLOOP				; Check following Lines if it's legal Mumps-Code
 	U %IO
-	I %CMD="INTO" Q:$D(^%MDEBUG($J,"BP",$$POSCONV(%ZPOS))) "O" Q "I"	;Prevent Double-Stop if it's ZSTEP INTO and Breakpoint
 	Q:%CMD="INTO" "I"
 	Q:%CMD="OUTOF" "F"
 	Q:%CMD="OVER" "O"
@@ -109,6 +108,16 @@ SETBP(FILE,LINE,CONDITION)        	;Set Breakpoint
 	D REFRESHBP
 	S $ZTRAP="B"
 	X ZBCMD
+	Q
+BPRESET				;Set BPs again after Recompile
+	N BP,ZBCMD,CONDITION
+	ZB -*
+	S BP="" F  S BP=$O(^%MDEBUG($J,"BP",BP)) Q:BP=""  D
+	. S CONDITION=^%MDEBUG($J,"BP",BP)
+	. S:CONDITION'="" CONDITION="I ("_CONDITION_") "
+	. S ZBCMD="ZB "_BP_":"""_CONDITION_"ZSHOW """"VIS"""":^%MDEBUG($J,""""VARS"""") S %STEP=$$WAIT^MDEBUG($ZPOS) ZST:%STEP=""""I"""" INTO ZST:%STEP=""""O"""" OVER ZST:%STEP=""""F"""" OUTOF ZC:%STEP=""""C""""  H:%STEP=""""H"""""""
+	. X ZBCMD
+	D REFRESHBP
 	Q
 CLEARBP(FILE,LINE)      	;Clear Breakpoint
 	N ROUTINE,ZBPOS,BP
@@ -164,16 +173,6 @@ SHOWBP				;Get active Breakpoints and transmit them to Debugger
 	ZSHOW "B":BPS
 	S BP="" F  S BP=$O(BPS("B",BP)) Q:BP=""  D
 	. W $P(BPS("B",BP),">",1),!
-	Q
-BPRESET				;Set BPs again after Recompile
-	N BP,ZBCMD,CONDITION
-	ZB -*
-	S BP="" F  S BP=$O(^%MDEBUG($J,"BP",BP)) Q:BP=""  D
-	. S CONDITION=^%MDEBUG($J,"BP",BP)
-	. S:CONDITION'="" CONDITION="I ("_CONDITION_") "
-	. S ZBCMD="ZB "_BP_":"""_CONDITION_"ZSHOW """"VIS"""":^%MDEBUG($J,""""VARS"""") S %STEP=$$WAIT^MDEBUG($ZPOS) ZST:%STEP=""""I"""" INTO ZST:%STEP=""""O"""" OVER ZST:%STEP=""""F"""" OUTOF ZC:%STEP=""""C""""  H:%STEP=""""H"""""""
-	. X ZBCMD
-	D REFRESHBP
 	Q
 POSCONV(ZPOS)			;Convert Position in Form LABEL+n^ROUTINE TO +m^ROUTINE
 	Q:$E(ZPOS,1)="+" ZPOS

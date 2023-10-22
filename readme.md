@@ -1,9 +1,20 @@
 # Language-Support and Debugger for Yottadb / GT.M
 
 This is a language support for Mumps (M) running on Yottadb/GT.M
-It includes a debugger, syntax check and the syntax-highlighting module by David Silin with some minor improvements
+
+## Features
+* Syntax-highlighting
+* Finding entryrefs
+* Single-step-debugging
+* Breakpoints and conditional breakpoints possible
+* subroutine-check for correct NEWing
+* Conversion from short to long commands and vice versa via CTRL-E
+* completely free, just have fun - BUT ALL ON YOUR OWN RISK!
+
 
 ## Using mumps-debug
+
+![caption](https://github.com/jewuma/mumps-debug/blob/master/demovideo.gif)
 
 * Install the **mumps-debug** extension in VS Code.
 * Put the MDEBUG.m Routine in your M-Program-Directory and start it.
