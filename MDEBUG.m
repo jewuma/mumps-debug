@@ -7,7 +7,7 @@ MDEBUG  			;Debugging Routine for GT.M/YottaDB by Jens Wulf
 				;
 				;Do Initialization and start Loop to Wait	 for Debugger-Commands
 				;ignoreVars:%PROGNAME
-	S $ZSTEP="I '$D(^%MDEBUG($J,""BP"",$$POSCONV^MDEBUG($ZPOS))) ZSHOW ""VIS"":^%MDEBUG($J,""VARS"") S %STEP=$$WAIT^MDEBUG($ZPOS) ZST:%STEP=""I"" INTO ZST:%STEP=""O"" OVER ZST:%STEP=""F"" OUTOF ZC:%STEP=""C"""
+	S $ZSTEP="ZSHOW ""VIS"":^%MDEBUG($J,""VARS"") S %STEP=$$WAIT^MDEBUG($ZPOS) ZST:%STEP=""I"" INTO ZST:%STEP=""O"" OVER ZST:%STEP=""F"" OUTOF ZC:%STEP=""C"""
 	D INIT
 	F  S %STEP=$$WAIT("") Q:%STEP["^"
 	;Relink and recognize Source-Changes
@@ -51,7 +51,7 @@ INIT    			;Open TCP-Communication-Port
 WAIT(%ZPOS)   			;Wait for next command from editor
 	N %DEV,%IO,%CMD,%CMDS,%CMDLINE,%SOCKET,%I,%VAR,%MI
 	;possible debugger-commands
-	S %CMDS="START;QUIT;EXIT;INTO;OUTOF;OVER;CONTINUE;SETBP;VARS;INTERNALS;CLEARBP;REQUESTBP;RESET;GETVAR;ERRCHK;RESTART"
+	S %CMDS="START;QUIT;EXIT;INTO;OUTOF;OVER;CONTINUE;SETBP;VARS;INTERNALS;CLEARBP;REQUESTBP;RESET;GETGBL;GETVAR;ERRCHK;RESTART"
 	S %IO=$I
 	S %DEV=^%MDEBUG($J,"DEV"),%SOCKET=^%MDEBUG($J,"SOCKET")
 	U %DEV:(SOCKET=%SOCKET:DELIM=$C(10):EXCEPTION="HALT")
@@ -76,6 +76,7 @@ READLOOP			;Wait for next Command from Editor
 	;D OUT(%CMDLINE)
 	I %CMD="REQUESTBP" W "***STARTBP",! D SHOWBP W "***ENDBP",! G READLOOP	;Transmit Breakpoints to Debugger
 	I %CMD="GETVAR" D GETVAR($P(%CMDLINE,";",2,999)) G READLOOP	;Transmit Variables
+	I %CMD="GETGBL" D GETGBL($P(%CMDLINE,";",2,999)) G READLOOP	;Transmit Variables
 	I %CMD="SETBP" D SETBP($P(%CMDLINE,";",2),$P(%CMDLINE,";",3),$P(%CMDLINE,";",4)) G READLOOP	;Set a new Breakpoint
 	I %CMD="CLEARBP" D CLEARBP($P(%CMDLINE,";",2),$P(%CMDLINE,";",3)) G READLOOP	;Clear a Breakpoint
 	I %CMD="RESET" G RESET						; Reset States and wait for a new Connection
@@ -132,6 +133,15 @@ CLEARBP(FILE,LINE)      	;Clear Breakpoint
 	;D OUT("BREAKPOS:"_ZBPOS)
 	ZB:$T(@$E(ZBPOS,2,99))'="" @ZBPOS
 	D REFRESHBP
+	Q
+GETGBL(%EXPRESSION)		;Get Global-Content an pass it to Editor
+	N $ZT,I
+	S $ZT="G GETVAR1^"_$T(+0)
+	W "***STARTGBL",!
+	F I=1:1:1000
+GETGBL1				;Continue-Label if something fails
+	W "***ENDGBL",!
+	S $ZSTATUS=""
 	Q
 GETVAR(%EXPRESSION)		;Get Variable-Content or Expression-Value an pass it to Editor
 	N $ZT
