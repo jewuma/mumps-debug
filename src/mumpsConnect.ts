@@ -41,11 +41,20 @@ type MumpsVariable = {
 		[variableName: string]: string;
 	};
 };
+export type MumpsGlobal = {
+	[variableName: string]:
+	{
+		value: string,
+		isDefined: boolean,
+		hasChildren: boolean,
+		moreToFollow: boolean
+	}
+}
 interface IVariables {
 	[varName: string]: string;
 }
 enum connectState {
-	disconnected, waitingforStart, waitingForVars, waitingForBreakpoints, waitingForSingleVar, waitingForSingleVarContent, waitingForErrorReport, waitingForHints
+	disconnected, waitingforStart, waitingForVars, waitingForBreakpoints, waitingForSingleVar, waitingForSingleVarContent, waitingForErrorReport, waitingForHints, waitingForGlobals
 }
 
 export enum VariableType {
@@ -57,6 +66,7 @@ export class MumpsConnect extends EventEmitter {
 	private _connectState: connectState;
 	private _readedData: string;
 	private _mVars: MumpsVariable;
+	private _globals: MumpsGlobal;
 	private _mStack: Array<string>;
 	private _activeBreakpoints: Array<string>;
 	private _event = new EventEmitter();
@@ -80,6 +90,7 @@ export class MumpsConnect extends EventEmitter {
 			[VariableType.system]: {},
 			[VariableType.local]: {}
 		};
+		this._globals = {};
 		this._mStack = [];
 		this._activeBreakpoints = [];
 		this._breakPoints = [];
@@ -102,6 +113,7 @@ export class MumpsConnect extends EventEmitter {
 		return new Promise((resolve, reject) => {
 			this._socket.connect(this._port, this._hostname, () => {
 				this._log("Debug-Server connected\n");
+				vscode.commands.executeCommand('setContext', 'mumps.showGlobals', true)
 				this._connectState = connectState.waitingforStart;
 				this._socket.on('data', (chunk) => {
 					this._readedData += chunk.toString();
@@ -118,7 +130,10 @@ export class MumpsConnect extends EventEmitter {
 			this._socket.on('error', (error) => {
 				reject(error);
 			});
-			this._socket.on('end', () => { this._connectState = connectState.disconnected })
+			this._socket.on('end', () => {
+				this._connectState = connectState.disconnected
+				vscode.commands.executeCommand('setContext', 'mumps.showGlobals', false)
+			})
 		})
 		// Put a friendly message on the terminal of the server.
 	}
@@ -167,6 +182,11 @@ export class MumpsConnect extends EventEmitter {
 				if (line === "***STARTHINTS") {
 					this._connectState = connectState.waitingForHints;
 					this._hints = [];
+					break;
+				}
+				if (line === "***STARTGBL") {
+					this._connectState = connectState.waitingForGlobals;
+					this._globals = {};
 					break;
 				}
 				break;
@@ -230,6 +250,28 @@ export class MumpsConnect extends EventEmitter {
 					this._event.emit('ErrorreportReceived', this._event, this._errorLines);
 				} else {
 					this._errorLines.push(line);
+				}
+				break;
+			}
+			case connectState.waitingForGlobals: {
+				if (line === "***ENDGBL") {
+					this._connectState = connectState.waitingforStart;
+					this._event.emit("gblsComplete");
+				} else {
+					let moreToFollow = false;
+					let indicator = parseInt(line[0]);
+					if (indicator > 3) {
+						moreToFollow = true;
+						indicator -= 4;
+					}
+					const hasChildren = indicator === 2;
+					const isDefined = line[1] === "1";
+					varname = line.substring(2, line.indexOf('='));
+					while ((varname.split('"').length - 1) % 2 !== 0) {
+						varname = line.substring(2, line.indexOf('=', varname.length + 1));
+					}
+					value = line.substring(varname.length + 3).replace(/^"/, "").replace(/"$/, "");
+					this._globals[varname] = { value, hasChildren, isDefined, moreToFollow }
 				}
 				break;
 			}
@@ -299,7 +341,6 @@ export class MumpsConnect extends EventEmitter {
 	public restart(file: string): void {
 		this.writeln("RESTART;" + file);
 	}
-
 
 	/**
 	 * Returns the actual Stack
@@ -407,6 +448,26 @@ export class MumpsConnect extends EventEmitter {
 		} else {
 			return path;
 		}
+	}
+	public async getGlobals(keys: string, searchInGlobal?: string): Promise<MumpsGlobal> {
+		if (searchInGlobal !== undefined) {
+			this.writeln("SEARCHGBL;" + searchInGlobal + ";" + keys)
+		} else {
+			this.writeln("GETGBL;" + keys);
+		}
+		return new Promise((resolve) => {
+			// Listen for the "gblsComplete" event.
+			const gblsCompleteListener = () => {
+				// Unsubscribe from the event to avoid memory leaks.
+				this._event.removeListener("gblsComplete", gblsCompleteListener);
+
+				// Resolve the Promise with the received value.
+				resolve(this._globals);
+			};
+
+			// Subscribe to the "gblsComplete" event.
+			this._event.on("gblsComplete", gblsCompleteListener);
+		});
 	}
 	public getVariables(type: VariableType): { [variableName: string]: string } {
 		return this._mVars[type];

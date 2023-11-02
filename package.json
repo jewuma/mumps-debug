@@ -1,10 +1,11 @@
 {
 	"name": "mumps-debug",
 	"displayName": "Mumps Language-Pack",
-	"version": "1.1.10",
+	"version": "1.2.0",
 	"publisher": "jewuma",
 	"description": "Debugger for Mumps (M) , GT.M, YottaDB",
 	"author": {
+
 		"name": "Jens Wulf",
 		"email": "jewu34@web.de"
 	},
@@ -70,8 +71,97 @@
 			{
 				"command": "mumps.documentFunction",
 				"title": "Creates comment for M subroutine"
+			},{
+				"command": "mumps.Globals.loadMore",
+				"title": "Show More"
+			},
+			{
+				"command": "mumps.Globals.refresh",
+				"title": "Refresh",
+				"icon": {
+					"light": "images/light/refresh.svg",
+					"dark": "images/dark/refresh.svg"
+				}
+			},
+			{
+				"command": "mumps.Globals.search",
+				"title": "Search",
+				"icon": "images/search.svg"
 			}
 		],
+		"viewsContainers": {
+			"activitybar": [
+				{
+					"id": "global-directory",
+					"title": "Global Directory",
+					"icon": "images/dep.svg",
+					"when": "mumps.showGlobals"
+				}
+			]
+		},
+		"views": {
+			"global-directory": [
+				{
+					"id": "mumpsGlobals",
+					"name": "Global Directory",
+					"icon": "images/dep.svg",
+					"contextualTitle": "Global Directory",
+					"when": "mumps.showGlobals"
+				}
+			]
+		},		"menus": {
+			"commandPalette": [
+				{
+					"command": "mumps.Globals.refresh"
+				},
+				{
+					"command": "mumps.Globals.search"
+				}
+			],
+			"view/title": [
+				{
+					"command": "mumps.Globals.refresh",
+					"icon": {
+						"light": "images/light/refresh.svg",
+						"dark": "images/dark/refresh.svg"
+					},
+					"when": "view == mumpsGlobals",
+					"group": "navigation"
+				},
+				{
+					"command": "mumps.Globals.search",
+					"icon": {
+						"light": "images/light/search.svg",
+						"dark": "images/dark/search.svg"
+					},
+					"when": "view == mumpsGlobals",
+					"group": "navigation"
+				}
+			],
+			"view/item/context": [
+				{
+					"command": "mumps.Globals.loadMore",
+					"when": "viewItem == moreToCome",
+					"group": "inline"
+				},
+				{
+					"command": "mumps.Globals.refresh",
+					"when": "view == mumpsGlobals && viewItem == GlobalNode",
+					"icon": {
+						"light": "images/light/refresh.svg",
+						"dark": "images/dark/refresh.svg"
+					}
+				},
+				{
+					"command": "mumps.Globals.search",
+					"icon": {
+						"light": "images/light/search.svg",
+						"dark": "images/dark/search.svg"
+					},
+					"group": "inline"
+				}
+			]
+		},
 		"debuggers": [
 			{
 				"type": "mumps",

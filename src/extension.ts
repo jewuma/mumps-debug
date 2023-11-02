@@ -16,11 +16,13 @@ import MumpsDocumenter from './mumpsDocumenter';
 import CompletionItemProvider from './mumpsCompletionItemProvider';
 import expandCompress from './mumpsCompExp';
 import MumpsDiagnosticsProvider from './mumpsDiagnosticsProvider';
+import { MumpsGlobalProvider, GlobalNode } from './mumpsGlobalProvider';
 import fs = require('fs');
 let timeout: ReturnType<typeof setTimeout> | undefined;
 const entryRef: string | undefined = "";
 let dbFile = "";
 let localRoutinesPath = "";
+const globalDirectoryProvider = MumpsGlobalProvider.getInstance();
 export async function activate(context: vscode.ExtensionContext) {
 	const MUMPS_MODE: vscode.DocumentFilter = { language: 'mumps', scheme: 'file' };
 	// register a configuration provider for 'mumps' debug type
@@ -41,6 +43,17 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand("mumps.autoSpaceTab", () => { autoSpaceTab(); }),
 		vscode.commands.registerCommand("mumps.toggleExpandedCommands", () => { expandCompress(wsState) }),
 		vscode.commands.registerCommand('mumps.getEntryRef', () => { return getEntryRef() }),
+		vscode.commands.registerCommand('mumps.Globals.loadMore', (node: GlobalNode) => globalDirectoryProvider.getMoreNodes(node)),
+		vscode.commands.registerCommand('mumps.Globals.refresh', () => MumpsGlobalProvider.refresh()),
+		vscode.commands.registerCommand('mumps.Globals.search', (node: GlobalNode) => globalDirectoryProvider.search(node)),
+		vscode.debug.registerDebugConfigurationProvider('mumps', new MumpsConfigurationProvider()),
+		vscode.debug.registerDebugAdapterDescriptorFactory('mumps', new InlineDebugAdapterFactory()),
+		vscode.debug.onDidStartDebugSession((session) => {
+			// Check if it's a MUMPS debug session
+			if (session.type === 'mumps') {
+				//globalDirectoryProvider.showView(); // Show the Global Directory view
+			}
+		}),
 		vscode.languages.registerHoverProvider(MUMPS_MODE, new MumpsHoverProvider()),
 		vscode.languages.registerDefinitionProvider(MUMPS_MODE, new MumpsDefinitionProvider()),
 		vscode.languages.registerEvaluatableExpressionProvider(MUMPS_MODE, new MumpsEvalutableExpressionProvider()),
@@ -50,11 +63,10 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.languages.registerDocumentFormattingEditProvider(MUMPS_MODE, new MumpsFormattingHelpProvider()),
 		vscode.languages.registerDocumentRangeFormattingEditProvider(MUMPS_MODE, new MumpsFormattingHelpProvider()),
 		vscode.languages.registerReferenceProvider(MUMPS_MODE, new MumpsReferenceProvider()),
-		vscode.debug.registerDebugConfigurationProvider('mumps', new MumpsConfigurationProvider()),
-		vscode.debug.registerDebugAdapterDescriptorFactory('mumps', new InlineDebugAdapterFactory()),
+		vscode.window.registerTreeDataProvider('mumpsGlobals', MumpsGlobalProvider.getInstance()),
 		vscode.window.onDidChangeActiveTextEditor(editor => { if (editor) { triggerUpdateDiagnostics(editor.document, mumpsDiagnostics) } }),
 		vscode.workspace.onDidChangeTextDocument(editor => { if (editor) { triggerUpdateDiagnostics(editor.document, mumpsDiagnostics) } }),
-		vscode.workspace.onDidOpenTextDocument(document => { triggerUpdateDiagnostics(document, mumpsDiagnostics) })
+		vscode.workspace.onDidOpenTextDocument(document => { triggerUpdateDiagnostics(document, mumpsDiagnostics) }),
 	);
 }
 

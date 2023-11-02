@@ -17,6 +17,7 @@ import * as vscode from 'vscode';
 import { readFileSync } from 'fs';
 import MumpsDiagnosticsProvider from './mumpsDiagnosticsProvider';
 import { setLocalRoutinesPath } from './extension';
+import { MumpsGlobalProvider } from './mumpsGlobalProvider';
 
 const MUMPSDIAGNOSTICS = vscode.languages.createDiagnosticCollection("mumps");
 /**
@@ -154,7 +155,6 @@ export default class MumpsDebugSession extends DebugSession {
 
 		// make sure to 'Stop' the buffered logging if 'trace' is not set
 		//logger.setup(args.trace ? Logger.LogLevel.Verbose : Logger.LogLevel.Stop, false);
-
 		// wait until configuration has finished (and configurationDoneRequest has been called)
 		await this._configurationDone.wait(1000);
 		setLocalRoutinesPath(args.localRoutinesPath);
@@ -163,6 +163,8 @@ export default class MumpsDebugSession extends DebugSession {
 			if (vscode.window.activeTextEditor?.document)
 				new MumpsDiagnosticsProvider(vscode.window.activeTextEditor?.document, MUMPSDIAGNOSTICS)
 			this._mconnect.start(args.program, !!args.stopOnEntry);
+			const instance = MumpsGlobalProvider.getInstance()
+			instance.setMconnect(this._mconnect)
 			this._program = args.program;
 			this.sendResponse(response);
 		}).catch(() => {

@@ -1,6 +1,6 @@
 MDEBUG  			;Debugging Routine for GT.M/YottaDB by Jens Wulf
-				;Version 0.9.6
-				;2023-10-17
+				;Version 0.9.8
+				;2023-11-01
 				;License: LGPL
 				;Usage on your own Risk - No guaranties
 				;
@@ -51,12 +51,12 @@ INIT    			;Open TCP-Communication-Port
 WAIT(%ZPOS)   			;Wait for next command from editor
 	N %DEV,%IO,%CMD,%CMDS,%CMDLINE,%SOCKET,%I,%VAR,%MI
 	;possible debugger-commands
-	S %CMDS="START;QUIT;EXIT;INTO;OUTOF;OVER;CONTINUE;SETBP;VARS;INTERNALS;CLEARBP;REQUESTBP;RESET;GETGBL;GETVAR;ERRCHK;RESTART"
+	S %CMDS="START;QUIT;EXIT;INTO;OUTOF;OVER;CONTINUE;SETBP;VARS;INTERNALS;CLEARBP;REQUESTBP;RESET;GETGBL;GETVAR;ERRCHK;RESTART;SEARCHGBL"
 	S %IO=$I
 	S %DEV=^%MDEBUG($J,"DEV"),%SOCKET=^%MDEBUG($J,"SOCKET")
 	U %DEV:(SOCKET=%SOCKET:DELIM=$C(10):EXCEPTION="HALT")
 	;Error-Handling by Debugger if not set by Debuggee
-	S:($ZTRAP="B")!($ZTRAP="")&($ETRAP="") $ETRAP="ZSHOW ""VIS"":^%MDEBUG($J,""VARS"") S %STEP=$$WAIT^MDEBUG($ZPOS,""E"") ZST:%STEP=""I"" INTO ZST:%STEP=""O"" OVER ZST:%STEP=""F"" OUTOF ZC:%STEP=""C"""
+	S:($ZTRAP="B")!($ZTRAP="")&($ETRAP="") $ETRAP="ZSHOW ""VIS"":^%MDEBUG($J,""VARS"") S %STEP=$$WAIT^MDEBUG($ZPOS) ZST:%STEP=""I"" INTO ZST:%STEP=""O"" OVER ZST:%STEP=""F"" OUTOF ZC:%STEP=""C"""
 	;D OUT(%ZPOS_" "_$J_" "_^%MDEBUG($J,"DEV"))
 	I %ZPOS[("^"_$T(+0))&($ZSTATUS'="")!($G(^%MDEBUG($J,"VARS","S",1))[("^"_$T(+0))) D   ;Prevent Debugger from jumping into this Program
 	. S %I="" F  S %I=$O(^%MDEBUG($J,"VARS","I",%I)) Q:%I=""  D
@@ -76,12 +76,14 @@ READLOOP			;Wait for next Command from Editor
 	;D OUT(%CMDLINE)
 	I %CMD="REQUESTBP" W "***STARTBP",! D SHOWBP W "***ENDBP",! G READLOOP	;Transmit Breakpoints to Debugger
 	I %CMD="GETVAR" D GETVAR($P(%CMDLINE,";",2,999)) G READLOOP	;Transmit Variables
-	I %CMD="GETGBL" D GETGBL($P(%CMDLINE,";",2,999)) G READLOOP	;Transmit Variables
+	I %CMD="GETGBL" D GETGBL($P(%CMDLINE,";",2,999)) G READLOOP	;Get globals
+	I %CMD="SEARCHGBL" D SEARCHGBL($P(%CMDLINE,";",2),$P(%CMDLINE,";",3,999)) G READLOOP	;Search for global entry
 	I %CMD="SETBP" D SETBP($P(%CMDLINE,";",2),$P(%CMDLINE,";",3),$P(%CMDLINE,";",4)) G READLOOP	;Set a new Breakpoint
 	I %CMD="CLEARBP" D CLEARBP($P(%CMDLINE,";",2),$P(%CMDLINE,";",3)) G READLOOP	;Clear a Breakpoint
 	I %CMD="RESET" G RESET						; Reset States and wait for a new Connection
 	I %CMD="ERRCHK" D ERRCHK G READLOOP				; Check following Lines if it's legal Mumps-Code
 	U %IO
+	I %CMD="INTO" Q:$D(^%MDEBUG($J,"BP",$$POSCONV(%ZPOS))) "O" Q "I"	;Prevent Double-Stop if it's ZSTEP INTO and Breakpoint
 	Q:%CMD="INTO" "I"
 	Q:%CMD="OUTOF" "F"
 	Q:%CMD="OVER" "O"
@@ -134,15 +136,44 @@ CLEARBP(FILE,LINE)      	;Clear Breakpoint
 	ZB:$T(@$E(ZBPOS,2,99))'="" @ZBPOS
 	D REFRESHBP
 	Q
-GETGBL(%EXPRESSION)		;Get Global-Content an pass it to Editor
-	N $ZT,I
-	S $ZT="G GETVAR1^"_$T(+0)
+GETGBL(EXPRESSION)		;Get Global-Content an pass it to Editor
+	N $ZT,I,VAR,KEYCOUNT,KEY,GBLNAME,GBLREF
+	S $ZT="G GETGBL1^"_$T(+0)
 	W "***STARTGBL",!
-	F I=1:1:1000
+	I EXPRESSION="" S I="^%" F  S I=$O(@I) Q:I=""  D
+	. W $D(@I)+10 S VAR=I_"="_$G(@I) S:VAR[$C(10) VAR=$$MTR(VAR,$C(10),"_$C(10)_") W VAR,!
+	I EXPRESSION'="" D
+	. S KEY=""
+	. I EXPRESSION["("&($$LASTCHAR(EXPRESSION)'=")") D  I 1
+	. . S EXPRESSION=EXPRESSION_")"
+	. . S KEYCOUNT=$QL(EXPRESSION),KEY=$QS(EXPRESSION,KEYCOUNT)
+	. . S GBLNAME=$P(EXPRESSION,KEY,1,$L($E(EXPRESSION,1,$L(EXPRESSION)-1),KEY)-1)
+	. . S:$$LASTCHAR(GBLNAME)="""" GBLNAME=$E(GBLNAME,1,$L(GBLNAME)-1)
+	. . S GBLNAME=GBLNAME_"KEY)"
+	. E  S KEYCOUNT=$QL(EXPRESSION) D
+	. . S:KEYCOUNT=0 GBLNAME=EXPRESSION_"(KEY)"
+	. . S:KEYCOUNT>0 GBLNAME=$E(EXPRESSION,1,$L(EXPRESSION)-1)_",KEY"_")"
+	. F I=1:1:1000 S KEY=$O(@GBLNAME) Q:KEY=""  D
+	. . S GBLREF=$E(GBLNAME,1,$L(GBLNAME)-4)_""""_KEY_""""_")"
+	. . W $D(@GBLNAME)+10+(40*(I=1000)) S VAR=GBLREF_"="_$G(@GBLNAME) S:VAR[$C(10) VAR=$$MTR(VAR,$C(10),"_$C(10)_") W VAR,!
 GETGBL1				;Continue-Label if something fails
 	W "***ENDGBL",!
 	S $ZSTATUS=""
 	Q
+SEARCHGBL(GLOBAL,SEARCH)	;Search for global-entries that contain the search string
+	N $ZT,I,VALUE,VAR
+	W "***STARTGBL",!
+	S $ZT="G GETGBL1^"_$T(+0)
+	S SEARCH=$ZCONVERT(SEARCH,"L")
+	S I=0
+	F  S GLOBAL=$Q(@GLOBAL) Q:GLOBAL=""  D  Q:I=1000
+	. S VALUE=@GLOBAL I $ZCONVERT(GLOBAL,"L")[SEARCH!($ZCONVERT(VALUE,"L")[SEARCH) D
+	. . W $D(@GLOBAL)+10+(40*(I=1000))
+	. . S VAR=GLOBAL_"="_VALUE
+	. . S:VAR[$C(10) VAR=$$MTR(VAR,$C(10),"_$C(10)_")
+	. . W VAR,!
+	. . S I=I+1
+	G GETGBL1
 GETVAR(%EXPRESSION)		;Get Variable-Content or Expression-Value an pass it to Editor
 	N $ZT
 	S $ZT="G GETVAR1^"_$T(+0)
@@ -204,6 +235,7 @@ OUT(VAR)			;DEBUG-Output
 	W VAR,!
 	U IO
 	Q
+LASTCHAR(STRING) Q $E(STRING,$L(STRING))
 MTR(VAR,SUCH,ERSETZ)		;Replace one Char in String by several chars
 	Q:SUCH="" VAR
 	N POS

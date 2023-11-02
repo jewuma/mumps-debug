@@ -69,3 +69,7 @@
 * Syntax-check on SET *VAR=$$FUNC() didn't work correctly
 ## 1.1.9
 * Improved error-handling, some code-optimizations
+## 1.1.10
+* Small fix in MDEBUG
+## 1.2.0
+* Code optimization, added Global-viewer
