@@ -72,4 +72,6 @@
 ## 1.1.10
 * Small fix in MDEBUG
 ## 1.2.0
-* Code optimization, added Global-viewer
+* Code optimization, added global-viewer
+## 1.3.0
+* Added routine-sorter for sorting subroutines

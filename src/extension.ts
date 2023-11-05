@@ -16,6 +16,7 @@ import MumpsDocumenter from './mumpsDocumenter';
 import CompletionItemProvider from './mumpsCompletionItemProvider';
 import expandCompress from './mumpsCompExp';
 import MumpsDiagnosticsProvider from './mumpsDiagnosticsProvider';
+import MumpsRoutineSorter from './mumpsRoutineSorter';
 import { MumpsGlobalProvider, GlobalNode } from './mumpsGlobalProvider';
 import fs = require('fs');
 let timeout: ReturnType<typeof setTimeout> | undefined;
@@ -41,6 +42,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand("mumps.documentFunction", () => { MumpsDocumenter(); }),
 		vscode.commands.registerCommand("mumps.autoSpaceEnter", () => { autoSpaceEnter(); }),
 		vscode.commands.registerCommand("mumps.autoSpaceTab", () => { autoSpaceTab(); }),
+		vscode.commands.registerCommand("mumps.sortRoutine", () => { new MumpsRoutineSorter() }),
 		vscode.commands.registerCommand("mumps.toggleExpandedCommands", () => { expandCompress(wsState) }),
 		vscode.commands.registerCommand('mumps.getEntryRef', () => { return getEntryRef() }),
 		vscode.commands.registerCommand('mumps.Globals.loadMore', (node: GlobalNode) => globalDirectoryProvider.getMoreNodes(node)),

@@ -1,7 +1,7 @@
 {
 	"name": "mumps-debug",
 	"displayName": "Mumps Language-Pack",
-	"version": "1.2.0",
+	"version": "1.3.0",
 	"publisher": "jewuma",
 	"description": "Debugger for Mumps (M) , GT.M, YottaDB",
 	"author": {
@@ -67,6 +67,10 @@
 			{
 				"command": "mumps.toggleExpandedCommands",
 				"title": "Toggles between Short- and Longversion of M Commands"
+			},
+			{
+				"command": "mumps.sortRoutine",
+				"title": "Sorts subroutines inside M routines"
 			},
 			{
 				"command": "mumps.documentFunction",
@@ -292,6 +296,11 @@
 				"command": "mumps.autoSpaceTab",
 				"when": "editorLangId == mumps && !suggestWidgetVisible",
 				"key": "tab"
+			},
+			{
+				"command": "mumps.sortRoutine",
+				"key": "ctrl+alt+s",
+				"when": "editorLangId == mumps"
 			}
 		],
 		"configurationDefaults": {
