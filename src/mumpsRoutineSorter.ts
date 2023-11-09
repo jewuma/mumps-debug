@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import { LineToken, TokenType, MumpsLineParser, LineInformation } from './mumpsLineParser'
-
+import { LineToken, TokenType, ErrorInformation } from './mumpsLineParser'
+import MumpsParseDb from './mumpsParseDb';
 
 type Subroutines = {
 	[name: string]: {
@@ -11,28 +11,21 @@ type Subroutines = {
 
 export default class MumpsRoutineSorter {
 	private _linetokens: LineToken[][] = [];
-	private _diags: vscode.Diagnostic[] = [];
-	private _labelTable: { [key: string]: number } = {};
-	private _parser = new MumpsLineParser();
 	private _subroutines: Subroutines = {};
 	private _newSortedLines: string[];
 	constructor() {
 		const editor = vscode.window.activeTextEditor
 		if (editor && editor.document && editor.document.languageId === 'mumps') {
+			const parseDb = MumpsParseDb.getInstance(editor.document)
+			this._linetokens = parseDb.getDocumentTokens()
+			const errors: ErrorInformation[] = parseDb.getDocumentErrors()
 			const document = editor.document;
 			let errorFound = false
-			this._diags = []
-			this._linetokens = []
 			this._newSortedLines = []
-			this._generateLabelTable(document);
 			for (let i = 0; i < document.lineCount; i++) {
-				const line = document.lineAt(i);
-				const lineInfo: LineInformation = this._parser.analyzeLine(line.text);
-				if (lineInfo.error.text !== '') {
-					this._addWarning(lineInfo.error.text, i, lineInfo.error.position, -1, vscode.DiagnosticSeverity.Error)
+				if (errors[i].text !== '') {
 					errorFound = true
-				} else {
-					this._linetokens.push(lineInfo.tokens);
+					break
 				}
 			}
 			if (errorFound) {
@@ -79,7 +72,7 @@ export default class MumpsRoutineSorter {
 				}
 				if (token.type === TokenType.keyword) {
 					const command = token.longName;
-					if (command === "FOR" || command === "IF") {
+					if (command === "FOR" || command === "IF" || command === "ELSE") {
 						break; // Ignore QUIT etc after FOR and IF
 					}
 					if (
@@ -133,7 +126,6 @@ export default class MumpsRoutineSorter {
 	 * @param line Line where th problem was found
 	 * @param startPosition Position inside Line where the problem was found
 	 * @param len Length of variable-name
-	 */
 	private _addWarning(message: string, line: number, startPosition: number, len: number, severity?) {
 		if (severity === undefined) {
 			severity = vscode.DiagnosticSeverity.Warning;
@@ -163,4 +155,5 @@ export default class MumpsRoutineSorter {
 			}
 		}
 	}
+	*/
 }

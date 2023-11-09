@@ -9,14 +9,13 @@ This is a language support for Mumps (M) running on YottaDB/GT.M
 * Breakpoints and conditional breakpoints possible
 * subroutine-check for correct NEWing
 * Conversion from short to long commands and vice versa via CTRL-E
+* Folding provider included
 * **NEW** Global-viewer in the sidebar - active while debugging
 * **NEW** Routine-sorter - sorts your subroutines inside the editor alphabetically via CTRL-ALT-S **experimental**
 * completely free, just have fun - BUT ALL ON YOUR OWN RISK!
 
 
 ## Using mumps-debug
-
-![caption](https://github.com/jewuma/mumps-debug/blob/master/demovideo.gif)
 
 * Install the **mumps-debug** extension in VS Code.
 * Put the MDEBUG.m Routine in your M-Program-Directory and start it. [MDEBUG](https://github.com/jewuma/mumps-debug/blob/master/MDEBUG.m)

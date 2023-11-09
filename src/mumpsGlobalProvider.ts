@@ -91,9 +91,7 @@ export class MumpsGlobalProvider implements vscode.TreeDataProvider<GlobalNode> 
 		}
 		for (const key in nodes) {
 			const variable = nodes[key];
-			// Now you can access the properties of the variable
 			const value = variable.value;
-			//const isDefined = variable.isDefined;
 			const isCollapsed = variable.hasChildren ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None;
 			const context = variable.moreToFollow ? "moreToCome" : "";
 			globalNodes.push(new GlobalNode(key, value, isCollapsed, context))
@@ -112,11 +110,5 @@ export class GlobalNode extends vscode.TreeItem {
 		if (context !== "") this.contextValue = context
 		return this;
 	}
-
-	// iconPath = {
-	// 	light: path.join(__filename, '..', '..', 'resources', 'light', 'dependency.svg'),
-	// 	dark: path.join(__filename, '..', '..', 'resources', 'dark', 'dependency.svg')
-	// };
-
 	contextValue = 'globalnode';
 }

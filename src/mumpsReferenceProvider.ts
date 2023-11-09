@@ -19,7 +19,7 @@ export default class MumpsReferenceProvider {
 				for (let i = 0; i < docLines.length; i++) {
 					if (docLines[i].includes(externalLabel) || docLines[i].includes(searchToken)) {
 						let foundPosition = -1;
-						do {
+						for (; ;) {
 							const extPosition = docLines[i].indexOf(externalLabel, foundPosition + 1);
 							if (extPosition === -1) {
 								foundPosition = docLines[i].indexOf(searchToken, foundPosition + 1);
@@ -34,8 +34,7 @@ export default class MumpsReferenceProvider {
 								(token.type === TokenType.entryref || token.type === TokenType.exfunction)) {
 								result.push(new vscode.Location(document.uri, new vscode.Range(i, foundPosition, i, foundPosition + token.name.length)));
 							}
-							// eslint-disable-next-line no-constant-condition
-						} while (true);
+						}
 					}
 				}
 				// Check all other documents and return result
@@ -51,7 +50,6 @@ export default class MumpsReferenceProvider {
 		}
 	}
 	getallLabelReferences(result: vscode.Location[], searchToken: string, searchType: TokenType): Promise<vscode.Location[]> {
-		//result.push(new vscode.Location(vscode.Uri.file("X://AAFA02.m"), new vscode.Position(1, 1)));
 		return new Promise(resolve => {
 			vscode.workspace.findFiles('*.m').then((files) => {
 				const filesToCheck = files.length;

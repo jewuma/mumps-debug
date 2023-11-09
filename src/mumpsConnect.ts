@@ -589,7 +589,7 @@ export function convertMumpsPosition(positionstring: string, showNotFound?: bool
 		try {
 			const filecontent = readFileSync(file).toString().split('\n');
 			const startlabel = position.split("+")[0];
-			const labelRegexp = new RegExp("^" + startlabel + "[(\\s;]");
+			const labelRegexp = new RegExp("^" + startlabel + "([(\\s;]|$)");
 			let offset = 0;
 			if (position.split("+")[1] !== undefined) {
 				offset = parseInt(position.split("+")[1]);

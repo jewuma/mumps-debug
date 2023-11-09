@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 /* eslint-disable no-prototype-builtins */
 import fs = require('fs');
-interface ErrorInformation {
+export type ErrorInformation = {
 	text: string,
 	position: number,
 	line?: number,
@@ -11,8 +11,8 @@ interface ErrorInformation {
 	indirectionFound?: boolean
 }
 export enum TokenType {
-	global, local, exfunction, nonMfunction, entryref, operator, keyword, ifunction, label, comment, sysvariable,
-	string, number, intendation, argPostcondition
+	global, local, exfunction, nonMfunction, entryref, operator, keyword, ifunction,
+	label, comment, sysvariable, string, number, intendation, argPostcondition
 }
 export interface LineToken {
 	type: TokenType,
@@ -71,7 +71,6 @@ const nonMfunction = /^\$&([A-Za-z%0-9][A-Za-z0-9]*\.)?([A-Za-z%0-9][A-Za-z0-9]*
 export const entryref = /^(&[A-Za-z0-9]*\.?)?@?([A-Za-z%0-9][A-Za-z0-9]*)?(\^@?[A-Za-z%][A-Za-z0-9]*)?/
 const routineref = /^\^@?[A-Za-z%][A-Za-z0-9]*/
 const numlit = /^(\d*\.?\d*(E-?\d+)?)/
-//const strlit = /^"([^"]*("")*)*"/
 const strlit = /^"(""|[^"])*"/
 const command = /^[B|BREAK|C|CLOSE|D|DO|E|ELSE|F|FOR|G|GOTO|H|HALT|HANG|I|IF|J|JOB|K|KILL|L|LOCK|M|MERGE|N|NEW|O|OPEN|Q|QUIT|R|READ|S|SET|U|USE|V|VIEW|W|WRITE|X|XECUTE|ZA|ZALLOCATE|ZBR|ZBREAK|ZC|ZCONTINUE|ZD|ZDEALLOCATE|ZE|ZEDIT|ZG|ZGOTO|ZHALT|ZH|ZHELP|ZK|ZKILL|ZL|ZLINK|ZM|ZMESSAGE|ZP|ZPRINT|ZRUPDATE|ZSH|ZSHOW|ZST|ZSTEP|ZSY|ZSYSTEM|ZTC|ZTCOMMIT|ZTR|ZTRIGGER|ZTS|ZTSTART|ZWI|ZWITHDRAW|ZWR|ZWRITE]/i
 const binoperator = /^('=|'>|'<|<=|>=|'&|'!|'\?|'\[|'\]|\*\*|\+|-|\*|\/|\\|#|'|&|!|_|<|>|=|\[|\]\]|\]|\?|@)/
@@ -625,9 +624,6 @@ class MumpsLineParser {
 			}
 			this._tokens.push({ name: ".".repeat(parsed.lineIndentationArray.length), type: TokenType.intendation, position });
 		}
-		if (parsed.lineComment) {
-			this._tokens.push({ name: parsed.lineComment.comment, position: parsed.lineComment.position, type: TokenType.comment });
-		}
 		let result: ErrorInformation = { text: '', position: 0 }
 		if (parsed.lineRoutines) {
 			for (let i = 0; i < parsed.lineRoutines.length; i++) {
@@ -671,6 +667,9 @@ class MumpsLineParser {
 				}
 			}
 		}
+		if (parsed.lineComment) {
+			this._tokens.push({ name: parsed.lineComment.comment, position: parsed.lineComment.position, type: TokenType.comment });
+		}
 		return result;
 	}
 	public analyzeLine(line: string): LineInformation {
@@ -679,26 +678,17 @@ class MumpsLineParser {
 		const errInfo = this.checkLine(line);
 		return { error: errInfo, tokens: this._tokens }
 	}
-	public analyzeLines(input: string): Array<Array<LineToken>> {
+	public analyzeLines(input: string): [LineToken[][], ErrorInformation[]] {
 		const lines = input.split('\n');
+		const errors: ErrorInformation[] = [];
 		const linetokens: Array<Array<LineToken>> = [];
 		for (let i = 0; i < lines.length; i++) {
 			lines[i] = lines[i].replace(/\r/g, '');
-			this.checkLine(lines[i]);
+			errors[i] = this.checkLine(lines[i]);
 			linetokens[i] = this._tokens;
 		}
-		return linetokens;
+		return [linetokens, errors];
 	}
-	/*
-	public constructLine(inputObject: LineObject): string {
-		let line: string = "";
-		line = renderer.appendLabel(inputObject, line);
-		line = renderer.appendIndentation(inputObject, line);
-		line = renderer.appendRoutines(inputObject, line);
-		line = renderer.appendComment(inputObject, line);
-		return line;
-	}
-	*/
 	public expandCompressFile(filename: string, doExpand: boolean): string {
 		if (doExpand === undefined) { doExpand = false; }
 		let content: string;

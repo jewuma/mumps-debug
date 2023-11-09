@@ -1,11 +1,10 @@
 {
 	"name": "mumps-debug",
 	"displayName": "Mumps Language-Pack",
-	"version": "1.3.0",
+	"version": "1.3.1",
 	"publisher": "jewuma",
 	"description": "Debugger for Mumps (M) , GT.M, YottaDB",
 	"author": {
-
 		"name": "Jens Wulf",
 		"email": "jewu34@web.de"
 	},
@@ -34,7 +33,7 @@
 		"url": "https://github.com/jewuma/mumps-debug/issues"
 	},
 	"scripts": {
-		"prepare": "tsc -p ./src",
+		"test": "mocha --require ts-node/register src/**/*.test.ts",
 		"compile": "tsc -p ./src",
 		"eslint": "npx eslint ./src/**/*.ts",
 		"ts-loader": "^6.2.2",
@@ -51,6 +50,7 @@
 		"ts-loader": "^9.4.4"
 	},
 	"devDependencies": {
+		"@types/mocha": "^10.0.4",
 		"@types/node": "^18.18.0",
 		"@types/vscode": "^1.82.0",
 		"@typescript-eslint/eslint-plugin": "^6.8.0",
@@ -75,7 +75,8 @@
 			{
 				"command": "mumps.documentFunction",
 				"title": "Creates comment for M subroutine"
-			},{
+			},
+			{
 				"command": "mumps.Globals.loadMore",
 				"title": "Show More"
 			},
@@ -113,7 +114,8 @@
 					"when": "mumps.showGlobals"
 				}
 			]
-		},		"menus": {
+		},
+		"menus": {
 			"commandPalette": [
 				{
 					"command": "mumps.Globals.refresh"

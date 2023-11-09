@@ -75,3 +75,5 @@
 * Code optimization, added global-viewer
 ## 1.3.0
 * Added routine-sorter for sorting subroutines
+## 1.3.1
+* Code clean and added advanced folding-provider

@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { MumpsLineParser, LabelInformation, LineObject, entryref } from './mumpsLineParser';
-import fs = require('fs');
+import * as fs from 'fs'
 
 enum LineStatus {
 	noJumplabel, jumplabel

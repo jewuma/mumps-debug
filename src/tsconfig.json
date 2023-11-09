@@ -12,6 +12,6 @@
 		"preserveConstEnums": true,
 		"strictNullChecks": true,
 		"noUnusedParameters": false,
-		"resolveJsonModule": true
+		"resolveJsonModule": true,
 	}
 }

@@ -3,22 +3,23 @@
 import * as vscode from 'vscode';
 import { autoSpaceEnter, autoSpaceTab } from './mumpsAutospace';
 import { MumpsHighlighter, SemanticTokens } from './mumpsHighlighter';
+import CompletionItemProvider from './mumpsCompletionItemProvider';
+import expandCompress from './mumpsCompExp';
 import MumpsConfigurationProvider from './mumpsConfigurationProvider';
 import MumpsDebugSession from './mumpsDebug';
+import MumpsDiagnosticsProvider from './mumpsDiagnosticsProvider';
+import MumpsDocumenter from './mumpsDocumenter';
 import MumpsDocumentSymbolProvider from './mumpsDocumentSymbolProvider';
 import MumpsDefinitionProvider from './mumpsDefinitionProvider';
 import MumpsEvalutableExpressionProvider from './mumpsEvalutableExpressionProvider';
-import MumpsFormattingHelpProvider from './mumpsFormattingHelpProvider';
+import MumpsFoldingProvider from './mumpsFoldingProvider';
+import { MumpsGlobalProvider, GlobalNode } from './mumpsGlobalProvider';
 import MumpsHoverProvider from './mumpsHoverProvider';
+import MumpsFormattingHelpProvider from './mumpsFormattingHelpProvider';
 import MumpsReferenceProvider from './mumpsReferenceProvider';
 import MumpsSignatureHelpProvider from './mumpsSignatureHelpProvider';
-import MumpsDocumenter from './mumpsDocumenter';
-import CompletionItemProvider from './mumpsCompletionItemProvider';
-import expandCompress from './mumpsCompExp';
-import MumpsDiagnosticsProvider from './mumpsDiagnosticsProvider';
 import MumpsRoutineSorter from './mumpsRoutineSorter';
-import { MumpsGlobalProvider, GlobalNode } from './mumpsGlobalProvider';
-import fs = require('fs');
+import * as fs from 'fs'
 let timeout: ReturnType<typeof setTimeout> | undefined;
 const entryRef: string | undefined = "";
 let dbFile = "";
@@ -26,7 +27,6 @@ let localRoutinesPath = "";
 const globalDirectoryProvider = MumpsGlobalProvider.getInstance();
 export async function activate(context: vscode.ExtensionContext) {
 	const MUMPS_MODE: vscode.DocumentFilter = { language: 'mumps', scheme: 'file' };
-	// register a configuration provider for 'mumps' debug type
 	const mumpsDiagnostics = vscode.languages.createDiagnosticCollection("mumps");
 	let storage = "";
 	if (context.storageUri !== undefined) {
@@ -50,12 +50,6 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand('mumps.Globals.search', (node: GlobalNode) => globalDirectoryProvider.search(node)),
 		vscode.debug.registerDebugConfigurationProvider('mumps', new MumpsConfigurationProvider()),
 		vscode.debug.registerDebugAdapterDescriptorFactory('mumps', new InlineDebugAdapterFactory()),
-		vscode.debug.onDidStartDebugSession((session) => {
-			// Check if it's a MUMPS debug session
-			if (session.type === 'mumps') {
-				//globalDirectoryProvider.showView(); // Show the Global Directory view
-			}
-		}),
 		vscode.languages.registerHoverProvider(MUMPS_MODE, new MumpsHoverProvider()),
 		vscode.languages.registerDefinitionProvider(MUMPS_MODE, new MumpsDefinitionProvider()),
 		vscode.languages.registerEvaluatableExpressionProvider(MUMPS_MODE, new MumpsEvalutableExpressionProvider()),
@@ -65,6 +59,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.languages.registerDocumentFormattingEditProvider(MUMPS_MODE, new MumpsFormattingHelpProvider()),
 		vscode.languages.registerDocumentRangeFormattingEditProvider(MUMPS_MODE, new MumpsFormattingHelpProvider()),
 		vscode.languages.registerReferenceProvider(MUMPS_MODE, new MumpsReferenceProvider()),
+		vscode.languages.registerFoldingRangeProvider(MUMPS_MODE, new MumpsFoldingProvider()),
 		vscode.window.registerTreeDataProvider('mumpsGlobals', MumpsGlobalProvider.getInstance()),
 		vscode.window.onDidChangeActiveTextEditor(editor => { if (editor) { triggerUpdateDiagnostics(editor.document, mumpsDiagnostics) } }),
 		vscode.workspace.onDidChangeTextDocument(editor => { if (editor) { triggerUpdateDiagnostics(editor.document, mumpsDiagnostics) } }),

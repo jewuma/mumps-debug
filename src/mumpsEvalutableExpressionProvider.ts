@@ -2,16 +2,6 @@ import * as vscode from 'vscode';
 
 export default class MumpsEvalutableExpressionProvider {
 	provideEvaluatableExpression(document: vscode.TextDocument, position: vscode.Position): vscode.ProviderResult<vscode.EvaluatableExpression> {
-		/*
-		const diags: readonly vscode.Diagnostic[] | undefined = mumpsDiagnostics.get(document.uri);
-		//If Position is inside Error-marked Area then no Check for Variables is performed
-		if (diags) {
-			const found = diags.find(diag => diag.range.contains(position))
-			if (found) {
-				return undefined;
-			}
-		}
-		*/
 		const lineContent = document.lineAt(position.line).text;
 		if (lineContent.charAt(position.character) === ")") {
 			return this.getExpression(position.line, lineContent.substring(0, position.character))
@@ -25,7 +15,6 @@ export default class MumpsEvalutableExpressionProvider {
 			let start = result.index;
 			start += result[0].length - result[2].length; // ignore first part of expression
 			const end = start + result[2].length - 1;
-
 			if (start <= position.character && end >= position.character) {
 				return new vscode.EvaluatableExpression(new vscode.Range(position.line, start, position.line, end), result[2]);
 			}

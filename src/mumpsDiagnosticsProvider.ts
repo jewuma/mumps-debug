@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
-import { LineToken, TokenType, MumpsLineParser, LineInformation } from './mumpsLineParser'
+import { LineToken, TokenType, ErrorInformation } from './mumpsLineParser'
+import MumpsParseDb from './mumpsParseDb';
 import { convertMumpsPosition } from './mumpsConnect';
 
 interface Parameter {
@@ -41,6 +42,7 @@ const symbols: vscode.SymbolInformation[] = [];
  */
 export default class MumpsDiagnosticsProvider {
 	private _linetokens: LineToken[][] = [];
+	private _errorInformation: ErrorInformation[] = []
 	private _diags: vscode.Diagnostic[] = [];
 	private _variablesToBeIgnored: string[] = [];
 	private _enableVariableCheck = true;
@@ -55,31 +57,31 @@ export default class MumpsDiagnosticsProvider {
 	private _isBehindQuit: QuitState[] = [];
 	private _startUnreachable: vscode.Position | false = false;
 	private _activeSubroutine: GeneralSubroutine = { name: '', startLine: -1, endLine: -1 }
-	private _parser = new MumpsLineParser();
 	constructor(document: vscode.TextDocument, collection: vscode.DiagnosticCollection) {
-		this._document = document;
-		this._diags = [];
-		this._linetokens = [];
-		for (let i = 0; i < 32; i++) { this._isBehindQuit.push(QuitState.noQuit) }
-		const configuration = vscode.workspace.getConfiguration();
-		if (configuration.mumps.variablesToBeIgnoredAtNewCheck !== undefined) {
-			this._variablesToBeIgnored = configuration.mumps.variablesToBeIgnoredAtNewCheck.split(",");
-		}
-		if (configuration.mumps.enableVariableCheck !== undefined) {
-			this._enableVariableCheck = configuration.mumps.enableVariableCheck;
-		}
 		if (document && document.languageId === 'mumps') {
+			const parseDb = MumpsParseDb.getInstance(document)
+			this._linetokens = parseDb.getDocumentTokens()
+			this._errorInformation = parseDb.getDocumentErrors()
+			this._document = document;
+			this._diags = [];
+			for (let i = 0; i < 32; i++) { this._isBehindQuit.push(QuitState.noQuit) }
+			const configuration = vscode.workspace.getConfiguration();
+			if (configuration.mumps.variablesToBeIgnoredAtNewCheck !== undefined) {
+				this._variablesToBeIgnored = configuration.mumps.variablesToBeIgnoredAtNewCheck.split(",");
+			}
+			if (configuration.mumps.enableVariableCheck !== undefined) {
+				this._enableVariableCheck = configuration.mumps.enableVariableCheck;
+			}
 			collection.delete(document.uri);
 			collection.clear();
 			this._generateLabelTable(document);
 			for (let i = 0; i < document.lineCount; i++) {
-				const line = document.lineAt(i);
-				const lineInfo: LineInformation = this._parser.analyzeLine(line.text);
-				if (lineInfo.error.text !== '') {
-					this._addWarning(lineInfo.error.text, i, lineInfo.error.position, -1, vscode.DiagnosticSeverity.Error)
+				const tokens = this._linetokens[i]
+				const errorInformation = this._errorInformation[i]
+				if (errorInformation.text !== '') {
+					this._addWarning(errorInformation.text, i, errorInformation.position, -1, vscode.DiagnosticSeverity.Error)
 				}
-				this._linetokens.push(lineInfo.tokens);
-				this._checkLine(i, lineInfo.tokens);
+				this._checkLine(i, tokens);
 			}
 			if (this._activeSubroutine.startLine > -1) {
 				this._addSymbol(this._activeSubroutine.name, this._activeSubroutine.startLine, this._linetokens.length);
@@ -403,7 +405,6 @@ export default class MumpsDiagnosticsProvider {
 			if (token.type === TokenType.entryref || token.type === TokenType.exfunction) {
 				if (!this._labelExists(token.name)) this._addWarning("Entry-Reference not found", line, token.position, token.name.length, vscode.DiagnosticSeverity.Warning);
 			}
-			//this._addWarning("Entry-Reference or System-Variable found", line, token.position, token.name.length);
 		}
 	}
 	private _checkUnreachable(line: number, token: LineToken) {
@@ -434,14 +435,14 @@ export default class MumpsDiagnosticsProvider {
 	private _generateLabelTable(document: vscode.TextDocument) {
 		this._labelTable = {};
 		for (let i = 0; i < document.lineCount; i++) {
-			const line = document.lineAt(i);
-			const lineInfo: LineInformation = this._parser.analyzeLine(line.text);
-			if (lineInfo.tokens.length > 0 && lineInfo.tokens[0].type === TokenType.label) {
-				this._labelTable[lineInfo.tokens[0].name] = i;
+			const lineTokens = this._linetokens[i]
+			if (lineTokens.length > 0 && lineTokens[0].type === TokenType.label) {
+				this._labelTable[lineTokens[0].name] = i;
 			}
 		}
 	}
 	private _labelExists(name: string): boolean {
+		if (name.startsWith("$$")) name = name.substring(2)
 		if (name.indexOf("^") > -1) {
 			const filePosition = convertMumpsPosition(name, false);
 			if (filePosition.file !== "") {
