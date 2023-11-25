@@ -1,13 +1,12 @@
 import * as vscode from 'vscode';
 import { MumpsLineParser, LabelInformation } from './mumpsLineParser'
-const parser = new MumpsLineParser();
 
 export default class MumpsDocumentSymbolProvider implements vscode.DocumentSymbolProvider {
-
+	/*eslint class-methods-use-this: 0*/
 	public provideDocumentSymbols(document: vscode.TextDocument): Promise<vscode.SymbolInformation[]> {
 		return new Promise(resolve => {
 
-			const labels: LabelInformation[] = parser.getLabels(document.getText());
+			const labels: LabelInformation[] = MumpsLineParser.getLabels(document.getText());
 			const symbols: vscode.SymbolInformation[] = [];
 
 			for (let i = 0; i < labels.length; i++) {

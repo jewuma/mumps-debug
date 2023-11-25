@@ -63,9 +63,10 @@ export class MumpsGlobalProvider implements vscode.TreeDataProvider<GlobalNode> 
 		}
 		MumpsGlobalProvider.refresh();
 	}
-	setMconnect(mconnect: MumpsConnect) {
+	static setMconnect(mconnect: MumpsConnect) {
 		MumpsGlobalProvider._mconnect = mconnect
 	}
+	/*eslint class-methods-use-this: 0*/
 	getTreeItem(element: GlobalNode): vscode.TreeItem {
 		return element;
 	}

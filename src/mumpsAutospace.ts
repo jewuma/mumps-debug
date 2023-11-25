@@ -1,12 +1,11 @@
 import * as vscode from 'vscode';
 import { LineObject, MumpsLineParser } from './mumpsLineParser';
-const parser = new MumpsLineParser()
 async function autoSpaceEnter() {
 	const editor = vscode.window.activeTextEditor
 	if (editor) {
 		const pos = editor.selection.active
 		const currentLine = editor.document.lineAt(pos.line).text;
-		const parsedLine = parser.parseLine(currentLine);
+		const parsedLine = MumpsLineParser.parseLine(currentLine);
 		let newLine = '';
 		if (pos.character !== 0) {
 			//check for removing a trailing .
@@ -54,7 +53,7 @@ async function autoSpaceTab() {
 	if (editor) {
 		const pos = editor.selection.active
 		const currentLine = editor.document.lineAt(pos.line).text;
-		const parsed = parser.parseLine(currentLine);
+		const parsed = MumpsLineParser.parseLine(currentLine);
 		if ((parsed.lineRoutines === undefined || parsed.lineRoutines.length === 0) &&
 			currentLine.indexOf(";") === -1 && parsed.lineIndentationArray !== undefined &&
 			parsed.lineIndentationArray.length > 0) {

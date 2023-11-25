@@ -33,7 +33,6 @@ export default class CompletionItemProvider {
 	private _filesToCheck: number;
 	private _dbfile: string;
 	private _document: vscode.TextDocument;
-	private _parser = new MumpsLineParser();
 	constructor(labeldb: string) {
 		this._labelsReady = false;
 		this._dbfile = labeldb;
@@ -42,7 +41,7 @@ export default class CompletionItemProvider {
 	provideCompletionItems(document: vscode.TextDocument, position: vscode.Position) {
 		this._document = document;
 		const line = document.getText(new vscode.Range(new vscode.Position(position.line, 0), position))
-		const parsed = this._parser.parseLine(line);
+		const parsed = MumpsLineParser.parseLine(line);
 		const status = getLineStatus(parsed, position.character);
 		this._refreshLocalLabels(document);
 		let completionItems: Array<vscode.CompletionItem> = [];
@@ -186,7 +185,7 @@ export default class CompletionItemProvider {
 	private _findLabel(startstring: string, list: Array<vscode.CompletionItem>, replaceRange: vscode.Range) {
 		//let hits = 0;
 		let hitlist: LabelItem[] = [];
-		const localLabels: LabelInformation[] = this._parser.getLabels(this._document.getText());
+		const localLabels: LabelInformation[] = MumpsLineParser.getLabels(this._document.getText());
 		let sortText = '';
 		if (startstring.charAt(0) === '^') {
 			const suchstring = startstring.substring(1);

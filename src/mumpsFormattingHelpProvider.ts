@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 export default class MumpsFormattingHelpProvider {
+	/*eslint class-methods-use-this: 0*/
 	provideDocumentFormattingEdits(document: vscode.TextDocument) {
 		const textEdits: vscode.TextEdit[] = []
 		for (let i = 0; i < document.lineCount; i++) {
@@ -8,7 +9,7 @@ export default class MumpsFormattingHelpProvider {
 		}
 		return textEdits;
 	}
-	provideDocumentRangeFormattingEdits(document, range) {
+	provideDocumentRangeFormattingEdits(document: vscode.TextDocument, range: vscode.Range) {
 		const textEdits: vscode.TextEdit[] = []
 		for (let i = range.start.line; i <= range.end.line; i++) {
 			const line = document.lineAt(i).text;

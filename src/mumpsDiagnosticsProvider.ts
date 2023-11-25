@@ -41,6 +41,7 @@ const symbols: vscode.SymbolInformation[] = [];
  *
  */
 export default class MumpsDiagnosticsProvider {
+	private _parseDb: MumpsParseDb
 	private _linetokens: LineToken[][] = [];
 	private _errorInformation: ErrorInformation[] = []
 	private _diags: vscode.Diagnostic[] = [];
@@ -59,9 +60,9 @@ export default class MumpsDiagnosticsProvider {
 	private _activeSubroutine: GeneralSubroutine = { name: '', startLine: -1, endLine: -1 }
 	constructor(document: vscode.TextDocument, collection: vscode.DiagnosticCollection) {
 		if (document && document.languageId === 'mumps') {
-			const parseDb = MumpsParseDb.getInstance(document)
-			this._linetokens = parseDb.getDocumentTokens()
-			this._errorInformation = parseDb.getDocumentErrors()
+			this._parseDb = MumpsParseDb.getInstance(document)
+			this._linetokens = this._parseDb.getDocumentTokens()
+			this._errorInformation = this._parseDb.getDocumentErrors()
 			this._document = document;
 			this._diags = [];
 			for (let i = 0; i < 32; i++) { this._isBehindQuit.push(QuitState.noQuit) }
@@ -100,6 +101,7 @@ export default class MumpsDiagnosticsProvider {
 	 * @param routine subroutine to be checked
 	 */
 	public analyzeSubroutine(routine: Subroutine): void {
+		let code: string = "";
 		if (this._enableVariableCheck) {
 			this._varStates = {} as VariableStates;
 			this._levelExclusiveNew = [];
@@ -109,6 +111,7 @@ export default class MumpsDiagnosticsProvider {
 			}
 			for (let i = routine.startLine; i <= routine.endLine; i++) {
 				let intendationFound = false;
+				const line = this._parseDb.getLine(i)
 				for (let j = 0; j < this._linetokens[i].length; j++) {
 					let token = this._linetokens[i][j];
 					if (i === routine.startLine && j === 0) { // skip parameters
@@ -140,6 +143,17 @@ export default class MumpsDiagnosticsProvider {
 						if (token.longName === "NEW") {
 							let anyVariablesNewed = false;
 							let containsExclusions = false;
+							//exclude postcondition
+							while (++j < this._linetokens[i].length) {
+								const token = this._linetokens[i][j]
+								const position = token.position
+								if (line[position - 1] === " ") {
+									--j
+									break;
+								} else if (token.type === TokenType.local) {
+									this._checkNewed(token.name, level, i, token.position)
+								}
+							}
 							while (++j < this._linetokens[i].length &&
 								(this._linetokens[i][j].type === TokenType.local ||
 									this._linetokens[i][j].type === TokenType.sysvariable)) {
@@ -159,6 +173,7 @@ export default class MumpsDiagnosticsProvider {
 										} else {
 											if (level === 0) { //NEW inside higher intendation-level should be possible
 												message = "NEW hides formal parameter " + varName;
+												code = "NewHidesParam:" + varName;
 											}
 										}
 									} else {
@@ -169,6 +184,7 @@ export default class MumpsDiagnosticsProvider {
 										} else {
 											if (varState.newedAtLevel.indexOf(level) > -1) {
 												message = "Variable " + varName + " already mentioned in NEW command"
+												code = "VarAlreadyNewed:" + varName
 											} else {
 												varState.newedAtLevel.push(level);
 												// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
@@ -179,7 +195,7 @@ export default class MumpsDiagnosticsProvider {
 										}
 									}
 									if (message !== "") {
-										this._addWarning(message, i, token.position, token.name.length);
+										this._addWarning(message, i, token.position, token.name.length, vscode.DiagnosticSeverity.Warning, code);
 									}
 									this._varStates[varName] = varState;
 								}
@@ -194,7 +210,9 @@ export default class MumpsDiagnosticsProvider {
 							if (routine.parameters.length > 0 && containsExclusions && level === 0) {
 								for (let k = 0; k < routine.parameters.length; k++) {
 									if (!this._varStates[routine.parameters[k].name].isExcluded) {
-										this._addWarning("NEW hides formal parameters", i, token.position, token.name.length);
+										this._addWarning("NEW hides formal parameters", i, token.position, token.name.length,
+											vscode.DiagnosticSeverity.Warning,
+											"NewHidesParam:" + this._varStates[routine.parameters[k].name]);
 										break;
 									}
 								}
@@ -220,12 +238,17 @@ export default class MumpsDiagnosticsProvider {
 			if (state.isParameter && !state.isUsed && !this._isIgnoredVariable(key)) {
 				this._addWarning("Variable " + key + " is a formal parameter but not used", routine.startLine,
 					state.parameterPosition,
-					key.length);
+					key.length,
+					vscode.DiagnosticSeverity.Warning,
+					"FormalNotUsed:" + key);
 			} else if (state.newedAtLine && state.newedAtLine.length > 0 && !state.isUsed && !this._isIgnoredVariable(key)) {
 				this._addWarning("Variable " + key + " is NEWed but not used",
 					state.newedAtLine[0],
 					state.newedAtPostion[0],
-					key.length);
+					key.length,
+					vscode.DiagnosticSeverity.Warning,
+					"NewedButNotUsed:" + key
+				);
 			}
 		}
 	}
@@ -264,7 +287,9 @@ export default class MumpsDiagnosticsProvider {
 				}
 			}
 			if (!isNewed) {
-				this._addWarning("Variable " + varName + " not NEWed", line, position, varName.length);
+				this._addWarning("Variable " + varName + " not NEWed", line, position, varName.length,
+					vscode.DiagnosticSeverity.Warning,
+					"VarNotNewed:" + varName);
 			}
 		}
 		if (varState) {
@@ -281,7 +306,7 @@ export default class MumpsDiagnosticsProvider {
 	 * @param startPosition Position inside Line where the problem was found
 	 * @param len Length of variable-name
 	 */
-	private _addWarning(message: string, line: number, startPosition: number, len: number, severity?) {
+	private _addWarning(message: string, line: number, startPosition: number, len: number, severity?, code?: string) {
 		if (severity === undefined) {
 			severity = vscode.DiagnosticSeverity.Warning;
 		}
@@ -292,7 +317,7 @@ export default class MumpsDiagnosticsProvider {
 			endPosition = 0;
 		}
 		this._diags.push({
-			code: '',
+			code,
 			message,
 			range: new vscode.Range(new vscode.Position(line, startPosition), new vscode.Position(endline, endPosition)),
 			severity,
@@ -304,7 +329,8 @@ export default class MumpsDiagnosticsProvider {
 		let intendationFound = false;
 		if (tokens.length === 0) { //empty line = intendation 0 is it OK?
 			if (line === this._lineWithDo + 1) {
-				this._addWarning("Expected intendation level: " + (this._level + 1) + ", found: 0", line, 0, 1);
+				this._addWarning("Expected intendation level: " + (this._level + 1) + ", found: 0", line, 0, 1, vscode.DiagnosticSeverity.Warning,
+					"ExpectedIntendation:" + (this._level + 1));
 				this._lineWithDo = -2;
 			}
 			this._level = 0;
@@ -341,7 +367,9 @@ export default class MumpsDiagnosticsProvider {
 			if (token.type === TokenType.keyword || token.type === TokenType.comment) { //Check intendation level
 				if (intendationFound === false) {
 					if (line === this._lineWithDo + 1) {
-						this._addWarning("Expected intendation level: " + (this._level + 1) + ", found: " + this._level, line, 0, token.position);
+						this._addWarning("Expected intendation level: " + (this._level + 1) + ", found: " + this._level,
+							line, 0, token.position, vscode.DiagnosticSeverity.Warning,
+							"ExpectedIntendation:" + (this._level + 1));
 						this._lineWithDo = -2;
 					}
 					this._level = 0;
@@ -364,7 +392,8 @@ export default class MumpsDiagnosticsProvider {
 						for (let k = tokenId + 1; k < tokens.length; k++) {
 							if (tokens[k].type === TokenType.entryref) {
 								if (!this._labelExists(tokens[k].name))  // && !/^\+\d+$/.test(tokens[k].name))
-									this._addWarning("Entry-Reference not found", line, tokens[k].position, tokens[k].name.length, vscode.DiagnosticSeverity.Warning);
+									this._addWarning("Entry-Reference not found",
+										line, tokens[k].position, tokens[k].name.length, vscode.DiagnosticSeverity.Warning);
 							}
 							if (tokens[k].type === TokenType.argPostcondition) {
 								hasPostcondition = true;
@@ -395,10 +424,12 @@ export default class MumpsDiagnosticsProvider {
 				this._checkUnreachable(line, token)
 				intendationFound = true;
 				if (this._level > expectedLevel) {
-					this._addWarning("Intendation Level wrong, found: " + this._level + ", expected: " + expectedLevel, line, 0, token.position);
+					this._addWarning("Intendation Level wrong, found: " + this._level + ", expected: " + expectedLevel,
+						line, 0, token.position, vscode.DiagnosticSeverity.Warning, "ExpectedIntendation:" + expectedLevel);
 				}
 				if (line === this._lineWithDo + 1 && this._level < expectedLevel) {
-					this._addWarning("Higher intendation expected after argumentless Do", line, 0, token.position);
+					this._addWarning("Higher intendation expected after argumentless Do", line, 0, token.position,
+						vscode.DiagnosticSeverity.Warning, "ExpectedIntendation:" + expectedLevel);
 				}
 				this._lineWithDo = -2;
 			}
@@ -505,7 +536,8 @@ export default class MumpsDiagnosticsProvider {
 					this._addWarning("Variable " + key + " is NEWed but not used",
 						memLine,
 						memPosition,
-						key.length);
+						key.length, vscode.DiagnosticSeverity.Warning,
+						"NewedButNotUsed:" + key);
 				}
 			}
 		}

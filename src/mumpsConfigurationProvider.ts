@@ -6,7 +6,7 @@ export default class MumpsConfigurationProvider implements vscode.DebugConfigura
 	 * Message a debug configuration just before a debug session is being launched,
 	 * e.g. add all missing attributes to the debug configuration.
 	*/
-	resolveDebugConfiguration(folder: vscode.WorkspaceFolder | undefined,
+	static resolveDebugConfiguration(folder: vscode.WorkspaceFolder | undefined,
 		config: vscode.DebugConfiguration): vscode.ProviderResult<vscode.DebugConfiguration> {
 
 		// if launch.json is missing or empty

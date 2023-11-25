@@ -19,6 +19,7 @@ import MumpsFormattingHelpProvider from './mumpsFormattingHelpProvider';
 import MumpsReferenceProvider from './mumpsReferenceProvider';
 import MumpsSignatureHelpProvider from './mumpsSignatureHelpProvider';
 import MumpsRoutineSorter from './mumpsRoutineSorter';
+import MumpsCodeActionProvider from './mumpsCodeActionProvider';
 import * as fs from 'fs'
 let timeout: ReturnType<typeof setTimeout> | undefined;
 const entryRef: string | undefined = "";
@@ -60,6 +61,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.languages.registerDocumentRangeFormattingEditProvider(MUMPS_MODE, new MumpsFormattingHelpProvider()),
 		vscode.languages.registerReferenceProvider(MUMPS_MODE, new MumpsReferenceProvider()),
 		vscode.languages.registerFoldingRangeProvider(MUMPS_MODE, new MumpsFoldingProvider()),
+		vscode.languages.registerCodeActionsProvider(MUMPS_MODE, new MumpsCodeActionProvider()),
 		vscode.window.registerTreeDataProvider('mumpsGlobals', MumpsGlobalProvider.getInstance()),
 		vscode.window.onDidChangeActiveTextEditor(editor => { if (editor) { triggerUpdateDiagnostics(editor.document, mumpsDiagnostics) } }),
 		vscode.workspace.onDidChangeTextDocument(editor => { if (editor) { triggerUpdateDiagnostics(editor.document, mumpsDiagnostics) } }),
@@ -72,7 +74,7 @@ export function deactivate() {
 }
 
 class InlineDebugAdapterFactory implements vscode.DebugAdapterDescriptorFactory {
-
+	/*eslint class-methods-use-this: 0*/
 	createDebugAdapterDescriptor(): vscode.ProviderResult<vscode.DebugAdapterDescriptor> {
 		return new vscode.DebugAdapterInlineImplementation(new MumpsDebugSession());
 	}

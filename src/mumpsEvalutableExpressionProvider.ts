@@ -1,10 +1,11 @@
 import * as vscode from 'vscode';
 
 export default class MumpsEvalutableExpressionProvider {
+	/*eslint class-methods-use-this: 0*/
 	provideEvaluatableExpression(document: vscode.TextDocument, position: vscode.Position): vscode.ProviderResult<vscode.EvaluatableExpression> {
 		const lineContent = document.lineAt(position.line).text;
 		if (lineContent.charAt(position.character) === ")") {
-			return this.getExpression(position.line, lineContent.substring(0, position.character))
+			return MumpsEvalutableExpressionProvider.getExpression(position.line, lineContent.substring(0, position.character))
 		}
 		let result: RegExpExecArray | null = null;
 		const expression = /([ (.,+\-*_:=])([\^$]?%?[a-zA-Z][a-zA-Z\d]*)/g;
@@ -22,7 +23,7 @@ export default class MumpsEvalutableExpressionProvider {
 
 		return undefined;
 	}
-	getExpression(line: number, content: string): vscode.EvaluatableExpression | undefined {
+	static getExpression(line: number, content: string): vscode.EvaluatableExpression | undefined {
 		let isInsideString = false;
 		for (let i = 0; i < content.length; i++) {
 			if (content.charAt(i) === '"') {

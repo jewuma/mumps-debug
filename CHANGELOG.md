@@ -77,3 +77,5 @@
 * Added routine-sorter for sorting subroutines
 ## 1.3.1
 * Code clean and added advanced folding-provider
+## 1.4.0
+* Added Code-Actions to help NEWing variables

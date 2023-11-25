@@ -66,7 +66,7 @@ const label = /^[A-Za-z%][A-Za-z0-9]*(\([A-Za-z%][A-Za-z0-9]*(,[A-Za-z%][A-Za-z0
 const lvn = /^[A-Za-z%][A-Za-z0-9]*/
 const gvn = /^\^[A-Za-z%][A-Za-z0-9]*/
 const isv = /^\$(DEVICE|ECODE|EC|ESTACK|ES|ETRAP|ET|HALT|HOROLOG|H|IO|I|JOB|J|KEY|K|NAMESPACE|PRINCIPAL|P|QUIT|Q|REFERENCE|R|STACK|ST|STORAGE|S|SYSTEM|TEST|THIS|TLEVEL|TL|T|USERNAME|X|Y|ZALLOCSTOR|ZA|ZB|ZCHSET|ZCLOSE|ZCMDLINE|ZCM|ZCOMPILE|ZCO|ZCSTATUS|ZCH[A-Z]*|ZC|ZDATEFORM|ZDA|ZDIRECTORY|ZD|ZEDITOR|ZED|ZEOF|ZEO|ZE[A-Z]*|ZGBLDIR|ZG|ZHRORLOG|ZH|ZININTERRUPT|ZINI|ZINTERRUPT|ZINT|ZIO|ZJOB|ZJ|ZKEY|ZLEVEL|ZL|ZMAXTPTIME|ZMAXTPTI|ZMODE|ZMO|ZONLNRLBK|ZPATNUMERIC|ZPATN|ZPIN|ZPOSITION|ZPOS|ZPOUT|ZPROMPT|ZQUIT|ZREALSTOR|ZRELDATE|ZRO[A-Z]*|ZSOURCE|ZSO|ZSTA[A-Z]*|ZSTEP|ZSTRP|ZSTRPLLIM|ZST|ZSYSTEM|ZSY|ZS|ZTEXIT|ZTE|ZTIMEOUT|ZTIM|ZTRAP|ZT|ZUSEDSTOR|ZUT|ZVERSION|ZV[A-Z]*|ZYERROR|ZYRELEASE|ZTDATA|ZTDELIM|ZTLEVEL|ZTNAME|ZTOLDVAL|ZTRIGGEROP|ZTSLATE|ZTUPDATE|ZTVALUE|ZTWORMHOLE)/i
-const ifunction = /^\$(ASCII|A|CHAR|C|DATA|D|EXTRACT|E|FIND|F|FNUMBER|FN|GET|G|INCREMENT|INCR|I|JUSTIFY|J|LENGTH|L|NAME|NA|NEXT|N|ORDER|O|PIECE|P|QLENGTH|QL|QSUBSCRIPT|QS|QUERY|Q|RANDOM|R|REVERSE|RE|SELECT|S|STACK|ST|TEXT|T|TRANSLATE|TR|VIEW|V|ZAHANDLE|ZAH|ZASCII|ZATRANSFORM|ZAT|ZBITAND|ZBITCOUNT|ZBITFIND|ZBITGET|ZBITLEN|ZBITNOT|ZBITOR|ZBITSET|ZBITSTR|ZBITXOR|ZCHAR|ZCH|ZCOLLATE|ZCONVERT|ZCO|ZDATE|ZDATA|ZD|ZEXTRACT|ZE|ZFIND|ZF|ZGETJPI|ZG|ZINCREMENT|ZINCR|ZJOBEXAM|ZJUSTIFY|ZJ|ZLENGTH|ZL|ZMESSAGE|ZPARSE|ZPEEK|ZPIECE|ZPI|ZPREVIOUS|ZP|ZQGBLMOD|ZSEARCH|ZSIGPROC|ZSOCKET|ZSUBSTR|ZSUB|ZSYSLOG|ZTRANSLATE|ZTRIGGER|ZTRI|ZTRNLNM|ZTR|ZWIDTH|ZWRITE|ZW)(?=\()/i;
+const ifunction = /^\$(ASCII|A|CHAR|C|DATA|D|EXTRACT|E|FIND|F|FNUMBER|FN|GET|G|INCREMENT|INCR|I|JUSTIFY|J|LENGTH|L|NAME|NA|NEXT|N|ORDER|O|PIECE|P|QLENGTH|QL|QSUBSCRIPT|QS|QUERY|Q|RANDOM|R|REVERSE|RE|SELECT|S|STACK|ST|TEXT|T|TRANSLATE|TR|VIEW|V|ZAHANDLE|ZAH|ZASCII|ZATRANSFORM|ZAT|ZBITAND|ZBITCOUNT|ZBITFIND|ZBITGET|ZBITLEN|ZBITNOT|ZBITOR|ZBITSET|ZBITSTR|ZBITXOR|ZCHAR|ZCH|ZCOLLATE|ZCONVERT|ZCO|ZDATE|ZDATA|ZD|ZEXTRACT|ZE|ZFIND|ZF|ZGETJPI|ZG|ZINCREMENT|ZINCR|ZJOBEXAM|ZJUSTIFY|ZJ|ZLENGTH|ZL|ZMESSAGE|ZM|ZPARSE|ZPEEK|ZPIECE|ZPI|ZPREVIOUS|ZP|ZQGBLMOD|ZSEARCH|ZSIGPROC|ZSOCKET|ZSUBSTR|ZSUB|ZSYSLOG|ZTRANSLATE|ZTRIGGER|ZTRI|ZTRNLNM|ZTR|ZWIDTH|ZWRITE|ZW)(?=\()/i;
 const nonMfunction = /^\$&([A-Za-z%0-9][A-Za-z0-9]*\.)?([A-Za-z%0-9][A-Za-z0-9]*)(\^[A-Za-z%][A-Za-z0-9]*)?/
 export const entryref = /^(&[A-Za-z0-9]*\.?)?@?([A-Za-z%0-9][A-Za-z0-9]*)?(\^@?[A-Za-z%][A-Za-z0-9]*)?/
 const routineref = /^\^@?[A-Za-z%][A-Za-z0-9]*/
@@ -610,7 +610,7 @@ class MumpsLineParser {
 	public checkLine(line: string): ErrorInformation {
 		this._tokens = [];
 		this.linePosition = 0;
-		const parsed = this.parseLine(line);
+		const parsed = MumpsLineParser.parseLine(line);
 		if (parsed.lineLabel) {
 			this._splitLabelAndParameters(parsed.lineLabel);
 		}
@@ -678,7 +678,7 @@ class MumpsLineParser {
 		const errInfo = this.checkLine(line);
 		return { error: errInfo, tokens: this._tokens }
 	}
-	public analyzeLines(input: string): [LineToken[][], ErrorInformation[]] {
+	public analyzeLines(input: string): [string[], LineToken[][], ErrorInformation[]] {
 		const lines = input.split('\n');
 		const errors: ErrorInformation[] = [];
 		const linetokens: Array<Array<LineToken>> = [];
@@ -687,7 +687,7 @@ class MumpsLineParser {
 			errors[i] = this.checkLine(lines[i]);
 			linetokens[i] = this._tokens;
 		}
-		return [linetokens, errors];
+		return [lines, linetokens, errors];
 	}
 	public expandCompressFile(filename: string, doExpand: boolean): string {
 		if (doExpand === undefined) { doExpand = false; }
@@ -776,11 +776,11 @@ class MumpsLineParser {
 		outline.lineText = outText;
 		return outline;
 	}
-	public getLabels(text: string): LabelInformation[] {
+	public static getLabels(text: string): LabelInformation[] {
 		const labels: LabelInformation[] = [];
 		const lines = text.split('\n');
 		for (let i = 0; i < lines.length; i++) {
-			const parsed = this.parseLine(lines[i]);
+			const parsed = MumpsLineParser.parseLine(lines[i]);
 			if (parsed.lineLabel) {
 				labels.push({ name: parsed.lineLabel, line: i });
 			}
@@ -1005,7 +1005,7 @@ class MumpsLineParser {
 						result.position++;
 					}
 					braceComplete = false;
-				} while (!this._isEndOfArgument(line, result.position))
+				} while (!MumpsLineParser._isEndOfArgument(line, result.position))
 				if (!braceComplete) {
 					result.text = 'Missing ")" or Keyword';
 					throw result;
@@ -1060,7 +1060,7 @@ class MumpsLineParser {
 		result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
 		return result;
 	}
-	private _checkJobKeyword(line: string, position: number): ErrorInformation {
+	private static _checkJobKeyword(line: string, position: number): ErrorInformation {
 		const result: ErrorInformation = { text: '', position };
 		if (line.substring(result.position).match(jobkeywords)) {
 			const keyword = line.substring(result.position).match(jobkeywords)![0];
@@ -1093,7 +1093,7 @@ class MumpsLineParser {
 				result.position++;
 				let braceComplete = false;
 				do {
-					result = this._checkJobKeyword(line, result.position);
+					result = MumpsLineParser._checkJobKeyword(line, result.position);
 					braceComplete = true;
 					if (line[result.position] === ')') {
 						result.position++;
@@ -1106,14 +1106,14 @@ class MumpsLineParser {
 						result.position++;
 					}
 					braceComplete = false;
-				} while (!this._isEndOfArgument(line, result.position))
+				} while (!MumpsLineParser._isEndOfArgument(line, result.position))
 				if (!braceComplete) {
 					result.text = 'Missing ")" or Keyword';
 					throw result;
 				}
 			} else {
 				if (line[result.position] !== ':') {
-					result = this._checkJobKeyword(line, result.position);
+					result = MumpsLineParser._checkJobKeyword(line, result.position);
 				}
 			}
 		}
@@ -1142,7 +1142,7 @@ class MumpsLineParser {
 					result.position++;
 				}
 				braceComplete = false;
-			} while (!this._isEndOfArgument(line, result.position))
+			} while (!MumpsLineParser._isEndOfArgument(line, result.position))
 			if (!braceComplete) {
 				result.text = 'Missing ")" or Name';
 				throw result;
@@ -1175,7 +1175,7 @@ class MumpsLineParser {
 					result.position++;
 				}
 				braceComplete = false;
-			} while (!this._isEndOfArgument(line, result.position))
+			} while (!MumpsLineParser._isEndOfArgument(line, result.position))
 			if (!braceComplete) {
 				result.text = 'Missing ")" or Name';
 				throw result;
@@ -1229,7 +1229,7 @@ class MumpsLineParser {
 					result.position++;
 				}
 				braceComplete = false;
-			} while (!this._isEndOfArgument(line, result.position))
+			} while (!MumpsLineParser._isEndOfArgument(line, result.position))
 			if (!braceComplete) {
 				result.text = 'Missing ")" or Name';
 				throw result;
@@ -1321,12 +1321,12 @@ class MumpsLineParser {
 				try {
 					const provResult = this._checkVar(line, result.position);
 					result.position = provResult.position;
-					if (this._isEndOfArgument(line, result.position) || line[result.position] === ',') {
+					if (MumpsLineParser._isEndOfArgument(line, result.position) || line[result.position] === ',') {
 						return result;
 					}
 				} catch {
 					result = this._evaluateExpression(expressiontype.Atom, line, ++result.position);
-					if (this._isEndOfArgument(line, result.position) || line[result.position] === ',') {
+					if (MumpsLineParser._isEndOfArgument(line, result.position) || line[result.position] === ',') {
 						return result;
 					}
 				}
@@ -1351,7 +1351,7 @@ class MumpsLineParser {
 				isBraced = false;
 				result.position++;
 			}
-		} while (!this._isEndOfArgument(line, result.position) && isBraced);
+		} while (!MumpsLineParser._isEndOfArgument(line, result.position) && isBraced);
 		if (line[result.position] !== '=') {
 			result.text = 'Equal-Sign expected';
 			throw result;
@@ -1380,7 +1380,7 @@ class MumpsLineParser {
 						result.position++;
 					}
 					braceComplete = false;
-				} while (!this._isEndOfArgument(line, result.position))
+				} while (MumpsLineParser._isEndOfArgument(line, result.position))
 				if (!braceComplete) {
 					result.text = 'Missing ")" or Name';
 					throw result;
@@ -1508,7 +1508,7 @@ class MumpsLineParser {
 					result.position++;
 					break;
 				}
-			} while (!this._isEndOfArgument(line, result.position))
+			} while (!MumpsLineParser._isEndOfArgument(line, result.position))
 			if (!braceComplete) {
 				result.text = 'Missing Parameter or ")"';
 				throw result;
@@ -1908,7 +1908,7 @@ class MumpsLineParser {
 				result.text = 'Unxepected character ';
 				throw result;
 			}
-		} while (!this._isEndOfArgument(line, result.position));
+		} while (!MumpsLineParser._isEndOfArgument(line, result.position));
 
 		return result;
 	}
@@ -2162,7 +2162,7 @@ class MumpsLineParser {
 
 	//Extract M-Commands.
 	//Assumes inputLine has extracted comments/spacing/indentation.
-	private _extractCommands(inputObject: LineObject): LineObject {
+	private static _extractCommands(inputObject: LineObject): LineObject {
 
 		let tmpFunction: TmpFunction;
 		const tmpFunctionArray: Array<TmpFunction> = [];
@@ -2207,7 +2207,7 @@ class MumpsLineParser {
 
 
 		//Extract and output Post Conditionals.
-		const postConditionFunctionArray = this._extractPostConditional(tmpFunctionArray);
+		const postConditionFunctionArray = MumpsLineParser._extractPostConditional(tmpFunctionArray);
 		if (postConditionFunctionArray.length > 0) {
 			inputObject.lineRoutines = postConditionFunctionArray;
 		}
@@ -2215,7 +2215,7 @@ class MumpsLineParser {
 	}
 
 	//Extract Comments.
-	private _extractComment(inputObject: LineObject): LineObject {
+	private static _extractComment(inputObject: LineObject): LineObject {
 		const inputLine = inputObject.lineExpression!;
 		//Semicolon identifies comments.
 		if (inputLine.search(";") >= 0) {
@@ -2238,7 +2238,7 @@ class MumpsLineParser {
 
 	//Extract Indentation.
 	//Assumes inputLine has extracted comments/spacing.
-	private _extractIndentation(inputObject: LineObject): LineObject {
+	private static _extractIndentation(inputObject: LineObject): LineObject {
 
 		const lineIndentationArray: string[] = [];
 		let lineIndentation = 0;
@@ -2269,7 +2269,7 @@ class MumpsLineParser {
 		}
 		return inputObject;
 	}
-	private _extractLabel(inputObject: LineObject): LineObject {
+	private static _extractLabel(inputObject: LineObject): LineObject {
 		inputObject.lineLabel = '';
 		const inputLine = inputObject.lineExpression;
 		inputObject.lineExpression = '';
@@ -2300,7 +2300,7 @@ class MumpsLineParser {
 	}
 
 	//Extracts Post-Conditionals from Routines, used by extractRoutines.
-	private _extractPostConditional(tmpFunctionArray: TmpFunction[]): TmpFunction[] {
+	private static _extractPostConditional(tmpFunctionArray: TmpFunction[]): TmpFunction[] {
 
 		//Assign to new variable to truncate Routines.
 		const tmpObject = tmpFunctionArray;
@@ -2316,7 +2316,7 @@ class MumpsLineParser {
 		return tmpObject;
 	}
 
-	private _isEndOfArgument(line: string, position: number): boolean {
+	private static _isEndOfArgument(line: string, position: number): boolean {
 		let isEndOfArgument = false;
 		const char = line[position];
 		if (char === undefined || char === " " || char === "\t" || char === ";") { isEndOfArgument = true; }
@@ -2327,18 +2327,18 @@ class MumpsLineParser {
  * @param inputString
  * @returns LineObject
  */
-	public parseLine(inputString: string): LineObject {
+	public static parseLine(inputString: string): LineObject {
 
 		let tmpObject: LineObject = { lineExpression: inputString, expressionPosition: 0 };
 
 		//Parsing must be performed sequentially.
-		tmpObject = this._extractLabel(tmpObject);
+		tmpObject = MumpsLineParser._extractLabel(tmpObject);
 		if (tmpObject.errorText) {
 			return tmpObject;
 		}
-		tmpObject = this._extractComment(tmpObject);
-		tmpObject = this._extractIndentation(tmpObject);
-		tmpObject = this._extractCommands(tmpObject);
+		tmpObject = MumpsLineParser._extractComment(tmpObject);
+		tmpObject = MumpsLineParser._extractIndentation(tmpObject);
+		tmpObject = MumpsLineParser._extractCommands(tmpObject);
 
 		//Line Expression is no longer needed.
 		tmpObject.lineExpression = '';
@@ -2346,7 +2346,7 @@ class MumpsLineParser {
 	}
 
 	//Divide commands and arguments into array, used by extractRoutines.
-	private _splitCommandsAndArguments(inputObject: LineObject): LineComand[] {
+	private static _splitCommandsAndArguments(inputObject: LineObject): LineComand[] {
 
 		const lineCommands: LineComand[] = [];
 		let tmpCursor = 0;

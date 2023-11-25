@@ -49,6 +49,7 @@ export default class MumpsReferenceProvider {
 			return Promise.resolve(result);
 		}
 	}
+	/*eslint class-methods-use-this: 0*/
 	getallLabelReferences(result: vscode.Location[], searchToken: string, searchType: TokenType): Promise<vscode.Location[]> {
 		return new Promise(resolve => {
 			vscode.workspace.findFiles('*.m').then((files) => {

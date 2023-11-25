@@ -82,9 +82,9 @@ export class MumpsTokenHelper {
 			return;
 		}
 		const help = new vscode.SignatureHelp();
-		help.signatures = [this.convertDefinition(definition)];
+		help.signatures = [MumpsTokenHelper.convertDefinition(definition)];
 		help.activeSignature = 0;
-		help.activeParameter = this._calculateActiveParameter(line.text, myToken.position + myToken.name.length, this._position.character);
+		help.activeParameter = MumpsTokenHelper._calculateActiveParameter(line.text, myToken.position + myToken.name.length, this._position.character);
 		return help;
 	}
 	public getTokenHoverInfo(): vscode.Hover | undefined {
@@ -112,7 +112,7 @@ export class MumpsTokenHelper {
 			return new vscode.Hover([snippet, definition.commentText || definition.description]);
 		}
 	}
-	private _calculateActiveParameter(lineText: string, parametersStartIndex: number, insertIndex: number) {
+	private static _calculateActiveParameter(lineText: string, parametersStartIndex: number, insertIndex: number) {
 		let active = 0;
 		let depth = 0;
 		let isInsideString = false;
@@ -160,13 +160,13 @@ export class MumpsTokenHelper {
 		} else if (functionType === TokenType.exfunction || functionType === TokenType.entryref) {
 			const locationInfo = this.getPositionForLabel(functionName);
 			if (locationInfo) {
-				return this._extractDefinition(locationInfo);
+				return MumpsTokenHelper._extractDefinition(locationInfo);
 			}
 		} else {
 			return;
 		}
 	}
-	public convertDefinition(definition: TokenDefinition): vscode.SignatureInformation {
+	public static convertDefinition(definition: TokenDefinition): vscode.SignatureInformation {
 		const data: TokenData = {
 			name: "",
 			description: "",
@@ -227,7 +227,7 @@ export class MumpsTokenHelper {
 		let i = 0;
 		const labelLength = nakedLabel.length;
 		for (i = 0; i < lines.length; i++) {
-			if (labelLength === 0 || (lines[i].startsWith(nakedLabel) && lines[i][labelLength].match(/(;|\s|\()/) !== null)) {
+			if (labelLength === 0 || (lines[i].startsWith(nakedLabel) && (lines[i].length === labelLength || lines[i][labelLength].match(/(;|\s|\()/) !== null))) {
 				labelLine = lines[i];
 				commentText += lines[i] + "\n";
 				for (let j = i - 1; j > 0; j--) {
@@ -250,7 +250,7 @@ export class MumpsTokenHelper {
 		}
 		return;
 	}
-	private _extractDefinition(locationInfo: LocationInfo): TokenDefinition | undefined {
+	private static _extractDefinition(locationInfo: LocationInfo): TokenDefinition | undefined {
 		const definition: TokenDefinition = {
 			name: '',
 			type: 'function',

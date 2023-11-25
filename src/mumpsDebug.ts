@@ -18,8 +18,8 @@ import { readFileSync } from 'fs';
 import MumpsDiagnosticsProvider from './mumpsDiagnosticsProvider';
 import { setLocalRoutinesPath } from './extension';
 import { MumpsGlobalProvider } from './mumpsGlobalProvider';
-
 const MUMPSDIAGNOSTICS = vscode.languages.createDiagnosticCollection("mumps");
+//const MUMPSDIAGNOSTICS = vscode.languages.createDiagnosticCollection("mumps");
 /**
  * This interface describes the mumps-debug specific launch attributes
  * The schema for these attributes lives in the package.json of the mumps-debug extension.
@@ -163,8 +163,7 @@ export default class MumpsDebugSession extends DebugSession {
 			if (vscode.window.activeTextEditor?.document)
 				new MumpsDiagnosticsProvider(vscode.window.activeTextEditor?.document, MUMPSDIAGNOSTICS)
 			this._mconnect.start(args.program, !!args.stopOnEntry);
-			const instance = MumpsGlobalProvider.getInstance()
-			instance.setMconnect(this._mconnect)
+			MumpsGlobalProvider.setMconnect(this._mconnect)
 			this._program = args.program;
 			this.sendResponse(response);
 		}).catch(() => {
@@ -254,7 +253,7 @@ export default class MumpsDebugSession extends DebugSession {
 				let lastVar: VarData | undefined = undefined;
 				let lastRef = "";
 				for (const varname in varObject) {
-					const actualVar = this.varAnalyze(varname, varObject[varname]);
+					const actualVar = MumpsDebugSession.varAnalyze(varname, varObject[varname]);
 					if (lastVar === undefined) { //First Variable not processed
 						lastVar = actualVar;
 						continue;
@@ -389,7 +388,7 @@ export default class MumpsDebugSession extends DebugSession {
 		this.sendResponse(response);
 	}
 
-	private varAnalyze(varname: string, content: string): VarData {
+	private static varAnalyze(varname: string, content: string): VarData {
 		let indexcount = 1;
 		const bases: string[] = [];
 		const length = varname.length;

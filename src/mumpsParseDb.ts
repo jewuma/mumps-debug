@@ -3,6 +3,7 @@ import { LineToken, MumpsLineParser, ErrorInformation } from './mumpsLineParser'
 export default class MumpsParseDb {
 	private static instance: MumpsParseDb | null = null
 	private _linetokens: LineToken[][] = []
+	private _lines: string[] = []
 	private _errorInformation: ErrorInformation[] = []
 	private static _documentName: string = ""
 	private static _documentVersion: number = -1
@@ -22,16 +23,26 @@ export default class MumpsParseDb {
 		return MumpsParseDb.instance;
 	}
 	public updateData(document: vscode.TextDocument) {
+		this._lines = []
 		this._linetokens = []
 		this._errorInformation = []
 		if (document.languageId === "mumps") {
-			[this._linetokens, this._errorInformation] = new MumpsLineParser().analyzeLines(document.getText())
+			[this._lines, this._linetokens, this._errorInformation] = new MumpsLineParser().analyzeLines(document.getText())
 		}
+	}
+	public getLine(line: number): string {
+		return this._lines[line]
+	}
+	public getLineTokens(line: number): LineToken[] {
+		return this._linetokens[line]
 	}
 	public getDocumentTokens(): LineToken[][] {
 		return this._linetokens
 	}
 	public getDocumentErrors(): ErrorInformation[] {
 		return this._errorInformation
+	}
+	public getLineCount(): number {
+		return this._lines.length
 	}
 }
