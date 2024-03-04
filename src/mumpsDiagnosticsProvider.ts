@@ -434,7 +434,9 @@ export default class MumpsDiagnosticsProvider {
 				this._lineWithDo = -2;
 			}
 			if (token.type === TokenType.entryref || token.type === TokenType.exfunction) {
-				if (!this._labelExists(token.name)) this._addWarning("Entry-Reference not found", line, token.position, token.name.length, vscode.DiagnosticSeverity.Warning);
+				if (!this._labelExists(token.name) && !token.name.includes("&") && !token.name.includes("@")) {
+					this._addWarning("Entry-Reference not found", line, token.position, token.name.length, vscode.DiagnosticSeverity.Warning);
+				}
 			}
 		}
 	}

@@ -79,3 +79,5 @@
 * Code clean and added advanced folding-provider
 ## 1.4.0
 * Added Code-Actions to help NEWing variables
+## 1.4.1
+* Minor improvements of syntax-detection

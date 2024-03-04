@@ -374,5 +374,5 @@
 		"webpack": "webpack --mode development",
 		"webpack-dev": "webpack --mode development --watch"
 	},
-	"version": "1.4.0"
+	"version": "1.4.1"
 }
