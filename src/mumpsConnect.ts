@@ -575,10 +575,14 @@ export function convertMumpsPosition(positionstring: string, showNotFound?: bool
 	const position = parts[0];
 	if (parts[1] !== undefined) {
 		const program = parts[1].split(" ", 1)[0].replace(/%/g, "_") + ".m";
-		let file = (getLocalRoutinesPath() + program)
+		let path = getLocalRoutinesPath()
+		if (!path.endsWith("/") && !path.endsWith("\\")) path += "/";
+		let file = (path + program)
 		if (!existsSync(file)) {
 			if (getWworkspaceFolder() !== undefined) {
-				file = getWworkspaceFolder() + program;
+				path = getWworkspaceFolder()!;
+				if (!path.endsWith("/") && !path.endsWith("\\")) path += "/";
+				file = path + program;
 			}
 		}
 		if (!existsSync(file)) {

@@ -375,6 +375,7 @@ const funcParams = {
 		'format': 'glvn,expr'
 	},
 	'JUSTIFY': {
+		'minparams': 2,
 		'maxparams': 3
 	},
 	'LENGTH': {
@@ -393,6 +394,7 @@ const funcParams = {
 		'format': 'glvn,expr'
 	},
 	'PIECE': {
+		'minparams': 2,
 		'maxparams': 4
 	},
 	'QLENGTH': {
@@ -404,8 +406,8 @@ const funcParams = {
 		'format': 'expr,expr'
 	},
 	'QUERY': {
-		'maxparams': 1,
-		'format': 'glvn'
+		'maxparams': 2,
+		'format': 'glvn,expr'
 	},
 	'RANDOM': {
 		'maxparams': 1
@@ -430,6 +432,9 @@ const funcParams = {
 	'VIEW': {
 		'maxparams': 2
 	},
+	'ZAHANDLE': {
+		'maxparams': 1
+	},
 	'ZASCII': {
 		'maxparams': 2
 	},
@@ -446,6 +451,7 @@ const funcParams = {
 		'maxparams': 1
 	},
 	'ZBITFIND': {
+		'minparams': 2,
 		'maxparams': 3
 	},
 	'ZBITGET': {
@@ -477,10 +483,12 @@ const funcParams = {
 		'maxparams': 99
 	},
 	'ZCOLLATE': {
+		'minparams': 2,
 		'maxparams': 3,
-		'format': 'glvn,expr,bool'
+		'format': 'expr,expr,bool'
 	},
 	'ZCONVERT': {
+		'minparams': 2,
 		'maxparams': 3
 	},
 	'ZDATA': {
@@ -494,6 +502,7 @@ const funcParams = {
 		'maxparams': 3
 	},
 	'ZFIND': {
+		'minparams': 2,
 		'maxparams': 3
 	},
 	'ZGETJPI': {
@@ -515,7 +524,8 @@ const funcParams = {
 		'maxparams': 1
 	},
 	'ZPARSE': {
-		'maxparams': 5
+		'maxparams': 5,
+		'format': 'expr,expr|null,expr|null,expr|null,expr'
 	},
 	'ZPEEK': {
 		'maxparams': 4
@@ -1506,7 +1516,9 @@ class MumpsLineParser {
 					}
 					result = this._checkVar(line, ++result.position, false, false);
 				} else {
-					result = this._evaluateExpression(expressiontype.Standard, line, result.position);
+					if (fname !== '/TLS' || paramCount !== 2 || line[result.position] !== ",") {
+						result = this._evaluateExpression(expressiontype.Standard, line, result.position);
+					}
 				}
 				if (line[result.position] === ',') {
 					result.position++;
@@ -1879,6 +1891,10 @@ class MumpsLineParser {
 				result = this._checkEntryRef(line, result.position, false);
 			} else if (format === 'expr') {
 				result = this._evaluateExpression(expressiontype.Standard, line, result.position);
+			} else if (format === "expr|null") {
+				if (line[result.position] !== ",") {
+					result = this._evaluateExpression(expressiontype.Standard, line, result.position);
+				}
 			} else if (format === 'bool') {
 				if (line[result.position] !== '0' && line[result.position] !== '1') {
 					result.text = '0/1 expected';

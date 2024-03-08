@@ -81,3 +81,5 @@
 * Added Code-Actions to help NEWing variables
 ## 1.4.1
 * Minor improvements of syntax-detection
+## 1.4.2
+* Improvements of syntax-detection and small fixes
