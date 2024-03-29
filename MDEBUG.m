@@ -108,9 +108,9 @@ SETBP(FILE,LINE,CONDITION)        	;Set Breakpoint
 	S ^%MDEBUG($J,"BP",ZBPOS)=CONDITION
 	S:CONDITION'="" CONDITION="I ("_CONDITION_") "
 	S ZBCMD="ZB "_ZBPOS_":"""_CONDITION_"ZSHOW """"VIS"""":^%MDEBUG($J,""""VARS"""") S %STEP=$$WAIT^MDEBUG($ZPOS) ZST:%STEP=""""I"""" INTO ZST:%STEP=""""O"""" OVER ZST:%STEP=""""F"""" OUTOF ZC:%STEP=""""C""""  H:%STEP=""""H"""""""
-	D REFRESHBP
 	S $ZTRAP="B"
 	X ZBCMD
+	D REFRESHBP
 	Q
 BPRESET				;Set BPs again after Recompile
 	N BP,ZBCMD,CONDITION
@@ -200,12 +200,11 @@ RESET   			;Clean up and wait for new Connection
 	ZGOTO 1:MDEBUG
 	Q
 REFRESHBP       		;Remember Breakpoint-Positions to avoid Collisions between ZSTEP INTO and ZBREAK
-	N BP,BPS,BPNEU,IO
+	N BP,BPS,BPNEU
 	ZSHOW "B":BPS
 	S BP="" F  S BP=$O(BPS("B",BP)) Q:BP=""  D
 	. S BPS("B",BP)=$P(BPS("B",BP),">",1)
 	. S BPNEU(BPS("B",BP))=$G(^%MDEBUG($J,"BP",BPS("B",BP)))
-	;S IO=$I U 0 ZSHOW "B" ZWR:$D(BPNEU) BPNEU U IO
 	KILL ^%MDEBUG($J,"BP")
 	M:$D(BPNEU) ^%MDEBUG($J,"BP")=BPNEU
 	Q

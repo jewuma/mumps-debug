@@ -83,3 +83,5 @@
 * Minor improvements of syntax-detection
 ## 1.4.2
 * Improvements of syntax-detection and small fixes
+## 1.4.3
+* Variable-display-bug fixed

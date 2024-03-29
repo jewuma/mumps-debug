@@ -107,7 +107,6 @@ export default class CompletionItemProvider {
 		routine = routine?.split('.')[0].replace('_', '%') ?? "";
 		const lines = document.getText().split('\n');
 		const existingLabels = this._labelDB.labels.filter((label) => label.routine === routine);
-
 		// Create a map of existing labels for quick lookup
 		const existingLabelsMap = new Map(existingLabels.map((label) => [label.label, label]));
 

@@ -245,7 +245,7 @@ export default class MumpsDebugSession extends DebugSession {
 				}
 				break;
 			}
-			case this._localScope: {
+			default: {
 				const varparts: string[] = varId.split("|");
 				const indexCount: number = parseInt(varparts.pop() || "0");
 				const varBase = varparts.join("|");
@@ -275,9 +275,7 @@ export default class MumpsDebugSession extends DebugSession {
 				break;
 			}
 		}
-		response.body = {
-			variables: variables
-		};
+		response.body = { variables };
 		this.sendResponse(response);
 	}
 	//checkVars checks if Variable has to be inserted in Var-Display and if it has descendants
