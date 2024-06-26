@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { TokenType, MumpsLineParser } from './mumpsLineParser';
+import { TokenType, MumpsLineParser, label } from './mumpsLineParser';
 const parser = new MumpsLineParser();
 import { definitionsArray } from './language-definitions';
 const definitions = {};
@@ -227,7 +227,7 @@ export class MumpsTokenHelper {
 		let i = 0;
 		const labelLength = nakedLabel.length;
 		for (i = 0; i < lines.length; i++) {
-			if (labelLength === 0 || (lines[i].startsWith(nakedLabel) && (lines[i].length === labelLength || lines[i][labelLength].match(/(;|\s|\()/) !== null))) {
+			if (labelLength === 0 || (lines[i].startsWith(nakedLabel) && (lines[i].length === labelLength || lines[i][labelLength].match(/(;|\s|\(|:)/) !== null))) {
 				labelLine = lines[i];
 				commentText += lines[i] + "\n";
 				for (let j = i - 1; j > 0; j--) {
@@ -261,8 +261,8 @@ export class MumpsTokenHelper {
 		};
 		const labelLines = locationInfo.commentText;
 		definition.commentText = labelLines
-		const definitionRegex = /^([%A-Z][A-Z0-9]*)(\((,?[%A-Z][A-Z0-9]*)+\))?/i;
-		const result = definitionRegex.exec(locationInfo.labelLine);
+		//const definitionRegex = /^(\d+)|([%A-Z][A-Z0-9]*)(\((,?[%A-Z][A-Z0-9]*)+\))?/i;
+		const result = label.exec(locationInfo.labelLine);
 		if (!result) {
 			return;
 		}
@@ -272,8 +272,8 @@ export class MumpsTokenHelper {
 		}
 		let parameterNames: string[] = [];
 		const parametersByName = {};
-		if (result[2] !== undefined) {
-			parameterNames = result[2].substring(1, result[2].length - 1).split(',')
+		if (result[3] !== undefined) {
+			parameterNames = result[3].substring(1, result[3].length - 1).split(',')
 			definition.parameters = [];
 			for (let i = 0; i < parameterNames.length; i++) {
 				definition.parameters.push(

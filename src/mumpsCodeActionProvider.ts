@@ -6,7 +6,6 @@ export default class MumpsCodeActionProvider implements vscode.CodeActionProvide
 	private _actualDiagnostic: vscode.Diagnostic
 	private _actualParameter: string
 	private _parseDb: MumpsParseDb
-	// eslint-disable-next-line class-methods-use-this
 	provideCodeActions(
 		document: vscode.TextDocument,
 		range: vscode.Range,
@@ -37,6 +36,22 @@ export default class MumpsCodeActionProvider implements vscode.CodeActionProvide
 					case "VarNotNewed":
 						fix = this._varNotNewed()
 						break;
+				}
+			}
+			const lineTokens = this._parseDb.getLineTokens(range.end.line)
+			if (lineTokens.length > 1 && lineTokens[lineTokens.length - 1].longName === "SET" && lineTokens[lineTokens.length - 2].longName === "FOR") {
+				const shortNames: boolean = lineTokens[lineTokens.length - 1].name.length === 1;
+				const isUppercase: boolean = lineTokens[lineTokens.length - 1].name[0] === "S"
+				let intendation = 0
+				if (lineTokens[0].type === TokenType.intendation) {
+					intendation = lineTokens[0].name.length;
+				}
+				fix.title = "Create $ORDER-Loop";
+				fix.kind = vscode.CodeActionKind.QuickFix;
+				fix.command = {
+					command: "mumps.generateForLoop",
+					title: "Create $ORDER-Loop",
+					arguments: [document, range, shortNames, isUppercase, intendation]
 				}
 			}
 			return fix;
@@ -91,7 +106,6 @@ export default class MumpsCodeActionProvider implements vscode.CodeActionProvide
 		), "")
 		return fix;
 	}
-
 	private _varNotNewed(): vscode.CodeAction {
 		const fix = new vscode.CodeAction('Add Variable to NEW-Statement', vscode.CodeActionKind.QuickFix);
 		fix.edit = new vscode.WorkspaceEdit();
@@ -160,5 +174,116 @@ export default class MumpsCodeActionProvider implements vscode.CodeActionProvide
 		}
 		edit.insert(uri!, new vscode.Position(i, 0), "\tNEW " + this._actualParameter + "\n")
 		return edit
+	}
+	public generateForLoop(document: vscode.TextDocument, range: vscode.Range, shortNames: boolean, isUppercase: boolean, intendation: number): void {
+		vscode.window.showInputBox({ prompt: "Enter loop variable including indices:" }).then((variableName) => {
+			if (variableName) {
+				this._parseDb = MumpsParseDb.getInstance(document)
+				const variableParts = variableName.split("(");
+				if (variableParts.length === 2) {
+					let forToken = "for"
+					let setToken = "set"
+					let orderToken = "$order("
+					let quitToken = "quit"
+					let doToken = "do"
+					if (shortNames) {
+						forToken = "f"
+						setToken = "s"
+						orderToken = "$o("
+						quitToken = "q"
+						doToken = "d"
+					}
+					if (isUppercase) {
+						forToken = forToken.toUpperCase();
+						setToken = setToken.toUpperCase();
+						orderToken = orderToken.toUpperCase();
+						quitToken = quitToken.toUpperCase();
+						doToken = doToken.toUpperCase();
+					}
+					const variableStart = variableParts[0] + "(";
+					const indices = variableParts[1].split(",");
+					const indexCount = indices.length
+					let bracketCounter = 0;
+					for (const char of indices[indexCount - 1]) {
+						if (char === "(") {
+							bracketCounter++;
+						} else if (char === ")") {
+							bracketCounter--;
+						}
+					}
+					if (bracketCounter < 0) {
+						indices[indexCount - 1] = indices[indexCount - 1]!.slice(0, -1)
+					}
+					const startIndex = this.getStartVariable(range.end.line, indices);
+					let forLoop = " " + indices[startIndex] + "=" + orderToken + variableStart
+					for (let i = 0; i <= startIndex; i++) {
+						forLoop += indices[i]
+						if (i < startIndex) forLoop += ","
+					}
+					forLoop += ")) " + quitToken + ":" + indices[0] + '=""  ' + doToken + "\n";
+					if (indexCount > startIndex + 1) {
+						for (let i = startIndex + 1; i < indexCount; i++) {
+							forLoop += "\t" + ". ".repeat(i - startIndex + intendation) + setToken + " " + indices[i] + '="" ' + forToken + "  " +
+								setToken + " " + indices[i] + "=" + orderToken + variableStart + indices[0] + ","
+							for (let j = 1; j <= i; j++) {
+								forLoop += indices[j];
+								if (j < i) { forLoop += "," }
+							}
+							forLoop += ")) " + quitToken + ":" + indices[i] + '=""  ' + doToken + "\n";
+						}
+						forLoop += "\t" + ". ".repeat(indexCount - startIndex + intendation)
+					}
+					const editor = vscode.window.activeTextEditor;
+					if (!editor) {
+						return;
+					}
+					const line = document.lineAt(range.end.line);
+					const lineText = line.text.trimEnd()
+
+					editor.edit((editBuilder) => {
+						editBuilder.replace(line.range, lineText + forLoop);
+					}).then(() => {
+						// Setze den Cursor an das Ende des eingefügten Textes
+						const newEndPosition = new vscode.Position(range.end.line + indexCount - startIndex, 99);
+						editor.selection = new vscode.Selection(newEndPosition, newEndPosition);
+						editor.revealRange(new vscode.Range(newEndPosition, newEndPosition));
+					});
+				}
+			}
+		});
+	}
+	private getStartVariable(startLine: number, indices: string[]): number {
+		let startIndex = 0
+		const lineTokens = this._parseDb.getLineTokens(startLine)
+		const tokenCount = lineTokens.length
+		for (let i = tokenCount - 3; i >= 0; i--) {
+			if (lineTokens[i].longName === "SET") {
+				for (let j = i + 1; j < tokenCount - 2; j++) {
+					if (lineTokens[j].type === TokenType.local) {
+						startIndex = indices.indexOf(lineTokens[j].name)
+						if (startIndex === -1) {
+							startIndex = 0;
+						}
+					}
+				}
+			}
+		}
+		if (startLine > 0) {
+			const lineTokens = this._parseDb.getLineTokens(startLine - 1)
+			const tokenCount = lineTokens.length
+			for (let i = tokenCount - 2; i >= 0; i--) {
+				if (lineTokens[i].longName === "SET") {
+					for (let j = i + 1; j < tokenCount - 1; j++) {
+						if (lineTokens[j].type === TokenType.local) {
+							startIndex = indices.indexOf(lineTokens[j].name)
+							if (startIndex === -1) {
+								startIndex = 0;
+							}
+						}
+					}
+				}
+			}
+		}
+		return startIndex
 	}
 }

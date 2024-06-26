@@ -26,6 +26,7 @@ const entryRef: string | undefined = "";
 let dbFile = "";
 let localRoutinesPath = "";
 const globalDirectoryProvider = MumpsGlobalProvider.getInstance();
+const mumpsCodeActionProvider = new MumpsCodeActionProvider();
 export async function activate(context: vscode.ExtensionContext) {
 	const MUMPS_MODE: vscode.DocumentFilter = { language: 'mumps', scheme: 'file' };
 	const mumpsDiagnostics = vscode.languages.createDiagnosticCollection("mumps");
@@ -49,6 +50,8 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand('mumps.Globals.loadMore', (node: GlobalNode) => globalDirectoryProvider.getMoreNodes(node)),
 		vscode.commands.registerCommand('mumps.Globals.refresh', () => MumpsGlobalProvider.refresh()),
 		vscode.commands.registerCommand('mumps.Globals.search', (node: GlobalNode) => globalDirectoryProvider.search(node)),
+		vscode.commands.registerCommand('mumps.generateForLoop', (document: vscode.TextDocument, range: vscode.Range, shortNames: boolean, isUppercase: boolean, intendation: number) =>
+			mumpsCodeActionProvider.generateForLoop(document, range, shortNames, isUppercase, intendation)),
 		vscode.debug.registerDebugConfigurationProvider('mumps', new MumpsConfigurationProvider()),
 		vscode.debug.registerDebugAdapterDescriptorFactory('mumps', new InlineDebugAdapterFactory()),
 		vscode.languages.registerHoverProvider(MUMPS_MODE, new MumpsHoverProvider()),

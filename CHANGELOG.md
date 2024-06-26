@@ -85,3 +85,7 @@
 * Improvements of syntax-detection and small fixes
 ## 1.4.3
 * Variable-display-bug fixed
+## 1.4.4
+* $O-Loop generation added
+## 1.4.5
+* $O-Loop generation improved

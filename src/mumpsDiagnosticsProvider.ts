@@ -470,7 +470,7 @@ export default class MumpsDiagnosticsProvider {
 		for (let i = 0; i < document.lineCount; i++) {
 			const lineTokens = this._linetokens[i]
 			if (lineTokens.length > 0 && lineTokens[0].type === TokenType.label) {
-				this._labelTable[lineTokens[0].name] = i;
+				this._labelTable[lineTokens[0].name.replace(":", "")] = i;
 			}
 		}
 	}

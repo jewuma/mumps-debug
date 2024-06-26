@@ -186,6 +186,11 @@
 				"command": "mumps.sortRoutine",
 				"key": "ctrl+alt+s",
 				"when": "editorLangId == mumps"
+			},
+			{
+				"command": "mumps.generateForLoop",
+				"key": "ctrl+alt+l",
+				"when": "editorLangId == mumps"
 			}
 		],
 		"languages": [
@@ -374,5 +379,5 @@
 		"webpack": "webpack --mode development",
 		"webpack-dev": "webpack --mode development --watch"
 	},
-	"version": "1.4.3"
+	"version": "1.4.5"
 }
