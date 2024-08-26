@@ -17,6 +17,7 @@ export default class MumpsFoldingProvider implements vscode.FoldingRangeProvider
 		const parseDb = MumpsParseDb.getInstance(document)
 		this._linetokens = parseDb.getDocumentTokens()
 		this._foldingRanges = []
+		this._subroutines = {}
 		let line = -1
 		while (line !== -2 && line < this._linetokens.length) {
 			const startSubroutine = ++line
@@ -83,16 +84,16 @@ export default class MumpsFoldingProvider implements vscode.FoldingRangeProvider
 		let commentStart = -1
 		let commentLines = 0
 		for (let line = subroutine.startLine; line < subroutine.endLine; line++) {
-			if (this._linetokens[line][0].type === TokenType.label && this._linetokens[line][0].name === subroutineName) {
+			if (this._linetokens[line][0]?.type === TokenType.label && this._linetokens[line][0].name === subroutineName) {
 				if (commentLines > 1) {
 					this._foldingRanges.push({ start: commentStart, end: commentStart + commentLines - 1 })
 				}
 				commentStart = -1
 				commentLines = 0
 				this._foldingRanges.push({ start: line, end: subroutine.endLine })
-			} else if (this._linetokens[line][0].type === TokenType.comment
-				|| this._linetokens[line][1].type === TokenType.comment
-				&& this._linetokens[line][0].type !== TokenType.label) {
+			} else if (this._linetokens[line][0]?.type === TokenType.comment
+				|| this._linetokens[line][1]?.type === TokenType.comment
+				&& this._linetokens[line][0]?.type !== TokenType.label) {
 				if (commentStart === -1) {
 					commentStart = line
 					commentLines = 1
@@ -109,7 +110,7 @@ export default class MumpsFoldingProvider implements vscode.FoldingRangeProvider
 	private _generateFoldingInfo(startLine: number, endLine: number) {
 		for (let i = startLine; i <= endLine; i++) {
 			const tokens = this._linetokens[i]
-			if (tokens[0].type === TokenType.label) {
+			if (tokens[0]?.type === TokenType.label) {
 				const label = tokens[0].name
 				this._subroutines[label] = { startLine, endLine }
 				break

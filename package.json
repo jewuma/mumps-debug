@@ -59,6 +59,11 @@
 					"default": "",
 					"description": "Variables (REGEX) separate by comma that can be ignored at subroutine check",
 					"type": "string"
+				},
+				"mumps.warnIfCodeIsUnreachable": {
+					"default": true,
+					"description": "Syntax-check generates warnings for unreachable code",
+					"type":"boolean"
 				}
 			},
 			"title": "mumps-debug"
@@ -154,13 +159,6 @@
 				"type": "mumps"
 			}
 		],
-		"grammars": [
-			{
-				"language": "mumps",
-				"path": "./syntaxes/mumps.tmLanguage",
-				"scopeName": "source.mumps"
-			}
-		],
 		"keybindings": [
 			{
 				"command": "mumps.documentFunction",
@@ -191,7 +189,17 @@
 				"command": "mumps.generateForLoop",
 				"key": "ctrl+alt+l",
 				"when": "editorLangId == mumps"
-			}
+			},
+			{
+				"command": "mumps.scanWorkspaceForErrors",
+				"key": "ctrl+alt+e",
+				"when": "editorLangId == mumps"
+			},
+			{
+				"command": "mumps.stopScan",
+				"key": "ctr+alt+q",
+				"title": "Stop Scan"
+		}
 		],
 		"languages": [
 			{
@@ -266,7 +274,7 @@
 				"language": "mumps",
 				"scopes": {
 					"comment": [
-						"comment.line.mumps"
+						"comment.line"
 					],
 					"entryref": [
 						"entity.name.type.class"
@@ -280,11 +288,8 @@
 					"ifunction": [
 						"support.function.mumps"
 					],
-					"keyword": [
-						"keyword.control"
-					],
 					"local": [
-						"variable.language.local"
+						"variable.other.constant"
 					],
 					"nonMfunction": [
 						"support.function.user"
@@ -300,10 +305,23 @@
 					],
 					"sysvariable": [
 						"variable.language.local"
+					],
+					"unreachable": [
+						"comment"
 					]
 				}
 			}
 		],
+		"semanticTokenModifiers": [
+      {
+				"id": "standard",
+				"description": "Normal code"
+      },
+			{
+				"id": "unreachable",
+        "description": "Modifier for unreachable code"
+			}
+    ],
 		"variables": {
 			"AskForProgramName": "extension.mumps-debug.getProgramName"
 		},
@@ -379,5 +397,5 @@
 		"webpack": "webpack --mode development",
 		"webpack-dev": "webpack --mode development --watch"
 	},
-	"version": "1.4.5"
+	"version": "1.5.2"
 }

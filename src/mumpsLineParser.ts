@@ -14,24 +14,25 @@ export enum TokenType {
 	global, local, exfunction, nonMfunction, entryref, operator, keyword, ifunction,
 	label, comment, sysvariable, string, number, intendation, argPostcondition
 }
-export interface LineToken {
+export type LineToken = {
 	type: TokenType,
 	name: string,
 	longName?: string,
 	isPostconditioned?: boolean,
 	isExcludedVariable?: boolean,
+	isUnreachable?: boolean,
 	hasArguments?: boolean,
 	position: number
 }
-interface LineComand {
+type LineComand = {
 	command: string,
 	position: number
 }
-interface LineComment {
+type LineComment = {
 	comment: string,
 	position: number
 }
-export interface LineObject {
+export type LineObject = {
 	lineComment?: LineComment;
 	lineIndentationArray?: string[];
 	lineRoutines?: TmpFunction[];
@@ -42,7 +43,7 @@ export interface LineObject {
 	errorPosition?: number,
 	expressionPosition: number
 }
-interface TmpFunction {
+type TmpFunction = {
 	mCommand: string,
 	mArguments: string,
 	mPostCondition: string,
@@ -50,37 +51,39 @@ interface TmpFunction {
 	argPosition: number,
 	pcPosition: number
 }
-interface ModifiedLine {
+type ModifiedLine = {
 	lineText: string,
 	errorText: string
 }
-export interface LineInformation {
+export type LineInformation = {
 	error: ErrorInformation,
-	tokens: LineToken[]
+	tokens: LineToken[],
+	intendationLevel: number
 }
-export interface LabelInformation {
+export type LabelInformation = {
 	name: string,
 	line: number
 }
 //const label = /^[A-Za-z%][A-Za-z0-9]*(\([A-Za-z%][A-Za-z0-9]*(,[A-Za-z%][A-Za-z0-9]*)*\))?/
-export const label = /^(([A-Za-z%][A-Za-z0-9]*)|\d+):?(\([A-Za-z%][A-Za-z0-9]*(,[A-Za-z%][A-Za-z0-9]*)*\))?/
+export const label = /^(([A-Za-z%][A-Za-z0-9]*)|\d+):?(\(([A-Za-z%][A-Za-z0-9]*(,[A-Za-z%][A-Za-z0-9]*)*)?\))?/
 const lvn = /^[A-Za-z%][A-Za-z0-9]*/
 const gvn = /^\^[A-Za-z%][A-Za-z0-9]*/
 const isv = /^\$(DEVICE|ECODE|EC|ESTACK|ES|ETRAP|ET|HALT|HOROLOG|H|IO|I|JOB|J|KEY|K|NAMESPACE|PRINCIPAL|P|QUIT|Q|REFERENCE|R|STACK|STORAGE|ST|SYSTEM|SY|S|TEST|THIS|TLEVEL|TL|T|USERNAME|X|Y|ZALLOCSTOR|ZA|ZB|ZCHSET|ZCLOSE|ZCMDLINE|ZCM|ZCOMPILE|ZCO|ZCSTATUS|ZCH[A-Z]*|ZC|ZDATEFORM|ZDA|ZDIRECTORY|ZD|ZEDITOR|ZED|ZEOF|ZEO|ZE[A-Z]*|ZGBLDIR|ZG|ZHRORLOG|ZH|ZININTERRUPT|ZINI|ZINTERRUPT|ZINT|ZIO|ZJOB|ZJ|ZKEY|ZLEVEL|ZL|ZMAXTPTIME|ZMAXTPTI|ZMODE|ZMO|ZONLNRLBK|ZPATNUMERIC|ZPATN|ZPIN|ZPOSITION|ZPOS|ZPOUT|ZPROMPT|ZQUIT|ZREALSTOR|ZRELDATE|ZRO[A-Z]*|ZSOURCE|ZSO|ZSTA[A-Z]*|ZSTEP|ZSTRP|ZSTRPLLIM|ZST|ZSYSTEM|ZSY|ZS|ZTEXIT|ZTE|ZTIMEOUT|ZTIM|ZTRAP|ZT|ZUSEDSTOR|ZUT|ZVERSION|ZV[A-Z]*|ZYERROR|ZYRELEASE|ZTDATA|ZTDELIM|ZTLEVEL|ZTNAME|ZTOLDVAL|ZTRIGGEROP|ZTSLATE|ZTUPDATE|ZTVALUE|ZTWORMHOLE)/i
 const ifunction = /^\$(ASCII|A|CHAR|C|DATA|D|EXTRACT|E|FIND|F|FNUMBER|FN|GET|G|INCREMENT|INCR|I|JUSTIFY|J|LENGTH|L|NAME|NA|NEXT|N|ORDER|O|PIECE|P|QLENGTH|QL|QSUBSCRIPT|QS|QUERY|Q|RANDOM|R|REVERSE|RE|SELECT|S|STACK|ST|TEXT|T|TRANSLATE|TR|VIEW|V|ZAHANDLE|ZAH|ZASCII|ZATRANSFORM|ZAT|ZA|ZBITAND|ZBITCOUNT|ZBITFIND|ZBITGET|ZBITLEN|ZBITNOT|ZBITOR|ZBITSET|ZBITSTR|ZBITXOR|ZCHAR|ZCH|ZCOLLATE|ZCONVERT|ZCO|ZDATE|ZDATA|ZD|ZEXTRACT|ZE|ZFIND|ZF|ZGETJPI|ZG|ZINCREMENT|ZINCR|ZJOBEXAM|ZJUSTIFY|ZJ|ZLENGTH|ZL|ZMESSAGE|ZM|ZPARSE|ZPEEK|ZPIECE|ZPI|ZPREVIOUS|ZP|ZQGBLMOD|ZSEARCH|ZSIGPROC|ZSOCKET|ZSUBSTR|ZSUB|ZSYSLOG|ZTRANSLATE|ZTRIGGER|ZTRI|ZTRNLNM|ZTR|ZWIDTH|ZWRITE|ZW|ZYHASH|ZYISSQLNULL|ZYSUFFIX)(?=\()/i;
 const nonMfunction = /^\$&([A-Za-z%0-9][A-Za-z0-9]*\.)?([A-Za-z%0-9][A-Za-z0-9]*)(\^[A-Za-z%][A-Za-z0-9]*)?/
-export const entryref = /^(&[A-Za-z0-9]*\.?)?@?([A-Za-z%0-9][A-Za-z0-9]*)?(\^@?[A-Za-z%][A-Za-z0-9]*)?/
-const routineref = /^\^@?[A-Za-z%][A-Za-z0-9]*/
-const numlit = /^(\d*\.?\d*(E-?\d+)?)/
+//export const entryref = /^(&[A-Za-z0-9]*\.?)?@?([A-Za-z%0-9][A-Za-z0-9]*)?(\^@?[A-Za-z%][A-Za-z0-9]*)?/
+export const entryref = /^(&[A-Za-z0-9]*\.?)?([A-Za-z%0-9][A-Za-z0-9]*)?(\^[A-Za-z%][A-Za-z0-9]*)?/
+const routineref = /^\^[A-Za-z%][A-Za-z0-9]*/
+const numlit = /^(\d+(\.\d*)?|\.\d+)(E-?\d+)?/
 const strlit = /^"(""|[^"])*"/
 const command = /^[B|BREAK|C|CLOSE|D|DO|E|ELSE|F|FOR|G|GOTO|H|HALT|HANG|I|IF|J|JOB|K|KILL|L|LOCK|M|MERGE|N|NEW|O|OPEN|Q|QUIT|R|READ|S|SET|U|USE|V|VIEW|W|WRITE|X|XECUTE|ZA|ZALLOCATE|ZBR|ZBREAK|ZC|ZCONTINUE|ZD|ZDEALLOCATE|ZE|ZEDIT|ZG|ZGOTO|ZHALT|ZH|ZHELP|ZK|ZKILL|ZL|ZLINK|ZM|ZMESSAGE|ZP|ZPRINT|ZRUPDATE|ZSH|ZSHOW|ZST|ZSTEP|ZSY|ZSYSTEM|ZTC|ZTCOMMIT|ZTR|ZTRIGGER|ZTS|ZTSTART|ZWI|ZWITHDRAW|ZWR|ZWRITE]/i
 const binoperator = /^('=|'>|'<|<=|>=|'&|'!|'\?|'\[|'\]\]|'\]|\*\*|\+|-|\*|\/|\\|#|'|&|!|_|<|>|=|\[|\]\]|\]|\?|@)/
 const unaryoperator = /(-|'|\+|@)/
-const patcode = /^([A|C|E|L|N|P|U]|^("([^"]("")*)*"))+/i
+const patcode = /^([A|C|E|L|N|P|U]|^"(""|[^"])*")+/i
 const repititionCount = /^\d*\.?\d*/
 const openkeywords = /^APPEND|ATTACH=|BLOCK(SIZE)?=|COMM(AND)?=|CONNECT=|(NO)?DELIM(ITER)?=?|EXC(EPTION)?=|FIFO|(NO)?FIXED|GROUP=|[IO]?CHSET=|KEY|IKEY|INDEPENDENT|IOERROR=|NEW[A-Z]*|MOREREADTIME=|OKEY|OWNER=|PARSE|(NO)?RCHK|(NO)?READ(ONLY)?|RECORD(SIZE)?=|(NO)?RETRY|REWIND|SEEK=|SHELL=|STDERR=|(NO)?STREAM|SYSTEM=|(NO)?TRUNCATE|UIC=|VARIABLE|WORLD=|Z?(NO)?WRAP|WRITE(ONLY)?|ZBFSIZE=|Z(NO)?DELAY|Z(NO)?FF|ZIBFSIZE=|Z?LISTEN=/i
 const usekeywords = /^ATTACH=|(NO)?CENABLE|[IO]?CHSET=|CLEAR(SCREEN)?|CONNECT|(NO)?CONVERT|CTRAP=|(NO)?DELIM(ITER)?=?|DETACH=|DOWNSCROLL|(NO)?ECHO|(NO)?EDITING|ERASELINE|(NO)?ESC(APE)?|EXC(EPTION)?=|(NO)?FILTER=?|FLUSH|GROUP=|KEY|IKEY|IOERROR=|OKEY|OWNER=|(NO)?PASTHRU|(NO)?RCHK|(NO)?RETRY|REWIND|SEEK=|SKIPFILE=|SOCKET=|SPACE=|TERM(INATOR)?=|(NO)?TRUNCATE|(NO)?TTSNYC|(NO)?TYPEAHEAD|UPSCROLL|Z?LENGTH=|Z?WIDTH=|Z?(NO)?WRAP|WRITELB=|X=|Y=|ZBFSIZE|Z(NO)?DELAY|Z(NO)?FF|ZIBFSIZE|LISTEN=/i
-const closekeywords = /^DELETE|(NO)?DESTROY|EXCEPTION=|GROUP=|OWNER=|RENAME=|SOCKET=|TIMEOUT=|UIC=|WORLD=/i
+const closekeywords = /^DELETE|(NO)?DESTROY|EXCEPTION=|GROUP=|OWNER=|RENAME=|REPLACE=|SOCKET=|TIMEOUT=|UIC=|WORLD=/i
 const jobkeywords = /^CMD=|CMDLINE=|DEF=|DEFAULT=|ERR=|ERROR=|GBL=|GBLDIR=|IN=|INPUT=|OUT=|OUTPUT=|PASS|PASSCURLVN|STA=|STARTUP=/i
 const tstartkeywords = /^SERIAL|S|T=|TRANSACTIONID=/i
 const cmdExpansions = {
@@ -92,7 +95,7 @@ const cmdExpansions = {
 const funcExpansions = {
 	'A': 'ASCII', 'C': 'CHAR', 'D': 'DATA', 'E': 'EXTRACT', 'F': 'FIND', 'FN': 'FNUMBER', 'G': 'GET', 'I': 'INCREMENT', 'INCR': 'INCREMENT', 'J': 'JUSTIFY', 'L': 'LENGTH', 'NA': 'NAME', 'N': 'NEXT', 'O': 'ORDER',
 	'P': 'PIECE', 'QL': 'QLENGTH', 'QS': 'QSUBSCRIPT', 'Q': 'QUERY', 'R': 'RANDOM', 'RE': 'REVERSE', 'S': 'SELECT', 'ST': 'STACK', 'T': 'TEXT', 'TR': 'TRANSLATE', 'V': 'VIEW',
-	'ZA': 'ZASCII', 'ZAH': 'ZAHANDLE', 'ZCO': 'ZCONVERT', 'ZD': 'ZDATE', 'ZE': 'ZEXTRACT', 'ZF': 'ZFIND', 'ZG': 'ZGETJPI', 'ZJ': 'ZJUSTIFY', 'ZL': 'ZLENGTH', 'ZM': 'ZMESSAGE', 'ZPI': 'ZPIECE', 'ZP': 'ZPREVIOUS',
+	'ZA': 'ZASCII', 'ZAH': 'ZAHANDLE', 'ZCH': 'ZCHAR', 'ZCO': 'ZCONVERT', 'ZD': 'ZDATE', 'ZE': 'ZEXTRACT', 'ZF': 'ZFIND', 'ZG': 'ZGETJPI', 'ZJ': 'ZJUSTIFY', 'ZL': 'ZLENGTH', 'ZM': 'ZMESSAGE', 'ZPI': 'ZPIECE', 'ZP': 'ZPREVIOUS',
 	'ZSUB': 'ZSUBSTR', 'ZTR': 'ZTRANSLATE', 'ZTRI': 'ZTRIGGER', 'ZW': 'ZWIDTH'
 }
 const isvExpansions = {
@@ -594,10 +597,11 @@ const expressiontype = {
 
 class MumpsLineParser {
 	private _tokens: LineToken[] = [];
+	private _intendationLevel: number = 0;
 	private cmdCompressions: object;
 	private funcCompressions: object;
 	private isvCompressions: object;
-	private linePosition = 0;
+	private _tokenSaveEnabled: boolean = true;
 	/**
 	 * Checks if the given File is correct M-Code
 	 * @param filename
@@ -629,7 +633,7 @@ class MumpsLineParser {
 	}
 	public checkLine(line: string): ErrorInformation {
 		this._tokens = [];
-		this.linePosition = 0;
+		this._tokenSaveEnabled = true
 		const parsed = MumpsLineParser.parseLine(line);
 		if (parsed.lineLabel) {
 			this._splitLabelAndParameters(parsed.lineLabel);
@@ -642,7 +646,10 @@ class MumpsLineParser {
 			if (parsed.lineLabel) {
 				position += parsed.lineLabel.length;
 			}
-			this._tokens.push({ name: ".".repeat(parsed.lineIndentationArray.length), type: TokenType.intendation, position });
+			this._pushToken({ name: ".".repeat(parsed.lineIndentationArray.length), type: TokenType.intendation, position });
+			this._intendationLevel = parsed.lineIndentationArray.length
+		} else {
+			this._intendationLevel = 0;
 		}
 		let result: ErrorInformation = { text: '', position: 0 }
 		if (parsed.lineRoutines) {
@@ -662,7 +669,7 @@ class MumpsLineParser {
 						if (cmdParams[cmd] === undefined) {
 							longcmd = cmdExpansions[cmd];
 						}
-						this._tokens.push({
+						this._pushToken({
 							name: code.mCommand,
 							type: TokenType.keyword,
 							position: code.cmdPosition,
@@ -688,7 +695,7 @@ class MumpsLineParser {
 			}
 		}
 		if (parsed.lineComment) {
-			this._tokens.push({ name: parsed.lineComment.comment, position: parsed.lineComment.position, type: TokenType.comment });
+			this._pushToken({ name: parsed.lineComment.comment, position: parsed.lineComment.position, type: TokenType.comment });
 		}
 		return result;
 	}
@@ -696,18 +703,20 @@ class MumpsLineParser {
 		this._tokens = [];
 		line = line.replace(/\r/g, '');
 		const errInfo = this.checkLine(line);
-		return { error: errInfo, tokens: this._tokens }
+		return { error: errInfo, tokens: this._tokens, intendationLevel: this._intendationLevel }
 	}
-	public analyzeLines(input: string): [string[], LineToken[][], ErrorInformation[]] {
+	public analyzeLines(input: string): [string[], LineToken[][], ErrorInformation[], number[]] {
 		const lines = input.split('\n');
 		const errors: ErrorInformation[] = [];
 		const linetokens: Array<Array<LineToken>> = [];
+		const intendationLevels: number[] = [];
 		for (let i = 0; i < lines.length; i++) {
 			lines[i] = lines[i].replace(/\r/g, '');
 			errors[i] = this.checkLine(lines[i]);
 			linetokens[i] = this._tokens;
+			intendationLevels[i] = this._intendationLevel;
 		}
-		return [lines, linetokens, errors];
+		return [lines, linetokens, errors, intendationLevels];
 	}
 	public expandCompressFile(filename: string, doExpand: boolean): string {
 		if (doExpand === undefined) { doExpand = false; }
@@ -828,7 +837,7 @@ class MumpsLineParser {
 		let result: ErrorInformation = { text: '', position };
 		result = this._checkEntryRef(line, result.position, withParams);
 		if (line[result.position] === ':') {
-			this._tokens.push({ type: TokenType.argPostcondition, name: ":", position });
+			this._pushToken({ type: TokenType.argPostcondition, name: ":", position });
 			result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
 		}
 		return result;
@@ -837,122 +846,208 @@ class MumpsLineParser {
 		isUserfunction = isUserfunction === undefined ? false : isUserfunction;
 		let tokentype: TokenType = isUserfunction ? TokenType.exfunction : TokenType.entryref;
 		let result: ErrorInformation = { text: '', position };
-		if (line[result.position] === '@') { //Check Indirection
-			result = this._evaluateExpression(expressiontype.Atom, line, ++result.position);
-			if (line[result.position] === '+') { //Check Label+Offset
-				result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
-			}
-			if (line[result.position] === '^') { //Check if it's a Label like xxx^yyy
-				if (line[result.position + 1] === '@') { // or a Label xxx^@expr
-					result = this._evaluateExpression(expressiontype.Atom, line, ++result.position);
-				} else {
-					if (line.substring(result.position).match(entryref)) {
-						const ref = line.substring(result.position).match(entryref)![0];
-						result.position += ref.length;
-					} else {
-						result.text = 'Invalid EntryRef';
-						throw result;
-					}
-				}
-			}
-			if (line.substring(result.position, result.position + 2) === '@(') {
-				result.position++;
-			}
-		} else if (line.substring(result.position).match(entryref)) { //No Indirection and a valid entryref
-			let ref = line.substring(result.position).match(entryref)![0];
-			const merkpos = result.position;
-			result.position += ref.length;
-			const char = line[result.position];
-			if (result.position >= line.length) {
-				if (ref.length > 0) {
-					if (ref[0] === '&') {
-						tokentype = TokenType.nonMfunction;
-					}
-					this._tokens.push({ 'type': tokentype, name: ref, position: merkpos + this.linePosition });
-					return result;
-				} else {
-					result.text = 'Missing Entryref';
-					throw result;
-				}
-			}
-			if (ref.indexOf('^') === -1 && char === '+') {
-				const position = ++result.position
-				result = this._evaluateExpression(expressiontype.Standard, line, position);
-				ref += "+" + line.substring(position, result.position);
-				if (result.position >= line.length) {
-					this._tokens.push({ 'type': tokentype, name: ref, position: merkpos + this.linePosition });
-					return result
+		let refString = ""
+		let refPosition = position
+		this._tokenSaveEnabled = false
+		if (line.substring(result.position).match(entryref) && line.substring(result.position).match(entryref)![0].length > 0) {
+			refString = line.substring(result.position).match(entryref)![0];
+			result.position += refString.length;
+			const char = line[result.position]
+			const indRoutineString = line.substring(result.position, result.position + 2);
+			if (!refString.includes("^")) { //No ^ included, so a "^@", a "+" or a "(" has to follow or Entryref is complete
+				if (char === '+') { //Check Label+Offset
+					result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
+					refString += char
 				}
 				if (line.substring(result.position).match(routineref)) {
 					const routine = line.substring(result.position).match(routineref)![0];
-					ref += routine;
-					result.position += routine.length;
+					refString += routine
+					result.position += routine.length
+				} else if (indRoutineString === "^@") {
+					result = this._evaluateExpression(expressiontype.Atom, line, result.position + 2);
+					refString += "^@"
 				}
 			}
-			this._tokens.push({ 'type': tokentype, name: ref, position: merkpos + this.linePosition });
+		} else if (line[result.position] === '@') { //Check Indirection
+			result = this._evaluateExpression(expressiontype.Atom, line, ++result.position);
+			const indRoutineString = line.substring(result.position, result.position + 2);
+			if (line[result.position] === '+') { //Check Label+Offset
+				result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
+			}
+			if (line.substring(result.position).match(routineref)) {
+				//refPosition = result.position
+				const routine = line.substring(result.position).match(routineref)![0];
+				result.position += routine.length
+				refString = routine
+			} else if (indRoutineString === "^@") {
+				result = this._evaluateExpression(expressiontype.Atom, line, result.position + 2);
+				if (line.substring(result.position, result.position + 2) === "@(" && withParams) {
+					result.position++
+				}
+			} else if (indRoutineString === "@(" && withParams) {
+				result.position++
+			}
+		} else if (line[result.position] === '+') { //Check offset without label
+			result = this._evaluateExpression(expressiontype.Atom, line, ++result.position);
+			if (line.substring(result.position).match(routineref)) {
+				refPosition = result.position
+				const routine = line.substring(result.position).match(routineref)![0];
+				result.position += routine.length
+				refString = routine
+			} else if (line.substring(result.position, result.position + 2) === "^@") {
+				result = this._evaluateExpression(expressiontype.Atom, line, result.position + 2);
+				if (line.substring(result.position, result.position + 2) === "@(" && withParams) {
+					result.position++
+				}
+			}
+		} else if (line.substring(result.position, result.position + 2) === "^@") {
+			//refString = "^@"
+			result = this._evaluateExpression(expressiontype.Atom, line, result.position + 2);
 		} else {
-			result.text = 'Invalid Entryref';
+			result.text = 'Invalid EntryRef';
 			throw result;
+		}
+		refString = line.substring(refPosition, result.position)
+		this._tokenSaveEnabled = true
+		if (refString.length > 0) {
+			this._pushToken({ 'type': tokentype, name: refString, position: refPosition });
 		}
 		if (line[result.position] === '(' && withParams) {
 			result = this._evaluateExpression(expressiontype.eArgument, line, ++result.position, 1);
 		}
+		if (refString[0] === '&') {
+			tokentype = TokenType.nonMfunction;
+		}
 		return result
 	}
-	private _checkVar(line: string, position: number, globalOk?: boolean, indexOk?: boolean, isExluded?: boolean): ErrorInformation {
+	// private _checkEntryRef(line: string, position: number, withParams: boolean, isUserfunction?: boolean): ErrorInformation {
+	// 	isUserfunction = isUserfunction === undefined ? false : isUserfunction;
+	// 	let tokentype: TokenType = isUserfunction ? TokenType.exfunction : TokenType.entryref;
+	// 	let result: ErrorInformation = { text: '', position };
+	// 	const indRoutineString = line.substring(result.position, result.position + 2);
+	// 	if (line[result.position] === '@') { //Check Indirection
+	// 		result = this._evaluateExpression(expressiontype.Atom, line, ++result.position);
+	// 		if (line[result.position] === '+') { //Check Label+Offset
+	// 			result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
+	// 		}
+	// 		if (line[result.position] === '^') { //Check if it's a Label like xxx^yyy
+	// 			if (line[result.position + 1] === '@') { // or a Label xxx^@expr
+	// 				result = this._evaluateExpression(expressiontype.Atom, line, ++result.position);
+	// 			} else {
+	// 				if (line.substring(result.position).match(entryref)) {
+	// 					const ref = line.substring(result.position).match(entryref)![0];
+	// 					result.position += ref.length;
+	// 				} else {
+	// 					result.text = 'Invalid EntryRef';
+	// 					throw result;
+	// 				}
+	// 			}
+	// 		}
+	// 		if (line.substring(result.position, result.position + 2) === '@(') {
+	// 			result.position++;
+	// 		}
+	// 	} else if (indRoutineString === "^@") {
+	// 		result.position += 2
+	// 		result = this._evaluateExpression(expressiontype.Atom, line, result.position);
+	// 	} else if (line.substring(result.position).match(entryref)) { //No Indirection and a valid entryref
+
+	// 		let ref = line.substring(result.position).match(entryref)![0];
+	// 		const merkpos = result.position;
+	// 		result.position += ref.length;
+	// 		const char = line[result.position];
+	// 		if (result.position >= line.length) {
+	// 			if (ref.length > 0) {
+	// 				if (ref[0] === '&') {
+	// 					tokentype = TokenType.nonMfunction;
+	// 				}
+	// 				this._pushToken({ 'type': tokentype, name: ref, position: merkpos });
+	// 				return result;
+	// 			} else {
+	// 				result.text = 'Missing Entryref';
+	// 				throw result;
+	// 			}
+	// 		}
+	// 		if (ref.indexOf('^') === -1 && char === '+') { //Entryref in the form xxx+yyy[^zzz]
+	// 			const tokenPosition = this._tokens.length
+	// 			this._pushToken({ 'type': tokentype, name: ref, position: merkpos })
+	// 			const position = ++result.position
+	// 			result = this._evaluateExpression(expressiontype.Standard, line, position);
+	// 			ref += "+" + line.substring(position, result.position);
+	// 			if (result.position >= line.length) {
+	// 				this._tokens[tokenPosition] = { 'type': tokentype, name: ref, position: merkpos }
+	// 				return result
+	// 			}
+	// 			if (line.substring(result.position).match(routineref)) {
+	// 				const routine = line.substring(result.position).match(routineref)![0];
+	// 				ref += routine;
+	// 				result.position += routine.length;
+	// 			}
+	// 			this._tokens[tokenPosition] = { 'type': tokentype, name: ref, position: merkpos }
+	// 		} else {
+	// 			this._pushToken({ 'type': tokentype, name: ref, position: merkpos });
+	// 		}
+	// 	} else {
+	// 		result.text = 'Invalid Entryref';
+	// 		throw result;
+	// 	}
+	// 	if (line[result.position] === '(' && withParams) {
+	// 		result = this._evaluateExpression(expressiontype.eArgument, line, ++result.position, 1);
+	// 	}
+	// 	return result
+	// }
+	private _checkVar(line: string, position: number, globalOk?: boolean, indexOk?: boolean, isExcluded?: boolean): ErrorInformation {
 		let result: ErrorInformation = { text: '', position, indexFound: false, globalFound: false, indirectionFound: false };
 		let varFound = false;
-		if (globalOk === undefined) {
-			globalOk = true;
-		}
-		if (indexOk === undefined) {
-			indexOk = true;
-		}
-		if (isExluded === undefined) {
-			isExluded = false;
-		}
+		globalOk = globalOk ?? true;
+		indexOk = indexOk ?? true;
+		isExcluded = isExcluded ?? false;
 		if (line[result.position] === '@') {
 			result = this._evaluateExpression(expressiontype.Atom, line, ++result.position);
 			result.indirectionFound = true;
 			varFound = true;
-			if (line.substring(result.position, result.position + 2) === '@(') {
+			const nextChars = line.substring(result.position, result.position + 2)
+			if (nextChars === '@(') {
 				result.position++;
 			}
 		} else {
-			if (line.substring(result.position).match(gvn) || line.substring(result.position, result.position + 2) === '^|') {
+			const startString = line.substring(result.position, result.position + 2)
+			if (line.substring(result.position).match(gvn) || startString === '^|' || startString === '^[') {
 				if (!globalOk) {
 					result.text = 'Global not allowed here';
 					throw result;
 				}
 				result.globalFound = true;
-				if (line.substring(result.position, result.position + 2) === '^|') {
+				if (startString === '^|' || startString === '^[') {
 					result.position += 2
-					result = this._evaluateExpression(expressiontype.Standard, line, result.position);
+					let cuttedLine = line
+					if (startString === '^[') cuttedLine = this._cutBeforeClosingBrace(line, result.position)
+					result = this._evaluateExpression(expressiontype.Standard, cuttedLine, result.position);
 					result.globalFound = true;
 					if (line[result.position] === ',') {
-						result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
+						result = this._evaluateExpression(expressiontype.Standard, cuttedLine, ++result.position);
 						result.globalFound = true;
 					}
-					if (line[result.position] !== '|') {
-						result.text = 'Missing "|"';
+					if (startString === '^|' && line[result.position] !== '|' || (startString === '^[' && line[result.position] !== ']')) {
+						if (startString === '^|') result.text = 'Missing "|"';
+						else result.text = 'Missing "]"';
 						throw result;
 					}
 					result.position++;
 					if (line.substring(result.position).match(lvn)) {
 						const global = line.substring(result.position).match(lvn)![0];
-						this._tokens.push({ name: global, type: TokenType.global, position: result.position + this.linePosition });
+						this._pushToken({ name: global, type: TokenType.global, position: result.position });
 						varFound = true;
 						result.position += global.length;
 					}
 				} else {
 					const global = line.substring(result.position).match(gvn)![0];
-					this._tokens.push({ name: global, type: TokenType.global, position: result.position + this.linePosition });
+					this._pushToken({ name: global, type: TokenType.global, position: result.position });
 					varFound = true;
 					result.position += global.length;
 				}
 			} else if (line.substring(result.position).match(lvn)) {  // local variable found
 				const local = line.substring(result.position).match(lvn)![0];
-				this._tokens.push({ name: local, type: TokenType.local, position: result.position + this.linePosition, isExcludedVariable: isExluded });
+				this._pushToken({ name: local, type: TokenType.local, position: result.position, isExcludedVariable: isExcluded });
 				varFound = true;
 				result.position += local.length;
 			} else if (line.substring(result.position, result.position + 2) === '^(') {
@@ -966,10 +1061,13 @@ class MumpsLineParser {
 				result.position++;
 			}
 		}
-		if (varFound && line[result.position] === '(') {
+		if (varFound && (line[result.position] === '(' || (line.substring(result.position, result.position + 2) === '@(' && result.indirectionFound === true))) {
 			if (!indexOk) {
 				result.text = 'Index not allowed here';
 				throw result;
+			}
+			if (line.substring(result.position, result.position + 2) === '@(') {
+				result.position++
 			}
 			const provResult = this._evaluateExpression(expressiontype.Index, line, ++result.position, 1);
 			result.position = provResult.position;
@@ -1232,7 +1330,7 @@ class MumpsLineParser {
 					if (isvExpansions[longName.substring(1)] !== undefined) {
 						longName = "$" + isvExpansions[longName.substring(1)];
 					}
-					this._tokens.push({ name: sysvariable, position: position + this.linePosition, type: TokenType.sysvariable, longName, isExcludedVariable: true });
+					this._pushToken({ name: sysvariable, position: position, type: TokenType.sysvariable, longName, isExcludedVariable: true });
 					result.position += sysvariable.length;
 				} else {
 					result = this._checkVar(line, result.position, false, false, true);
@@ -1261,7 +1359,7 @@ class MumpsLineParser {
 				if (isvExpansions[longName.substring(1)] !== undefined) {
 					longName = "$" + isvExpansions[longName.substring(1)];
 				}
-				this._tokens.push({ name: sysvariable, position: position + this.linePosition, type: TokenType.sysvariable, longName, isExcludedVariable: false });
+				this._pushToken({ name: sysvariable, position: position, type: TokenType.sysvariable, longName, isExcludedVariable: false });
 				result.position += sysvariable.length;
 			} else {
 				result = this._checkVar(line, result.position, false);
@@ -1336,25 +1434,39 @@ class MumpsLineParser {
 			isBraced = true;
 			result.position++;
 		}
+		let indirectionFound = false
 		do {
+			indirectionFound = false
 			if (line[result.position] === '@') {
-				try {
+				indirectionFound = true
+				//result.position++
+				try { // Is it SET @VAR?
 					const provResult = this._checkVar(line, result.position);
 					result.position = provResult.position;
-					if (MumpsLineParser._isEndOfArgument(line, result.position) || line[result.position] === ',') {
-						return result;
-					}
-				} catch {
-					result = this._evaluateExpression(expressiontype.Atom, line, ++result.position);
-					if (MumpsLineParser._isEndOfArgument(line, result.position) || line[result.position] === ',') {
-						return result;
+				} catch { // It's not Set @VAR, is it Set @Expression?
+					result = this._evaluateExpression(expressiontype.Standard, line, ++result.position);
+				}
+				const char = line[result.position]
+				if (MumpsLineParser._isEndOfArgument(line, result.position)) {
+					if (!isBraced) return result;
+					else {
+						result.text = ") expected"
+						throw result
 					}
 				}
-			} else if (mat = line.substring(result.position).match(/^\$Z?(PIECE|P|EXTRACT|E)\(/i)) {
+				if (char === '=') {
+					indirectionFound = false;
+					continue;
+				}
+				if (char === ',') {
+					result.position++;
+					continue;
+				}
+			} else if (mat = line.substring(result.position).match(/^\$Z?(PIECE|PI|P|EXTRACT|E)\(/i)) {
 				let functionname = mat[0].substring(1, mat[0].length - 1).toUpperCase();
 				result.position += functionname.length + 2
 				if (funcExpansions[functionname] !== undefined) {
-					this._tokens.push({ name: "$" + functionname, position: result.position - functionname.length - 2, type: TokenType.ifunction, longName: "$" + funcExpansions[functionname] });
+					this._pushToken({ name: "$" + functionname, position: result.position - functionname.length - 2, type: TokenType.ifunction, longName: "$" + funcExpansions[functionname] });
 					functionname = funcExpansions[functionname];
 				}
 				result = this._checkFunction(functionname, line, result.position);
@@ -1368,10 +1480,11 @@ class MumpsLineParser {
 				continue;
 			}
 			if (line[result.position] === ')' && isBraced) {
-				isBraced = false;
-				result.position++;
+				isBraced = false
+				indirectionFound = false
+				result.position++
 			}
-		} while (!MumpsLineParser._isEndOfArgument(line, result.position) && isBraced);
+		} while (!MumpsLineParser._isEndOfArgument(line, result.position) && (isBraced || indirectionFound));
 		if (line[result.position] !== '=') {
 			result.text = 'Equal-Sign expected';
 			throw result;
@@ -1939,12 +2052,21 @@ class MumpsLineParser {
 
 		return result;
 	}
-	private _evaluateExpression(exType: number, line: string, position: number, level?: number | undefined): ErrorInformation {
+	// eslint-disable-next-line class-methods-use-this
+	private _cutBeforeClosingBrace(line: string, position: number): string {
+		let insideString = false
+		for (let i = position; i < line.length; i++) {
+			const char = line[i]
+			if (char === '"') insideString = !insideString
+			if (char === ']' && !insideString) return line.substring(0, i)
+		}
+		return line;
+	}
+	private _evaluateExpression(exType: number, line: string, position: number, level?: number, pushTokens?: boolean): ErrorInformation {
 		let expressionComplete = false;
 		let startposition = position;
-		if (level === undefined) {
-			level = 0;
-		}
+		level = level ?? 0;
+		pushTokens = pushTokens ?? true
 		let lastExpression = '';
 		while (position < line.length) {
 			let char = line.charAt(position);
@@ -1960,7 +2082,7 @@ class MumpsLineParser {
 					case 'pattern':
 						throw { text: 'Unecpected "("', position };
 				}
-				const result = this._evaluateExpression(subExType, line, ++position, level + 1);
+				const result = this._evaluateExpression(subExType, line, ++position, level + 1, pushTokens);
 				if (exType === expressiontype.Atom) {
 					return result;
 				}
@@ -1981,12 +2103,12 @@ class MumpsLineParser {
 				}
 				return { text: '', position: position };
 			}
-			if (char === '.' && exType === expressiontype.eArgument) {
+			if (char === '.' && (exType === expressiontype.eArgument || exType === expressiontype.Index)) {
 				position++;
 				const evalString = line.substring(position);
 				if (evalString.match(lvn)) {
 					const localname = evalString.match(lvn)![0];
-					this._tokens.push({ type: TokenType.local, name: localname, position: position + this.linePosition });
+					if (pushTokens) this._pushToken({ type: TokenType.local, name: localname, position: position });
 					position += localname.length;
 					char = line.charAt(position);
 					if (char !== ',' && char !== ')') {
@@ -2025,7 +2147,7 @@ class MumpsLineParser {
 				}
 				if (line.substring(position).match(binoperator)) {
 					const operator = line.substring(position).match(binoperator)![0];
-					this._tokens.push({ name: operator, position: position + this.linePosition, type: TokenType.operator });
+					if (pushTokens) this._pushToken({ name: operator, position: position, type: TokenType.operator });
 					position += operator.length;
 					expressionComplete = false;
 					if (operator === '?' || operator === "'?") {
@@ -2054,7 +2176,7 @@ class MumpsLineParser {
 					expressionComplete = true;
 				} else if (evalString.match(nonMfunction)) {
 					const functionname = evalString.match(nonMfunction)![0];
-					this._tokens.push({ type: TokenType.nonMfunction, name: functionname, position });
+					if (pushTokens) this._pushToken({ type: TokenType.nonMfunction, name: functionname, position });
 					position += functionname.length;
 					lastExpression = 'exfunction'
 					expressionComplete = true;
@@ -2065,7 +2187,7 @@ class MumpsLineParser {
 					if (funcExpansions[functionname] !== undefined) {
 						longName = funcExpansions[functionname];
 					}
-					this._tokens.push({ name: "$" + functionname, position: position - functionname.length - 2, type: TokenType.ifunction, longName: "$" + longName });
+					if (pushTokens) this._pushToken({ name: "$" + functionname, position: position - functionname.length - 2, type: TokenType.ifunction, longName: "$" + longName });
 					const result = this._checkFunction(longName, line, position);
 					position = result.position;
 					lastExpression = '';
@@ -2076,21 +2198,21 @@ class MumpsLineParser {
 					if (isvExpansions[longName.substring(1)] !== undefined) {
 						longName = "$" + isvExpansions[longName.substring(1)];
 					}
-					this._tokens.push({ name: specialvarname, position: position + this.linePosition, type: TokenType.sysvariable, longName });
+					if (pushTokens) this._pushToken({ name: specialvarname, position: position, type: TokenType.sysvariable, longName });
 					position += specialvarname.length
 					expressionComplete = true;
 				} else if (evalString.match(numlit) && evalString.match(numlit)![0] !== '') {
 					const numericliteral = evalString.match(numlit)![0];
-					this._tokens.push({ name: numericliteral, type: TokenType.number, position: position + this.linePosition });
+					this._pushToken({ name: numericliteral, type: TokenType.number, position });
 					position += numericliteral.length;
 					expressionComplete = true;
 				} else if (evalString.match(strlit)) {
 					const stringlit = evalString.match(strlit)![0];
-					this._tokens.push({ name: stringlit, type: TokenType.string, position: position + this.linePosition });
+					this._pushToken({ name: stringlit, type: TokenType.string, position });
 					position += stringlit.length;
 					expressionComplete = true;
 				} else if (char.match(unaryoperator)) {
-					this._tokens.push({ name: char, type: TokenType.operator, position: position + this.linePosition });
+					this._pushToken({ name: char, type: TokenType.operator, position });
 					position++;
 				} else {
 					throw { text: 'Unexpected Character ' + char, position }
@@ -2105,6 +2227,9 @@ class MumpsLineParser {
 		} else {
 			throw { text: 'Incomplete Expression', position };
 		}
+	}
+	private _pushToken(token: LineToken) {
+		if (this._tokenSaveEnabled) this._tokens.push(token)
 	}
 
 	/**
@@ -2325,9 +2450,8 @@ class MumpsLineParser {
 		}
 		return inputObject;
 	}
-
-	//Extracts Post-Conditionals from Routines, used by extractRoutines.
 	private static _extractPostConditional(tmpFunctionArray: TmpFunction[]): TmpFunction[] {
+		//Extracts Post-Conditionals from Routines, used by extractRoutines.
 
 		//Assign to new variable to truncate Routines.
 		const tmpObject = tmpFunctionArray;
@@ -2410,17 +2534,18 @@ class MumpsLineParser {
 
 	private _splitLabelAndParameters(label: string) {
 		if (label.indexOf('(') === -1) {
-			this._tokens.push({ name: label, position: 0, type: TokenType.label });
+			this._pushToken({ name: label, position: 0, type: TokenType.label });
 		} else {
 			const labelparts = label.split('(');
 			const labeltext = labelparts[0];
-			this._tokens.push({ name: labeltext, position: 0, type: TokenType.label });
+			this._pushToken({ name: labeltext, position: 0, type: TokenType.label });
 			const parameters = labelparts[1].split(')')[0];
 			const parameterVars = parameters.split(',');
 			let position = labeltext.length + 1		// Position = lengths of Label + trailing "("
 			for (let i = 0; i < parameterVars.length; i++) {
-				this._tokens.push({ name: parameterVars[i], position, type: TokenType.local });
-				position += parameterVars[i].length + 1
+				const parameterLength = parameterVars[i].length
+				if (parameterLength > 0) this._pushToken({ name: parameterVars[i], position, type: TokenType.local });
+				position += parameterLength + 1
 			}
 		}
 	}

@@ -89,3 +89,7 @@
 * $O-Loop generation added
 ## 1.4.5
 * $O-Loop generation improved
+## 1.5.0
+* Minor Bugfixes, Error Scan on all .m-files in Workspace added
+## 1.5.2
+* Improved syntax detection, improved syntax highlighting

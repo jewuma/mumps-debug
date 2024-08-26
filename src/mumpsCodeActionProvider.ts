@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import MumpsParseDb from './mumpsParseDb';
 import { TokenType } from './mumpsLineParser';
+import { isLintingFile } from './mumpsLinter';
 export default class MumpsCodeActionProvider implements vscode.CodeActionProvider {
 	private _document: vscode.TextDocument | null = null
 	private _actualDiagnostic: vscode.Diagnostic
@@ -13,51 +14,53 @@ export default class MumpsCodeActionProvider implements vscode.CodeActionProvide
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		token: vscode.CancellationToken
 	): vscode.ProviderResult<(vscode.Command | vscode.CodeAction)[]> {
-		this._parseDb = MumpsParseDb.getInstance(document)
-		const diagnostics = context.diagnostics;
-		const codeActions: vscode.CodeAction[] = diagnostics.map((diagnostic) => {
-			let fix: vscode.CodeAction = new vscode.CodeAction('No Solution', vscode.CodeActionKind.Empty);
-			if (diagnostic.code) {
-				const parts = diagnostic.code.toString().split(":")
-				const errorCode = parts[0]
-				this._actualParameter = parts[1]
-				this._document = document
-				this._actualDiagnostic = diagnostic
-				switch (errorCode) {
-					case "VarAlreadyNewed":
-						fix = this._removeNewVariable()
-						break;
-					case "NewedButNotUsed":
-						fix = this._removeNewVariable()
-						break;
-					case "NewHidesParam":
-						fix = this._removeNewVariable()
-						break;
-					case "VarNotNewed":
-						fix = this._varNotNewed()
-						break;
+		if (!isLintingFile(document.uri.fsPath)) {
+			this._parseDb = MumpsParseDb.getInstance(document)
+			const diagnostics = context.diagnostics;
+			const codeActions: vscode.CodeAction[] = diagnostics.map((diagnostic) => {
+				let fix: vscode.CodeAction = new vscode.CodeAction('No Solution', vscode.CodeActionKind.Empty);
+				if (diagnostic.code) {
+					const parts = diagnostic.code.toString().split(":")
+					const errorCode = parts[0]
+					this._actualParameter = parts[1]
+					this._document = document
+					this._actualDiagnostic = diagnostic
+					switch (errorCode) {
+						case "VarAlreadyNewed":
+							fix = this._removeNewVariable()
+							break;
+						case "NewedButNotUsed":
+							fix = this._removeNewVariable()
+							break;
+						case "NewHidesParam":
+							fix = this._removeNewVariable()
+							break;
+						case "VarNotNewed":
+							fix = this._varNotNewed()
+							break;
+					}
 				}
-			}
-			const lineTokens = this._parseDb.getLineTokens(range.end.line)
-			if (lineTokens.length > 1 && lineTokens[lineTokens.length - 1].longName === "SET" && lineTokens[lineTokens.length - 2].longName === "FOR") {
-				const shortNames: boolean = lineTokens[lineTokens.length - 1].name.length === 1;
-				const isUppercase: boolean = lineTokens[lineTokens.length - 1].name[0] === "S"
-				let intendation = 0
-				if (lineTokens[0].type === TokenType.intendation) {
-					intendation = lineTokens[0].name.length;
+				const lineTokens = this._parseDb.getLineTokens(range.end.line)
+				if (lineTokens.length > 1 && lineTokens[lineTokens.length - 1].longName === "SET" && lineTokens[lineTokens.length - 2].longName === "FOR") {
+					const shortNames: boolean = lineTokens[lineTokens.length - 1].name.length === 1;
+					const isUppercase: boolean = lineTokens[lineTokens.length - 1].name[0] === "S"
+					let intendation = 0
+					if (lineTokens[0].type === TokenType.intendation) {
+						intendation = lineTokens[0].name.length;
+					}
+					fix.title = "Create $ORDER-Loop";
+					fix.kind = vscode.CodeActionKind.QuickFix;
+					fix.command = {
+						command: "mumps.generateForLoop",
+						title: "Create $ORDER-Loop",
+						arguments: [document, range, shortNames, isUppercase, intendation]
+					}
 				}
-				fix.title = "Create $ORDER-Loop";
-				fix.kind = vscode.CodeActionKind.QuickFix;
-				fix.command = {
-					command: "mumps.generateForLoop",
-					title: "Create $ORDER-Loop",
-					arguments: [document, range, shortNames, isUppercase, intendation]
-				}
-			}
-			return fix;
-		});
+				return fix;
+			});
 
-		return codeActions;
+			return codeActions;
+		}
 	}
 	private _removeNewVariable(): vscode.CodeAction {
 		const fix = new vscode.CodeAction('Remove variable', vscode.CodeActionKind.QuickFix)

@@ -2,9 +2,8 @@
 
 import * as vscode from 'vscode';
 import { autoSpaceEnter, autoSpaceTab } from './mumpsAutospace';
-import { MumpsHighlighter, SemanticTokens } from './mumpsHighlighter';
-import CompletionItemProvider from './mumpsCompletionItemProvider';
-import expandCompress from './mumpsCompExp';
+import MumpsCodeActionProvider from './mumpsCodeActionProvider';
+import MumpsCompletionItemProvider from './mumpsCompletionItemProvider';
 import MumpsConfigurationProvider from './mumpsConfigurationProvider';
 import MumpsDebugSession from './mumpsDebug';
 import MumpsDiagnosticsProvider from './mumpsDiagnosticsProvider';
@@ -12,24 +11,28 @@ import MumpsDocumenter from './mumpsDocumenter';
 import MumpsDocumentSymbolProvider from './mumpsDocumentSymbolProvider';
 import MumpsDefinitionProvider from './mumpsDefinitionProvider';
 import MumpsEvalutableExpressionProvider from './mumpsEvalutableExpressionProvider';
+import MumpsExpandCompress from './mumpsCompExp';
 import MumpsFoldingProvider from './mumpsFoldingProvider';
-import { MumpsGlobalProvider, GlobalNode } from './mumpsGlobalProvider';
-import MumpsHoverProvider from './mumpsHoverProvider';
 import MumpsFormattingHelpProvider from './mumpsFormattingHelpProvider';
+import { MumpsGlobalProvider, GlobalNode } from './mumpsGlobalProvider';
+import { MumpsHighlighter, SemanticTokens } from './mumpsHighlighter';
+import MumpsHoverProvider from './mumpsHoverProvider';
+import MumpsLinter, { removeLintFileFlag } from './mumpsLinter';
 import MumpsReferenceProvider from './mumpsReferenceProvider';
-import MumpsSignatureHelpProvider from './mumpsSignatureHelpProvider';
 import MumpsRoutineSorter from './mumpsRoutineSorter';
-import MumpsCodeActionProvider from './mumpsCodeActionProvider';
+import MumpsSignatureHelpProvider from './mumpsSignatureHelpProvider';
 import * as fs from 'fs'
 let timeout: ReturnType<typeof setTimeout> | undefined;
 const entryRef: string | undefined = "";
 let dbFile = "";
 let localRoutinesPath = "";
+let cancellationTokenSource: vscode.CancellationTokenSource | null = null;
 const globalDirectoryProvider = MumpsGlobalProvider.getInstance();
 const mumpsCodeActionProvider = new MumpsCodeActionProvider();
+export let mumpsDiagnostics: vscode.DiagnosticCollection;
 export async function activate(context: vscode.ExtensionContext) {
 	const MUMPS_MODE: vscode.DocumentFilter = { language: 'mumps', scheme: 'file' };
-	const mumpsDiagnostics = vscode.languages.createDiagnosticCollection("mumps");
+	mumpsDiagnostics = vscode.languages.createDiagnosticCollection("mumps");
 	let storage = "";
 	if (context.storageUri !== undefined) {
 		storage = context.storageUri.fsPath;
@@ -37,21 +40,60 @@ export async function activate(context: vscode.ExtensionContext) {
 			fs.mkdirSync(storage);
 		}
 		dbFile = storage + "/labeldb.json";
-		context.subscriptions.push(vscode.languages.registerCompletionItemProvider(MUMPS_MODE, new CompletionItemProvider(dbFile)));
+		context.subscriptions.push(vscode.languages.registerCompletionItemProvider(MUMPS_MODE, new MumpsCompletionItemProvider(dbFile)));
 	}
 	const wsState = context.workspaceState;
+	const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
+	statusBarItem.text = "$(primitive-square) Stop Scan";
+	statusBarItem.command = 'mumps.stopScan';
+	statusBarItem.tooltip = "Stop current Mumps scan";
+	statusBarItem.hide(); // initially hidden
+	const scanCommand = async () => {
+		if (cancellationTokenSource) {
+			// Abbruch wenn bereits ein Scan läuft
+			cancellationTokenSource.cancel();
+			cancellationTokenSource = null;
+			statusBarItem.hide(); // hide the button when scan is canceled
+			return;
+		}
+
+		cancellationTokenSource = new vscode.CancellationTokenSource();
+		const token = cancellationTokenSource.token;
+		statusBarItem.show(); // show the button when scan starts
+
+		try {
+			await new MumpsLinter(mumpsDiagnostics).lintAllFiles(token);
+		} finally {
+			cancellationTokenSource = null; // Zurücksetzen der Quelle nach Abschluss des Scans
+			statusBarItem.hide(); // hide the button when scan is finished
+		}
+	}
+	const stopCommand = () => {
+		if (cancellationTokenSource) {
+			cancellationTokenSource.cancel();
+			cancellationTokenSource = null;
+			vscode.window.showInformationMessage('Scan wurde gestoppt.');
+			statusBarItem.hide(); // hide the button when scan is stopped
+		} else {
+			vscode.window.showInformationMessage('Kein laufender Scan zum Stoppen.');
+		}
+	};
+	const generateForLoop = (document: vscode.TextDocument, range: vscode.Range, shortNames: boolean, isUppercase: boolean, intendation: number) =>
+		mumpsCodeActionProvider.generateForLoop(document, range, shortNames, isUppercase, intendation);
+
 	context.subscriptions.push(
 		vscode.commands.registerCommand("mumps.documentFunction", () => { MumpsDocumenter(); }),
 		vscode.commands.registerCommand("mumps.autoSpaceEnter", () => { autoSpaceEnter(); }),
 		vscode.commands.registerCommand("mumps.autoSpaceTab", () => { autoSpaceTab(); }),
 		vscode.commands.registerCommand("mumps.sortRoutine", () => { new MumpsRoutineSorter() }),
-		vscode.commands.registerCommand("mumps.toggleExpandedCommands", () => { expandCompress(wsState) }),
+		vscode.commands.registerCommand("mumps.toggleExpandedCommands", () => { MumpsExpandCompress(wsState) }),
 		vscode.commands.registerCommand('mumps.getEntryRef', () => { return getEntryRef() }),
 		vscode.commands.registerCommand('mumps.Globals.loadMore', (node: GlobalNode) => globalDirectoryProvider.getMoreNodes(node)),
 		vscode.commands.registerCommand('mumps.Globals.refresh', () => MumpsGlobalProvider.refresh()),
 		vscode.commands.registerCommand('mumps.Globals.search', (node: GlobalNode) => globalDirectoryProvider.search(node)),
-		vscode.commands.registerCommand('mumps.generateForLoop', (document: vscode.TextDocument, range: vscode.Range, shortNames: boolean, isUppercase: boolean, intendation: number) =>
-			mumpsCodeActionProvider.generateForLoop(document, range, shortNames, isUppercase, intendation)),
+		vscode.commands.registerCommand('mumps.generateForLoop', generateForLoop),
+		vscode.commands.registerCommand('mumps.scanWorkspaceForErrors', scanCommand),
+		vscode.commands.registerCommand('mumps.stopScan', stopCommand),
 		vscode.debug.registerDebugConfigurationProvider('mumps', new MumpsConfigurationProvider()),
 		vscode.debug.registerDebugAdapterDescriptorFactory('mumps', new InlineDebugAdapterFactory()),
 		vscode.languages.registerHoverProvider(MUMPS_MODE, new MumpsHoverProvider()),
@@ -69,6 +111,7 @@ export async function activate(context: vscode.ExtensionContext) {
 		vscode.window.onDidChangeActiveTextEditor(editor => { if (editor) { triggerUpdateDiagnostics(editor.document, mumpsDiagnostics) } }),
 		vscode.workspace.onDidChangeTextDocument(editor => { if (editor) { triggerUpdateDiagnostics(editor.document, mumpsDiagnostics) } }),
 		vscode.workspace.onDidOpenTextDocument(document => { triggerUpdateDiagnostics(document, mumpsDiagnostics) }),
+		statusBarItem
 	);
 }
 
@@ -88,7 +131,11 @@ function triggerUpdateDiagnostics(document: vscode.TextDocument, collection: vsc
 		clearTimeout(timeout);
 		timeout = undefined;
 	}
-	timeout = setTimeout(() => new MumpsDiagnosticsProvider(document, collection), 500);
+	timeout = setTimeout(() => {
+		removeLintFileFlag(document.fileName)
+		const diagnosticsProvider = new MumpsDiagnosticsProvider(collection)
+		diagnosticsProvider.updateDiagnostics(document);
+	}, 500);
 }
 
 function getEntryRef() {

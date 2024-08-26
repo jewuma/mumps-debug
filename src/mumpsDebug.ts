@@ -19,7 +19,6 @@ import MumpsDiagnosticsProvider from './mumpsDiagnosticsProvider';
 import { setLocalRoutinesPath } from './extension';
 import { MumpsGlobalProvider } from './mumpsGlobalProvider';
 const MUMPSDIAGNOSTICS = vscode.languages.createDiagnosticCollection("mumps");
-//const MUMPSDIAGNOSTICS = vscode.languages.createDiagnosticCollection("mumps");
 /**
  * This interface describes the mumps-debug specific launch attributes
  * The schema for these attributes lives in the package.json of the mumps-debug extension.
@@ -160,8 +159,10 @@ export default class MumpsDebugSession extends DebugSession {
 		setLocalRoutinesPath(args.localRoutinesPath);
 		// start the program in the runtime
 		this._mconnect.init(args.hostname, args.port).then(async () => {
-			if (vscode.window.activeTextEditor?.document)
-				new MumpsDiagnosticsProvider(vscode.window.activeTextEditor?.document, MUMPSDIAGNOSTICS)
+			if (vscode.window.activeTextEditor?.document) {
+				const diagnosticsProvider = new MumpsDiagnosticsProvider(MUMPSDIAGNOSTICS);
+				diagnosticsProvider.updateDiagnostics(vscode.window.activeTextEditor?.document);
+			}
 			this._mconnect.start(args.program, !!args.stopOnEntry);
 			MumpsGlobalProvider.setMconnect(this._mconnect)
 			this._program = args.program;

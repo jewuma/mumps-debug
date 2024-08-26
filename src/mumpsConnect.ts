@@ -18,7 +18,8 @@ export interface MumpsBreakpoint {
 }
 export interface FilePosition {
 	file: string,
-	line: number
+	line: number,
+	local: boolean
 }
 interface VarData {
 	name: string,
@@ -571,6 +572,7 @@ export class MumpsConnect extends EventEmitter {
 }
 export function convertMumpsPosition(positionstring: string, showNotFound?: boolean | undefined): FilePosition {
 	if (showNotFound === undefined) { showNotFound = true; }
+	let local = false;
 	const parts = positionstring.split("^");
 	const position = parts[0];
 	if (parts[1] !== undefined) {
@@ -587,13 +589,14 @@ export function convertMumpsPosition(positionstring: string, showNotFound?: bool
 		}
 		if (!existsSync(file)) {
 			if (showNotFound) { vscode.window.showErrorMessage("Could not find Routine " + program); }
-			return { "file": "", "line": 1 };
+			return { "file": "", "line": 1, local: false };
 		}
 
 		try {
 			const filecontent = readFileSync(file).toString().split('\n');
 			const startlabel = position.split("+")[0];
-			const labelRegexp = new RegExp("^" + startlabel + "([(\\s;]|$)");
+			const labelRegexp = new RegExp("^" + startlabel + "([(\\s;:]|$)");
+			const localLabelRegexp = new RegExp("^" + startlabel + ":");
 			let offset = 0;
 			if (position.split("+")[1] !== undefined) {
 				offset = parseInt(position.split("+")[1]);
@@ -604,20 +607,22 @@ export function convertMumpsPosition(positionstring: string, showNotFound?: bool
 			if (startlabel !== "") {
 				for (let ln = 0; ln < filecontent.length; ln++) {
 					if (filecontent[ln].match(labelRegexp)) {
+						if (filecontent[ln].match(localLabelRegexp)) local = true;
+						else local = false;
 						line = ln;
 						labelFound = true;
 						break;
 					}
 				}
-				if (!labelFound) return { "file": "", "line": 1 }
+				if (!labelFound) return { "file": "", "line": 1, local }
 			}
-			if (line + offset >= filecontent.length) return { "file": "", "line": 1 }
-			return { "file": file, "line": line + offset };
+			if (line + offset >= filecontent.length) return { "file": "", "line": 1, local }
+			return { "file": file, "line": line + offset, local };
 		} catch {
-			console.log("Could not read Sourcefile " + file)
-			return { "file": "", "line": 1 };
+			//console.log("Could not read Sourcefile " + file)
+			return { "file": "", "line": 1, local };
 		}
 	} else {
-		return { "file": "", "line": 1 };
+		return { "file": "", "line": 1, local };
 	}
 }

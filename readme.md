@@ -10,8 +10,9 @@ This is a language support for Mumps (M) running on YottaDB/GT.M
 * subroutine-check for correct NEWing
 * Conversion from short to long commands and vice versa via CTRL-E
 * Folding provider included
-* **NEW** Global-viewer in the sidebar - active while debugging
-* **NEW** Routine-sorter - sorts your subroutines inside the editor alphabetically via CTRL-ALT-S **experimental**
+* Global-viewer in the sidebar - active while debugging
+* Routine-sorter - sorts your subroutines inside the editor alphabetically via CTRL-ALT-S **experimental**
+* Search for syntax errors in all .m files via CTRL-ALT-E
 * completely free, just have fun - BUT ALL ON YOUR OWN RISK!
 
 
