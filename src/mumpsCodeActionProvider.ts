@@ -44,16 +44,16 @@ export default class MumpsCodeActionProvider implements vscode.CodeActionProvide
 				if (lineTokens.length > 1 && lineTokens[lineTokens.length - 1].longName === "SET" && lineTokens[lineTokens.length - 2].longName === "FOR") {
 					const shortNames: boolean = lineTokens[lineTokens.length - 1].name.length === 1;
 					const isUppercase: boolean = lineTokens[lineTokens.length - 1].name[0] === "S"
-					let intendation = 0
-					if (lineTokens[0].type === TokenType.intendation) {
-						intendation = lineTokens[0].name.length;
+					let indentation = 0
+					if (lineTokens[0].type === TokenType.indentation) {
+						indentation = lineTokens[0].name.length;
 					}
 					fix.title = "Create $ORDER-Loop";
 					fix.kind = vscode.CodeActionKind.QuickFix;
 					fix.command = {
 						command: "mumps.generateForLoop",
 						title: "Create $ORDER-Loop",
-						arguments: [document, range, shortNames, isUppercase, intendation]
+						arguments: [document, range, shortNames, isUppercase, indentation]
 					}
 				}
 				return fix;
@@ -178,7 +178,7 @@ export default class MumpsCodeActionProvider implements vscode.CodeActionProvide
 		edit.insert(uri!, new vscode.Position(i, 0), "\tNEW " + this._actualParameter + "\n")
 		return edit
 	}
-	public generateForLoop(document: vscode.TextDocument, range: vscode.Range, shortNames: boolean, isUppercase: boolean, intendation: number): void {
+	public generateForLoop(document: vscode.TextDocument, range: vscode.Range, shortNames: boolean, isUppercase: boolean, indentation: number): void {
 		vscode.window.showInputBox({ prompt: "Enter loop variable including indices:" }).then((variableName) => {
 			if (variableName) {
 				this._parseDb = MumpsParseDb.getInstance(document)
@@ -226,7 +226,7 @@ export default class MumpsCodeActionProvider implements vscode.CodeActionProvide
 					forLoop += ")) " + quitToken + ":" + indices[0] + '=""  ' + doToken + "\n";
 					if (indexCount > startIndex + 1) {
 						for (let i = startIndex + 1; i < indexCount; i++) {
-							forLoop += "\t" + ". ".repeat(i - startIndex + intendation) + setToken + " " + indices[i] + '="" ' + forToken + "  " +
+							forLoop += "\t" + ". ".repeat(i - startIndex + indentation) + setToken + " " + indices[i] + '="" ' + forToken + "  " +
 								setToken + " " + indices[i] + "=" + orderToken + variableStart + indices[0] + ","
 							for (let j = 1; j <= i; j++) {
 								forLoop += indices[j];
@@ -234,7 +234,7 @@ export default class MumpsCodeActionProvider implements vscode.CodeActionProvide
 							}
 							forLoop += ")) " + quitToken + ":" + indices[i] + '=""  ' + doToken + "\n";
 						}
-						forLoop += "\t" + ". ".repeat(indexCount - startIndex + intendation)
+						forLoop += "\t" + ". ".repeat(indexCount - startIndex + indentation)
 					}
 					const editor = vscode.window.activeTextEditor;
 					if (!editor) {

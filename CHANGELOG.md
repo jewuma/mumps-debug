@@ -50,7 +50,7 @@
 ## 1.0.0
 * New Feature: Variables are checked for correct NEWing, some semantic checks added
 ## 1.1.0
-* Intendation Check, better completion items, code optimization
+* indentation Check, better completion items, code optimization
 ## 1.1.1
 * Fixed that ]]-Operator wasn't interpreted correctly
 ## 1.1.2
@@ -79,6 +79,7 @@
 * Code clean and added advanced folding-provider
 ## 1.4.0
 * Added Code-Actions to help NEWing variables
+
 ## 1.4.1
 * Minor improvements of syntax-detection
 ## 1.4.2
@@ -93,3 +94,7 @@
 * Minor Bugfixes, Error Scan on all .m-files in Workspace added
 ## 1.5.2
 * Improved syntax detection, improved syntax highlighting
+## 1.5.3
+* User can select options when scanning all files
+## 1.5.4
+* Minor stability fixes

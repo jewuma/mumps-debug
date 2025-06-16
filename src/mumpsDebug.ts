@@ -6,7 +6,7 @@
 
 import {
 	DebugSession,
-	InitializedEvent, TerminatedEvent, StoppedEvent, BreakpointEvent,
+	InitializedEvent, TerminatedEvent, StoppedEvent, BreakpointEvent, OutputEvent,
 	Thread, StackFrame, Scope, Source, Handles
 } from '@vscode/debugadapter';
 import { DebugProtocol } from '@vscode/debugprotocol';
@@ -144,53 +144,55 @@ export default class MumpsDebugSession extends DebugSession {
 	 */
 	protected configurationDoneRequest(response: DebugProtocol.ConfigurationDoneResponse, args: DebugProtocol.ConfigurationDoneArguments): void {
 		super.configurationDoneRequest(response, args);
-
-		// notify the launchRequest that configuration has finished
-
 		this._configurationDone.notify();
 	}
 
 	protected async launchRequest(response: DebugProtocol.LaunchResponse, args: LaunchRequestArguments) {
-
-		// make sure to 'Stop' the buffered logging if 'trace' is not set
-		//logger.setup(args.trace ? Logger.LogLevel.Verbose : Logger.LogLevel.Stop, false);
-		// wait until configuration has finished (and configurationDoneRequest has been called)
-		await this._configurationDone.wait(1000);
+		await this._configurationDone.wait(10000);
 		setLocalRoutinesPath(args.localRoutinesPath);
-		// start the program in the runtime
-		this._mconnect.init(args.hostname, args.port).then(async () => {
+		try {
+			await this._mconnect.init(args.hostname, args.port);
 			if (vscode.window.activeTextEditor?.document) {
 				const diagnosticsProvider = new MumpsDiagnosticsProvider(MUMPSDIAGNOSTICS);
 				diagnosticsProvider.updateDiagnostics(vscode.window.activeTextEditor?.document);
 			}
-			this._mconnect.start(args.program, !!args.stopOnEntry);
-			MumpsGlobalProvider.setMconnect(this._mconnect)
+			MumpsGlobalProvider.setMconnect(this._mconnect);
 			this._program = args.program;
+			this._mconnect.start(args.program, !!args.stopOnEntry);
 			this.sendResponse(response);
-		}).catch(() => {
-			vscode.window.showErrorMessage("Connection to MDEBUG failed. \nPlease start MDEBUG first.");
+			// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		} catch (e) {
+			//const errorMessage = e instanceof Error ? e.message : String(e);
+			this.sendEvent(new OutputEvent('Launch failed: Please start MDEBUG.m first.'));
 			response.success = false;
-			response.message = "Connection to MDEBUG failed. \nPlease start MDEBUG first.";
+			response.message = 'Launch failed: Please start MDEBUG.m first.';
 			this.sendResponse(response);
-		})
+			this.sendEvent(new TerminatedEvent());
+		}
 	}
 
 	protected setBreakPointsRequest(response: DebugProtocol.SetBreakpointsResponse, args: DebugProtocol.SetBreakpointsArguments): void {
-		const path = <string>args.source.path;
-		this._mconnect.clearBreakpoints(path);
-		const actualBreakpoints = this._mconnect.setBreakPoint(path, args.breakpoints);
-
-		// send back the actual breakpoint positions
-		response.body = {
-			breakpoints: actualBreakpoints
-		};
-		this.sendResponse(response);
-		this._mconnect.requestBreakpoints();
+		try {
+			const path = <string>args.source.path;
+			this._mconnect.clearBreakpoints(path);
+			const bpArgs = args.breakpoints ? args.breakpoints : [];
+			const actualBreakpoints = this._mconnect.setBreakPoint(path, bpArgs);
+			response.body = {
+				breakpoints: actualBreakpoints
+			};
+			this._mconnect.requestBreakpoints();
+			this.sendResponse(response);
+		} catch (e) {
+			const errorMessage = e instanceof Error ? e.message : String(e);
+			this.sendEvent(new OutputEvent(`Error setting breakpoints: ${errorMessage}\n`, 'stderr'));
+			response.success = false;
+			response.message = `Failed to set breakpoints: ${errorMessage}`;
+			response.body = { breakpoints: [] };
+			this.sendResponse(response);
+		}
 	}
 
 	protected threadsRequest(response: DebugProtocol.ThreadsResponse): void {
-
-		// runtime supports no threads so just return a default thread.
 		response.body = {
 			threads: [
 				new Thread(MumpsDebugSession.THREAD_ID, "thread 1")
@@ -200,24 +202,30 @@ export default class MumpsDebugSession extends DebugSession {
 	}
 
 	protected stackTraceRequest(response: DebugProtocol.StackTraceResponse, args: DebugProtocol.StackTraceArguments): void {
-
-		const startFrame = typeof args.startFrame === 'number' ? args.startFrame : 0;
-		const maxLevels = typeof args.levels === 'number' ? args.levels : 1000;
-		const endFrame = startFrame + maxLevels;
-
-		const stk = this._mconnect.stack(startFrame, endFrame);
-		response.body = {
-			stackFrames: stk.frames.map(f => new StackFrame(f.index, f.name, this.createSource(f.file), this.convertDebuggerLineToClient(f.line))),
-			totalFrames: stk.count
-		};
-		if (stk.count === 0) {
-			this.sendEvent(new TerminatedEvent());
+		try {
+			const startFrame = typeof args.startFrame === 'number' ? args.startFrame : 0;
+			const maxLevels = typeof args.levels === 'number' ? args.levels : 1000;
+			const endFrame = startFrame + maxLevels;
+			const stk = this._mconnect.stack(startFrame, endFrame);
+			response.body = {
+				stackFrames: stk.frames.map(f => new StackFrame(f.index, f.name, this.createSource(f.file), this.convertDebuggerLineToClient(f.line))),
+				totalFrames: stk.count
+			};
+			if (stk.count === 0 && stk.frames.length === 0) { // Ensure we check frames length too, as count might be total, not current
+				this.sendEvent(new TerminatedEvent());
+			}
+			this.sendResponse(response);
+		} catch (e) {
+			const errorMessage = e instanceof Error ? e.message : String(e);
+			this.sendEvent(new OutputEvent(`Error fetching stack trace: ${errorMessage}\n`, 'stderr'));
+			response.success = false;
+			response.message = `Failed to retrieve stack trace: ${errorMessage}`;
+			response.body = { stackFrames: [] };
+			this.sendResponse(response);
 		}
-		this.sendResponse(response);
 	}
 
 	protected scopesRequest(response: DebugProtocol.ScopesResponse): void {
-
 		response.body = {
 			scopes: [
 				new Scope("Local", this._localScope, false),
@@ -228,58 +236,66 @@ export default class MumpsDebugSession extends DebugSession {
 	}
 
 	protected async variablesRequest(response: DebugProtocol.VariablesResponse, args: DebugProtocol.VariablesArguments) {
-
-		const variables: DebugProtocol.Variable[] = [];
-		let insertVariable: DebugProtocol.Variable | undefined;
-		const varReference = args.variablesReference;
-		const varId = this._variableHandles.get(args.variablesReference);
-		switch (varReference) {
-			case this._systemScope: {
-				const varObject = this._mconnect.getVariables(VariableType.system);
-				for (const varname in varObject) {
-					variables.push({
-						name: varname,
-						type: 'string',
-						value: varObject[varname],
-						variablesReference: 0
-					})
+		try {
+			const variables: DebugProtocol.Variable[] = [];
+			let insertVariable: DebugProtocol.Variable | undefined;
+			const varReference = args.variablesReference;
+			const varId = this._variableHandles.get(args.variablesReference);
+			switch (varReference) {
+				case this._systemScope: {
+					const varObject = this._mconnect.getVariables(VariableType.system);
+					for (const varname in varObject) {
+						variables.push({
+							name: varname,
+							type: 'string',
+							value: varObject[varname],
+							variablesReference: 0
+						});
+					}
+					break;
 				}
-				break;
-			}
-			default: {
-				const varparts: string[] = varId.split("|");
-				const indexCount: number = parseInt(varparts.pop() || "0");
-				const varBase = varparts.join("|");
-				const varObject = this._mconnect.getVariables(VariableType.local);
-				let lastVar: VarData | undefined = undefined;
-				let lastRef = "";
-				for (const varname in varObject) {
-					const actualVar = MumpsDebugSession.varAnalyze(varname, varObject[varname]);
-					if (lastVar === undefined) { //First Variable not processed
+				default: {
+					const varparts: string[] = varId.split("|");
+					const indexCount: number = parseInt(varparts.pop() || "0");
+					const varBase = varparts.join("|");
+					const varObject = this._mconnect.getVariables(VariableType.local);
+					let lastVar: VarData | undefined = undefined;
+					let lastRef = "";
+					for (const varname in varObject) {
+						const actualVar = MumpsDebugSession.varAnalyze(varname, varObject[varname]);
+						if (lastVar === undefined) {
+							lastVar = actualVar;
+							continue;
+						}
+						// eslint-disable-next-line no-cond-assign
+						if (insertVariable = this._checkVars(lastVar, actualVar, indexCount, varBase, lastRef)) {
+							if (insertVariable.variablesReference !== 0) { lastRef = lastVar.bases[indexCount]; }
+							variables.push(insertVariable);
+						}
 						lastVar = actualVar;
-						continue;
 					}
-					// eslint-disable-next-line no-cond-assign
-					if (insertVariable = this._checkVars(lastVar, actualVar, indexCount, varBase, lastRef)) {
-						if (insertVariable.variablesReference !== 0) { lastRef = lastVar.bases[indexCount]; }
-						variables.push(insertVariable);
+					if (lastVar !== undefined) {
+						const dummyVar: VarData = { name: "", "indexCount": 0, "bases": [], "content": "" };
+						const insertVariable = this._checkVars(lastVar, dummyVar, indexCount, varBase, lastRef);
+						if (insertVariable) {
+							variables.push(insertVariable);
+						}
 					}
-					lastVar = actualVar;
+					break;
 				}
-				if (lastVar !== undefined) { // process Last Variable if there was minimum one
-					const dummyVar: VarData = { name: "", "indexCount": 0, "bases": [], "content": "" }
-					const insertVariable = this._checkVars(lastVar, dummyVar, indexCount, varBase, lastRef)
-					if (insertVariable) {
-						variables.push(insertVariable);
-					}
-				}
-				break;
 			}
+			response.body = { variables };
+			this.sendResponse(response);
+		} catch (e) {
+			const errorMessage = e instanceof Error ? e.message : String(e);
+			this.sendEvent(new OutputEvent(`Error fetching variables: ${errorMessage}\n`, 'stderr'));
+			response.success = false;
+			response.message = `Failed to retrieve variables: ${errorMessage}`;
+			response.body = { variables: [] };
+			this.sendResponse(response);
 		}
-		response.body = { variables };
-		this.sendResponse(response);
 	}
-	//checkVars checks if Variable has to be inserted in Var-Display and if it has descendants
+
 	private _checkVars(lastVar: VarData, actualVar: VarData, indexCount: number, varBase: string, lastRef: string): DebugProtocol.Variable | undefined {
 		let returnVar: DebugProtocol.Variable | undefined = undefined;
 		let actualReference = 0;
@@ -298,7 +314,7 @@ export default class MumpsDebugSession extends DebugSession {
 						variablesReference: this._variableBases[lastVar.bases[indexCount]]
 					};
 				}
-			} else { //lastVar.indexCount==indexCount+1
+			} else {
 				if (lastVar.bases[indexCount] === actualVar.bases[indexCount]) {
 					if (this._variableBases[lastVar.bases[indexCount]] === undefined) {
 						this._variableBases[lastVar.bases[indexCount]] = this._variableHandles.create(lastVar.bases[indexCount] + "|" + (indexCount + 1));
@@ -313,57 +329,101 @@ export default class MumpsDebugSession extends DebugSession {
 				};
 			}
 		}
-		return returnVar
+		return returnVar;
 	}
+
 	protected continueRequest(response: DebugProtocol.ContinueResponse): void {
-		this._mconnect.continue();
-		this.sendResponse(response);
+		try {
+			this._mconnect.continue();
+			this.sendResponse(response);
+		} catch (e) {
+			const errorMessage = e instanceof Error ? e.message : String(e);
+			this.sendEvent(new OutputEvent(`Error during continue: ${errorMessage}\n`, 'stderr'));
+		}
 	}
 
 	protected nextRequest(response: DebugProtocol.NextResponse): void {
-		this._mconnect.step("OVER");
-		this.sendResponse(response);
+		try {
+			this._mconnect.step("OVER");
+			this.sendResponse(response);
+		} catch (e) {
+			const errorMessage = e instanceof Error ? e.message : String(e);
+			this.sendEvent(new OutputEvent(`Error during next: ${errorMessage}\n`, 'stderr'));
+		}
 	}
 
 	protected stepInRequest(response: DebugProtocol.StepInResponse): void {
-		this._mconnect.step("INTO");
-		this.sendResponse(response);
+		try {
+			this._mconnect.step("INTO");
+			this.sendResponse(response);
+		} catch (e) {
+			const errorMessage = e instanceof Error ? e.message : String(e);
+			this.sendEvent(new OutputEvent(`Error during stepIn: ${errorMessage}\n`, 'stderr'));
+		}
 	}
 
 	protected stepOutRequest(response: DebugProtocol.StepOutResponse): void {
-		this._mconnect.step("OUTOF");
-		this.sendResponse(response);
+		try {
+			this._mconnect.step("OUTOF");
+			this.sendResponse(response);
+		} catch (e) {
+			const errorMessage = e instanceof Error ? e.message : String(e);
+			this.sendEvent(new OutputEvent(`Error during stepOut: ${errorMessage}\n`, 'stderr'));
+		}
 	}
 
 	protected async evaluateRequest(response: DebugProtocol.EvaluateResponse, args: DebugProtocol.EvaluateArguments) {
-		if (args.context === "hover" || args.context === "repl") {
-			this._mconnect.getSingleVar(args.expression).then((varReply: VarData) => {
+		try {
+			if (args.context === "hover" || args.context === "repl") {
+				const varReply: VarData = await this._mconnect.getSingleVar(args.expression);
 				response.body = {
 					result: varReply.name + " := " + varReply.content,
 					variablesReference: 0
-				}
+				};
 				if (!args.expression.includes(")") && this._variableBases[args.expression] !== undefined) {
 					response.body.variablesReference = this._variableBases[args.expression];
 				}
 				this.sendResponse(response);
-			});
+			} else {
+				response.body = { result: 'Unsupported evaluation context', variablesReference: 0 };
+				this.sendResponse(response);
+			}
+		} catch (e) {
+			const errorMessage = e instanceof Error ? e.message : String(e);
+			this.sendEvent(new OutputEvent(`Error during evaluation: ${errorMessage}\n`, 'stderr'));
+			response.success = false;
+			response.message = `Failed to evaluate expression: ${errorMessage}`;
+			response.body = { result: `Evaluation failed: ${errorMessage}`, variablesReference: 0 };
+			this.sendResponse(response);
 		}
 	}
 
 	protected async restartRequest(response: DebugProtocol.RestartResponse) {
 		const sourceLines = readFileSync(this._program).toString().split('\n');
-		this._mconnect.checkRoutine(sourceLines).then((errorLines: string[]) => {
+		try {
+			const errorLines: string[] = await this._mconnect.checkRoutine(sourceLines);
 			if (errorLines.length) {
 				vscode.window.showErrorMessage("File contains Problems - No Restart possible!");
 			} else {
-				this._mconnect.restart(this._program);
+				await this._mconnect.restart(this._program);
 			}
-		});
+		} catch (e) {
+			const errorMessage = e instanceof Error ? e.message : String(e);
+			this.sendEvent(new OutputEvent(`Error during restart: ${errorMessage}\n`, 'stderr'));
+			response.success = false; // Indicate failure on the response for restart
+			response.message = `Failed to restart: ${errorMessage}`;
+		}
 		this.sendResponse(response);
 	}
 
 	protected disconnectRequest(response: DebugProtocol.DisconnectResponse): void {
-		this._mconnect.disconnect();
+		try {
+			this._mconnect.disconnect();
+		} catch (e) {
+			const errorMessage = e instanceof Error ? e.message : String(e);
+			this.sendEvent(new OutputEvent(`Error during disconnect: ${errorMessage}\n`, 'stderr'));
+			// response for disconnect doesn't have success/message fields by default in DAP
+		}
 		this.sendResponse(response);
 	}
 
@@ -372,17 +432,27 @@ export default class MumpsDebugSession extends DebugSession {
 	}
 
 	protected async exceptionInfoRequest(response: DebugProtocol.ExceptionInfoResponse) {
-		const statVariable: VarData = await this._mconnect.getSingleVar("$ZSTATUS");
-		const status = statVariable.content.split(",");
-		const trashlength = status[0].length + status[1].length + status[2].length + 4;
-		const description = 'Line :' + status[1] + " " + statVariable.content.substring(trashlength);
-		response.body = {
-			exceptionId: status[2],
-			description,
-			breakMode: 'always',
-			details: {
-				typeName: 'ErrorException',
-			}
+		try {
+			const statVariable: VarData = await this._mconnect.getSingleVar("$ZSTATUS");
+			const status = statVariable.content.split(",");
+			const trashlength = status[0].length + status[1].length + status[2].length + 4;
+			const description = 'Line :' + status[1] + " " + statVariable.content.substring(trashlength);
+			response.body = {
+				exceptionId: status[2],
+				description,
+				breakMode: 'always',
+				details: {
+					typeName: 'ErrorException',
+				}
+			};
+		} catch (e) {
+			const errorMessage = e instanceof Error ? e.message : String(e);
+			this.sendEvent(new OutputEvent(`Error fetching exception info: ${errorMessage}\n`, 'stderr'));
+			response.body = {
+				exceptionId: 'Error',
+				description: `Could not retrieve exception information: ${errorMessage}`,
+				breakMode: 'always'
+			};
 		}
 		this.sendResponse(response);
 	}

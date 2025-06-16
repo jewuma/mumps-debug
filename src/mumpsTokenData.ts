@@ -3,8 +3,8 @@ import { TokenType, MumpsLineParser, label } from './mumpsLineParser';
 const parser = new MumpsLineParser();
 import { definitionsArray } from './language-definitions';
 const definitions = {};
-import fs = require('fs');
-import path = require('path');
+import * as fs from 'fs'
+import * as path from 'path';
 const Uri = vscode.Uri;
 const EXTENSIONS = ['.m', '.int', '.zwr', '.M', '.INT', '.ZWR'];
 const cache: { fsPath: string, text: string } = { fsPath: "", text: "" };
@@ -63,7 +63,7 @@ export class MumpsTokenHelper {
 			cache.text = fs.readFileSync(uri.fsPath, 'utf8');
 			cache.fsPath = uri.fsPath;
 			return cache.text;
-		} catch (e) {
+		} catch {
 			return '';
 		}
 	}
@@ -290,7 +290,7 @@ export class MumpsTokenHelper {
 
 			for (const param in parametersByName) {
 				const paramDescription = labelLines.match(new RegExp("\\s" + param + "(\\(.*\\))?:.*", 'i'))
-				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+
 				if (paramDescription !== null) { definition.parameters![parametersByName[param]].description = paramDescription[0] }
 			}
 		}

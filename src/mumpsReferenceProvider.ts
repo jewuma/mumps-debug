@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { TokenType, MumpsLineParser } from './mumpsLineParser';
-import fs = require('fs');
+import * as fs from 'fs'
 const parser = new MumpsLineParser();
 export default class MumpsReferenceProvider {
 	provideReferences(document: vscode.TextDocument, position: vscode.Position): Promise<vscode.Location[] | null | undefined> {

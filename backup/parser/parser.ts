@@ -140,7 +140,7 @@ class Parameter implements IParameter {
 }
 
 export function parseText(sourceText: string): IParsedDocument {
-	let parser = new Parser();
+	const parser = new Parser();
 	return parser.parseDocument(sourceText);
 }
 
@@ -170,16 +170,16 @@ class Parser {
 		this.tokenizer = getTokens(documentText);
 		while (this.next()) {
 			if (this.activeToken.isAlphanumeric()) {
-				let method = this.parseMethod();
+				const method = this.parseMethod();
 				if (!method) { continue; }
 				this.methods.push(method);
 				this.activeMethod = method;
 			}
 			else if (this.activeToken.isTab() || this.activeToken.isSpace()) {
-				let lineNumber = this.activeToken.position.line;
-				let tokenBuffer = this.loadTokenBuffer();
+				const lineNumber = this.activeToken.position.line;
+				const tokenBuffer = this.loadTokenBuffer();
 				if (this.activeMethod && this.activeMethod.nextLine === lineNumber) {
-					let documentation = this.checkForDocumentation(tokenBuffer);
+					const documentation = this.checkForDocumentation(tokenBuffer);
 					if (documentation) { this.activeMethod.documentation = documentation; }
 				}
 			}
@@ -196,7 +196,7 @@ class Parser {
 	private checkForDocumentation(tokenBuffer: Token[]): string {
 		let i = 0;
 		while (i < tokenBuffer.length) {
-			let token = tokenBuffer[i];
+			const token = tokenBuffer[i];
 			if (token.isSpace() || token.isTab()) {
 				i++;
 				continue;
@@ -210,7 +210,7 @@ class Parser {
 	}
 
 	private loadTokenBuffer() {
-		let tokenBuffer: Token[] = []
+		const tokenBuffer: Token[] = []
 		while (this.next() && this.activeToken.type !== Type.NewLine) {
 			tokenBuffer.push(this.activeToken);
 		}
@@ -218,13 +218,13 @@ class Parser {
 	}
 
 	private parseMethod(): Method | undefined {
-		let method: Method = new Method();
+		const method: Method = new Method();
 		do {
 			if (!this.activeToken) { continue; }
 			if (this.activeToken.isTab() || this.activeToken.isSpace()) { continue; }
 			else if (this.activeToken.isNewLine()) { break; }
 			else if (this.activeToken.isOpenParen()) {
-				let processed = this.processParameters(method);
+				const processed = this.processParameters(method);
 				if (!processed) { return undefined; }
 				method.parameters = processed;
 				break;
@@ -264,7 +264,7 @@ class Parser {
 	}
 
 	private processParameters(method: Method): Parameter[] | undefined {
-		let args: Parameter[] = [];
+		const args: Parameter[] = [];
 		let param: Parameter | undefined;
 		let open = false;
 		while (this.next()) {

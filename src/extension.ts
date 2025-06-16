@@ -17,7 +17,7 @@ import MumpsFormattingHelpProvider from './mumpsFormattingHelpProvider';
 import { MumpsGlobalProvider, GlobalNode } from './mumpsGlobalProvider';
 import { MumpsHighlighter, SemanticTokens } from './mumpsHighlighter';
 import MumpsHoverProvider from './mumpsHoverProvider';
-import MumpsLinter, { removeLintFileFlag } from './mumpsLinter';
+import MumpsLinter, { removeLintFileFlag, LintOptions } from './mumpsLinter';
 import MumpsReferenceProvider from './mumpsReferenceProvider';
 import MumpsRoutineSorter from './mumpsRoutineSorter';
 import MumpsSignatureHelpProvider from './mumpsSignatureHelpProvider';
@@ -56,13 +56,12 @@ export async function activate(context: vscode.ExtensionContext) {
 			statusBarItem.hide(); // hide the button when scan is canceled
 			return;
 		}
-
+		const userOptions = await askUserForLintOptions();
 		cancellationTokenSource = new vscode.CancellationTokenSource();
 		const token = cancellationTokenSource.token;
 		statusBarItem.show(); // show the button when scan starts
-
 		try {
-			await new MumpsLinter(mumpsDiagnostics).lintAllFiles(token);
+			await new MumpsLinter(mumpsDiagnostics, userOptions).lintAllFiles(token);
 		} finally {
 			cancellationTokenSource = null; // Zurücksetzen der Quelle nach Abschluss des Scans
 			statusBarItem.hide(); // hide the button when scan is finished
@@ -78,8 +77,8 @@ export async function activate(context: vscode.ExtensionContext) {
 			vscode.window.showInformationMessage('Kein laufender Scan zum Stoppen.');
 		}
 	};
-	const generateForLoop = (document: vscode.TextDocument, range: vscode.Range, shortNames: boolean, isUppercase: boolean, intendation: number) =>
-		mumpsCodeActionProvider.generateForLoop(document, range, shortNames, isUppercase, intendation);
+	const generateForLoop = (document: vscode.TextDocument, range: vscode.Range, shortNames: boolean, isUppercase: boolean, indentation: number) =>
+		mumpsCodeActionProvider.generateForLoop(document, range, shortNames, isUppercase, indentation);
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand("mumps.documentFunction", () => { MumpsDocumenter(); }),
@@ -143,6 +142,30 @@ function getEntryRef() {
 		placeHolder: "Please enter the Entry-Reference to start Debugging",
 		value: entryRef
 	})
+}
+async function askUserForLintOptions(): Promise<LintOptions> {
+	const config = vscode.workspace.getConfiguration('mumps')
+	const checkVariablesNEWsDefault = config.get<boolean>('enableVariableCheck', true)
+	const checkUnreachableCodeDefault = config.get<boolean>('warnIfCodeIsUnreachable', true)
+	const options = [
+		{ label: 'Check correct NEWing', picked: checkVariablesNEWsDefault },
+		{ label: 'Check for unreachable code', picked: checkUnreachableCodeDefault }
+	];
+
+	const selectedOptions = await vscode.window.showQuickPick(options, {
+		canPickMany: true,
+		placeHolder: 'Select the additional checks you want to perform'
+	});
+
+	if (selectedOptions) {
+		const checkNEWs = selectedOptions.some(option => option.label === 'Check correct NEWing')
+		const checkUnreachable = selectedOptions.some(option => option.label === 'Check for unreachable code')
+		await config.update('enableVariableCheck', checkNEWs, vscode.ConfigurationTarget.Workspace)
+		await config.update('warnIfCodeIsUnreachable', checkUnreachable, vscode.ConfigurationTarget.Workspace)
+		return { checkNEWs, checkUnreachable };
+	}
+
+	return { checkNEWs: false, checkUnreachable: false };
 }
 
 export function getdbFile() {

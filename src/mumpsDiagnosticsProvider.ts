@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { LineToken, TokenType, ErrorInformation } from './mumpsLineParser'
 import MumpsParseDb from './mumpsParseDb';
 import { convertMumpsPosition } from './mumpsConnect';
-import { startLintingFile, isLintingFile } from './mumpsLinter';
+import { startLintingFile, isLintingFile, LintOptions } from './mumpsLinter';
 
 type Parameter = {
 	name: string,
@@ -39,23 +39,23 @@ const symbols: vscode.SymbolInformation[] = [];
 
 /**
  * Checks if mumps routines NEWs variables correctly
- * Checks if intendation levels are correct
+ * Checks if indentation levels are correct
  * Checks if there's unreachable code
  *
  */
 export default class MumpsDiagnosticsProvider {
 	private _parseDb: MumpsParseDb
 	private _linetokens: LineToken[][] = [];
-	private _intendationLevels: number[] = [];
+	private _indentationLevels: number[] = [];
 	private _errorInformation: ErrorInformation[] = []
 	private _diags: vscode.Diagnostic[] = [];
 	private _variablesToBeIgnored: string[] = [];
 	private _enableVariableCheck = true;
-	private _unreachableCodeWarningEnabled = true;
+	private _enableUnreachableCodeWarning = true;
 	private _varStates: VariableStates;
 	private _levelExclusiveNew: number[];
 	private _subroutines: Subroutine[] = [];
-	private _labelTable: { [key: string]: number } = {};
+	private _labelTable: Set<string> = new Set<string>();;
 	private _uri: vscode.Uri;
 	private _routine: Subroutine = { startLine: -1, endLine: -1, parameters: [] };
 	private _level = 0;
@@ -80,7 +80,7 @@ export default class MumpsDiagnosticsProvider {
 				this._enableVariableCheck = configuration.mumps.enableVariableCheck;
 			}
 			if (configuration.mumps.warnIfCodeIsUnreachable !== undefined) {
-				this._unreachableCodeWarningEnabled = configuration.mumps.warnIfCodeIsUnreachable
+				this._enableUnreachableCodeWarning = configuration.mumps.warnIfCodeIsUnreachable
 			}
 			this._startUpdate();
 		}
@@ -90,10 +90,9 @@ export default class MumpsDiagnosticsProvider {
 		this._diags = [];
 		this._linetokens = this._parseDb.getDocumentTokens();
 		this._errorInformation = this._parseDb.getDocumentErrors();
-		this._intendationLevels = this._parseDb.getIntendationLevels();
+		this._indentationLevels = this._parseDb.getindentationLevels();
 		this._isBehindQuit = new Array(32).fill(QuitState.noQuit);
 		this._collection.delete(this._uri);
-		// this._collection.clear();
 		this._generateLabelTable();
 
 		for (let i = 0; i < this._linetokens.length; i++) {
@@ -119,12 +118,13 @@ export default class MumpsDiagnosticsProvider {
 			this._collection.set(this._uri, this._diags);
 		}
 	}
-	async updateFileDiagnostics(file: vscode.Uri, fileContent: string) {
+	async updateFileDiagnostics(file: vscode.Uri, fileContent: string, options: LintOptions) {
 		const filePath = file.fsPath;
 		//const fileContent = await fs.readFile(filePath, 'utf8'); // Asynchrones Lesen der Datei
 		this._parseDb = MumpsParseDb.getFileInstance(filePath, fileContent);
 		this._uri = file;
-		this._enableVariableCheck = false; // usually generates too many warnings
+		this._enableVariableCheck = options.checkNEWs; // usually generates too many warnings
+		this._enableUnreachableCodeWarning = options.checkUnreachable
 		await this._startUpdate(); // Aufrufen der asynchronen Methode
 		startLintingFile(filePath)
 	}
@@ -138,14 +138,14 @@ export default class MumpsDiagnosticsProvider {
 		if (this._enableVariableCheck) {
 			this._varStates = {} as VariableStates;
 			this._levelExclusiveNew = [];
-			let level = 0; //intendation-level
-			for (let i = 0; i < routine.parameters.length; i++) {
-				this._varStates[routine.parameters[i].name] = { isParameter: true, parameterPosition: routine.parameters[i].position }
+			let level = 0; //indentation-level
+			for (const parameter of routine.parameters) {
+				this._varStates[parameter.name] = { isParameter: true, parameterPosition: parameter.position }
 			}
 			for (let i = routine.startLine; i <= routine.endLine; i++) {
-				const newLevel = this._intendationLevels[i];
+				const newLevel = this._indentationLevels[i];
 				if (newLevel < level) {
-					this._reduceIntendationLevel(level, newLevel);
+					this._reduceindentationLevel(level, newLevel);
 				}
 				level = newLevel;
 				const line = this._parseDb.getLine(i)
@@ -193,7 +193,7 @@ export default class MumpsDiagnosticsProvider {
 											if (token.isExcludedVariable) {
 												varState.isExcluded = true;
 											} else {
-												if (level === 0) { //NEW inside higher intendation-level should be possible
+												if (level === 0) { //NEW inside higher indentation-level should be possible
 													message = "NEW hides formal parameter " + varName;
 													code = "NewHidesParam:" + varName;
 												}
@@ -209,9 +209,9 @@ export default class MumpsDiagnosticsProvider {
 													code = "VarAlreadyNewed:" + varName
 												} else {
 													varState.newedAtLevel.push(level);
-													// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+
 													varState.newedAtLine!.push(i);
-													// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+
 													varState.newedAtPostion!.push(token.position);
 												}
 											}
@@ -278,7 +278,7 @@ export default class MumpsDiagnosticsProvider {
 	/**
 	 * Check if a local Variable is correctly NEWed or generate Warning
 	 * @param varName Variable to be checked
-	 * @param level intendation-level on which Variable is found
+	 * @param level indentation-level on which Variable is found
 	 * @param line Line where variable is found
 	 * @param position Position inside Line
 	 */
@@ -329,7 +329,7 @@ export default class MumpsDiagnosticsProvider {
 	 * @param startPosition Position inside Line where the problem was found
 	 * @param len Length of variable-name
 	 */
-	private _addWarning(message: string, line: number, startPosition: number, len: number, severity?, code?: string): void {
+	private _addWarning(message: string, line: number, startPosition: number, len: number, severity?: vscode.DiagnosticSeverity, code?: string): void {
 		if (severity === undefined) {
 			severity = vscode.DiagnosticSeverity.Warning;
 		}
@@ -349,23 +349,27 @@ export default class MumpsDiagnosticsProvider {
 	}
 	private _checkLine(line: number, tokens: LineToken[]): void {
 		let ifFlag = false;
-		const newIntendationLevel = this._intendationLevels[line];
+		const newindentationLevel = this._indentationLevels[line];
 		const expectedLevel = line === this._lineWithDo + 1 ? this._level + 1 : this._level;
-		this._level = newIntendationLevel;
+		this._level = newindentationLevel;
 		this._removeQuits(this._level)
 		if (this._level > expectedLevel) {
-			this._addWarning("Intendation Level wrong, found: " + this._level + ", expected: " + expectedLevel,
-				line, 0, this._getIntendationPosition(line), vscode.DiagnosticSeverity.Warning, "ExpectedIntendation:" + expectedLevel);
+			this._addWarning("indentation Level wrong, found: " + this._level + ", expected: " + expectedLevel,
+				line, 0, this._getindentationPosition(line), vscode.DiagnosticSeverity.Warning, "Expectedindentation:" + expectedLevel);
 		}
 		if (line === this._lineWithDo + 1 && this._level < expectedLevel) {
-			this._addWarning("Higher intendation expected after argumentless Do", line, 0, this._getIntendationPosition(line),
-				vscode.DiagnosticSeverity.Warning, "ExpectedIntendation:" + expectedLevel);
+			this._addWarning("Higher indentation expected after argumentless Do", line, 0, this._getindentationPosition(line),
+				vscode.DiagnosticSeverity.Warning, "Expectedindentation:" + expectedLevel);
 		}
 		this._lineWithDo = -2;
 		for (let tokenId = 0; tokenId < tokens.length; tokenId++) { // iterate over every token in actual line
 			let token: LineToken = tokens[tokenId];
 			if (token.type === TokenType.comment && token.name.match(/ignoreVars:/)) { //Check for IgnoreVars-directive
-				this._variablesToBeIgnored = this._variablesToBeIgnored.concat(token.name.split("ignoreVars:")[1].split(","));
+				const ignoreVarsCommentString = token.name.split("ignoreVars:")[1];
+				if (ignoreVarsCommentString) {
+					const ignoredVariables = ignoreVarsCommentString.split(",").map(variableName => variableName.trim());
+					this._variablesToBeIgnored = this._variablesToBeIgnored.concat(ignoredVariables);
+				}
 			}
 			if (tokenId === 0 && token.type === TokenType.label) { 	//If there was unreachable code before this label
 				//save a warning
@@ -455,7 +459,7 @@ export default class MumpsDiagnosticsProvider {
 				this._startUnreachable = new vscode.Position(line, token.position);
 			}
 		} else {
-			if (this._startUnreachable !== false && this._unreachableCodeWarningEnabled) {
+			if (this._startUnreachable !== false && this._enableUnreachableCodeWarning) {
 				// Only if there were Code lines after a quit or a goto
 				this._diags.push({
 					code: '',
@@ -468,13 +472,13 @@ export default class MumpsDiagnosticsProvider {
 			this._startUnreachable = false
 		}
 	}
-	private _getIntendationPosition(line: number): number {
-		for (let i = 0; i < this._linetokens[line].length; i++) {
-			const type = this._linetokens[line][i].type
-			if (type === TokenType.intendation) {
-				return this._linetokens[line][i].position
+	private _getindentationPosition(line: number): number {
+		for (const token of this._linetokens[line]) {
+			const type = token.type
+			if (type === TokenType.indentation) {
+				return token.position
 			} else if (type === TokenType.comment || type === TokenType.keyword) {
-				return this._linetokens[line][i].position // no intendation found
+				return token.position // no indentation found
 			}
 		}
 		return 0 // nothing found
@@ -483,11 +487,11 @@ export default class MumpsDiagnosticsProvider {
 		for (let i = level + 1; i < 32; i++) { this._isBehindQuit[i] = QuitState.noQuit }
 	}
 	private _generateLabelTable(): void {
-		this._labelTable = {};
-		for (let i = 0; i < this._linetokens.length; i++) {
-			const lineTokens = this._linetokens[i]
+		this._labelTable.clear();
+		for (const lineTokens of this._linetokens) {
 			if (lineTokens.length > 0 && lineTokens[0].type === TokenType.label) {
-				this._labelTable[lineTokens[0].name.replace(":", "")] = i;
+				const labelName = lineTokens[0].name.replace(":", "");
+				this._labelTable.add(labelName);
 			}
 		}
 	}
@@ -504,7 +508,7 @@ export default class MumpsDiagnosticsProvider {
 		} else {
 			if (name.includes("+")) name = name.split("+")[0];  //In case of label+offset
 			if (name === "") return labelExists.exists
-			if (this._labelTable[name] !== undefined) return labelExists.exists
+			if (this._labelTable.has(name)) return labelExists.exists
 			else return labelExists.exists_not
 		}
 	}
@@ -524,11 +528,11 @@ export default class MumpsDiagnosticsProvider {
 		return isIgnoredVariable;
 	}
 	/**
-	 * Clears all NEWs that were started above the new intendation-level
-	 * @param level old intendation-level
-	 * @param newLevel new-intendation-level
+	 * Clears all NEWs that were started above the new indentation-level
+	 * @param level old indentation-level
+	 * @param newLevel new-indentation-level
 	 */
-	private _reduceIntendationLevel(level: number, newLevel: number): void {
+	private _reduceindentationLevel(level: number, newLevel: number): void {
 		for (let k = newLevel + 1; k <= level; k++) {
 			const index = this._levelExclusiveNew.indexOf(k);
 			if (index > -1) {

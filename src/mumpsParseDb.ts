@@ -7,13 +7,13 @@ export default class MumpsParseDb {
 	private _linetokens: LineToken[][] = []
 	private _lines: string[] = []
 	private _errorInformation: ErrorInformation[] = []
-	private _intendationLevel: number[] = []
+	private _indentationLevel: number[] = []
 	private static _documentName: string = ""
 	private static _documentVersion: number = -1
 	private constructor() {
 		this._linetokens = []
 		this._errorInformation = []
-		this._intendationLevel = []
+		this._indentationLevel = []
 	}
 	static getInstance(document: vscode.TextDocument, noDiagnostics?: boolean): MumpsParseDb {
 		if (!MumpsParseDb.instance) {
@@ -49,14 +49,14 @@ export default class MumpsParseDb {
 		this._lines = []
 		this._linetokens = []
 		this._errorInformation = [];
-		[this._lines, this._linetokens, this._errorInformation, this._intendationLevel] = new MumpsLineParser().analyzeLines(fileContent)
+		[this._lines, this._linetokens, this._errorInformation, this._indentationLevel] = new MumpsLineParser().analyzeLines(fileContent)
 
 	}
-	public getIntendationLevel(line: number): number {
-		return this._intendationLevel[line]
+	public getindentationLevel(line: number): number {
+		return this._indentationLevel[line]
 	}
-	public getIntendationLevels(): number[] {
-		return this._intendationLevel
+	public getindentationLevels(): number[] {
+		return this._indentationLevel
 	}
 	public getLine(line: number): string {
 		return this._lines[line]

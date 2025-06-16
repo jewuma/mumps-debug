@@ -63,7 +63,7 @@
 				"mumps.warnIfCodeIsUnreachable": {
 					"default": true,
 					"description": "Syntax-check generates warnings for unreachable code",
-					"type":"boolean"
+					"type": "boolean"
 				}
 			},
 			"title": "mumps-debug"
@@ -199,7 +199,7 @@
 				"command": "mumps.stopScan",
 				"key": "ctr+alt+q",
 				"title": "Stop Scan"
-		}
+			}
 		],
 		"languages": [
 			{
@@ -313,15 +313,15 @@
 			}
 		],
 		"semanticTokenModifiers": [
-      {
+			{
 				"id": "standard",
 				"description": "Normal code"
-      },
+			},
 			{
 				"id": "unreachable",
-        "description": "Modifier for unreachable code"
+				"description": "Modifier for unreachable code"
 			}
-    ],
+		],
 		"variables": {
 			"AskForProgramName": "extension.mumps-debug.getProgramName"
 		},
@@ -354,14 +354,14 @@
 	},
 	"description": "Debugger for Mumps (M) , GT.M, YottaDB",
 	"devDependencies": {
+		"@eslint/js": "^9.24.0",
 		"@types/mocha": "^10.0.4",
 		"@types/node": "^18.18.0",
 		"@types/vscode": "^1.82.0",
-		"@typescript-eslint/eslint-plugin": "^6.8.0",
-		"@typescript-eslint/parser": "^6.8.0",
-		"@vscode/vsce": "^2.21.0",
-		"eslint": "^8.50.0",
-		"typescript": "^5.2.2",
+		"@vscode/vsce": "^3.0.0",
+		"eslint": "^9.24.0",
+		"typescript": "^5.8.3",
+		"typescript-eslint": "^8.29.1",
 		"webpack": "^5.88.2",
 		"webpack-cli": "^5.1.4"
 	},
@@ -386,7 +386,7 @@
 		"url": "https://github.com/jewuma/mumps-debug.git"
 	},
 	"scripts": {
-		"compile": "tsc -p ./src",
+		"compile": "tsc -p ./src && node update-security-md.js",
 		"eslint": "npx eslint ./src/**/*.ts",
 		"package": "webpack --mode production && vsce package",
 		"publish": "vsce publish",
@@ -397,5 +397,5 @@
 		"webpack": "webpack --mode development",
 		"webpack-dev": "webpack --mode development --watch"
 	},
-	"version": "1.5.2"
+	"version": "1.5.4"
 }

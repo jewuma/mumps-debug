@@ -136,7 +136,6 @@ export class MumpsConnect extends EventEmitter {
 				vscode.commands.executeCommand('setContext', 'mumps.showGlobals', false)
 			})
 		})
-		// Put a friendly message on the terminal of the server.
 	}
 	private _log(msg: string): void {
 		if (this._logging) { console.log(msg); }
@@ -298,7 +297,7 @@ export class MumpsConnect extends EventEmitter {
 		}
 		if (this._connectState !== connectState.disconnected) {
 			while (this._commandQueue.length) {
-				// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+
 				message = this._commandQueue.shift()!;
 				try {
 					this._socket.write(message + "\n");

@@ -36,7 +36,7 @@ export default class MumpsFoldingProvider implements vscode.FoldingRangeProvider
 			let subroutineEndFound = false;
 			for (let j = 0; j < tokens.length; j++) {
 				const token = tokens[j]
-				if (token.type === TokenType.intendation) {
+				if (token.type === TokenType.indentation) {
 					break; // Ignore QUIT etc in indentation-levels > 0
 				}
 				if (token.type === TokenType.keyword) {

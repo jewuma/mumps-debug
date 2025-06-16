@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs/promises'
 const lintingFiles = new Set<string>();
-
+export type LintOptions = { checkNEWs: boolean, checkUnreachable: boolean }
 export function isLintingFile(filePath: string): boolean {
 	return lintingFiles.has(filePath);
 }
@@ -17,8 +17,10 @@ export function removeLintFileFlag(filePath: string): void {
 import MumpsDiagnosticsProvider from './mumpsDiagnosticsProvider';
 export default class MumpsLinter {
 	diagnosticsCollection: vscode.DiagnosticCollection;
-	constructor(collection: vscode.DiagnosticCollection) {
+	lintOptions: LintOptions
+	constructor(collection: vscode.DiagnosticCollection, options: LintOptions) {
 		this.diagnosticsCollection = collection
+		this.lintOptions = options
 	}
 	async lintAllFiles(token: vscode.CancellationToken): Promise<void> {
 		const workspaceFolders = vscode.workspace.workspaceFolders;
@@ -49,7 +51,7 @@ export default class MumpsLinter {
 						return
 					}
 					const content = await fs.readFile(file.fsPath, 'utf8');
-					lintPromises.push(diagnosticsProvider.updateFileDiagnostics(file, content));
+					lintPromises.push(diagnosticsProvider.updateFileDiagnostics(file, content, this.lintOptions));
 					processedFiles++;
 					statusBarItem.text = `Linting MUMPS files: ${processedFiles} files, ${((processedFiles / totalFiles) * 100).toFixed(2)}%`;
 				}

@@ -1,7 +1,7 @@
 /* eslint-disable no-cond-assign */
-/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 /* eslint-disable no-prototype-builtins */
-import fs = require('fs');
+import * as fs from 'fs';
 export type ErrorInformation = {
 	text: string,
 	position: number,
@@ -12,7 +12,7 @@ export type ErrorInformation = {
 }
 export enum TokenType {
 	global, local, exfunction, nonMfunction, entryref, operator, keyword, ifunction,
-	label, comment, sysvariable, string, number, intendation, argPostcondition
+	label, comment, sysvariable, string, number, indentation, argPostcondition
 }
 export type LineToken = {
 	type: TokenType,
@@ -58,7 +58,7 @@ type ModifiedLine = {
 export type LineInformation = {
 	error: ErrorInformation,
 	tokens: LineToken[],
-	intendationLevel: number
+	indentationLevel: number
 }
 export type LabelInformation = {
 	name: string,
@@ -597,7 +597,7 @@ const expressiontype = {
 
 class MumpsLineParser {
 	private _tokens: LineToken[] = [];
-	private _intendationLevel: number = 0;
+	private _indentationLevel: number = 0;
 	private cmdCompressions: object;
 	private funcCompressions: object;
 	private isvCompressions: object;
@@ -612,7 +612,7 @@ class MumpsLineParser {
 		let content: string;
 		try {
 			content = fs.readFileSync(filename, "utf8");
-		} catch (err) {
+		} catch {
 			errlist.push({ text: 'File read error: ' + filename, position: 0, line: 0 });
 			return errlist;
 		}
@@ -646,10 +646,10 @@ class MumpsLineParser {
 			if (parsed.lineLabel) {
 				position += parsed.lineLabel.length;
 			}
-			this._pushToken({ name: ".".repeat(parsed.lineIndentationArray.length), type: TokenType.intendation, position });
-			this._intendationLevel = parsed.lineIndentationArray.length
+			this._pushToken({ name: ".".repeat(parsed.lineIndentationArray.length), type: TokenType.indentation, position });
+			this._indentationLevel = parsed.lineIndentationArray.length
 		} else {
-			this._intendationLevel = 0;
+			this._indentationLevel = 0;
 		}
 		let result: ErrorInformation = { text: '', position: 0 }
 		if (parsed.lineRoutines) {
@@ -703,20 +703,20 @@ class MumpsLineParser {
 		this._tokens = [];
 		line = line.replace(/\r/g, '');
 		const errInfo = this.checkLine(line);
-		return { error: errInfo, tokens: this._tokens, intendationLevel: this._intendationLevel }
+		return { error: errInfo, tokens: this._tokens, indentationLevel: this._indentationLevel }
 	}
 	public analyzeLines(input: string): [string[], LineToken[][], ErrorInformation[], number[]] {
 		const lines = input.split('\n');
 		const errors: ErrorInformation[] = [];
 		const linetokens: Array<Array<LineToken>> = [];
-		const intendationLevels: number[] = [];
+		const indentationLevels: number[] = [];
 		for (let i = 0; i < lines.length; i++) {
 			lines[i] = lines[i].replace(/\r/g, '');
 			errors[i] = this.checkLine(lines[i]);
 			linetokens[i] = this._tokens;
-			intendationLevels[i] = this._intendationLevel;
+			indentationLevels[i] = this._indentationLevel;
 		}
-		return [lines, linetokens, errors, intendationLevels];
+		return [lines, linetokens, errors, indentationLevels];
 	}
 	public expandCompressFile(filename: string, doExpand: boolean): string {
 		if (doExpand === undefined) { doExpand = false; }
@@ -724,7 +724,7 @@ class MumpsLineParser {
 		let lines: string[] = [];
 		try {
 			content = fs.readFileSync(filename, "utf8");
-		} catch (err) {
+		} catch {
 			lines[0] = 'File read error: ';
 			return lines[0];
 		}
@@ -771,7 +771,7 @@ class MumpsLineParser {
 					let longName = name;
 					const position = token.position;
 					if (doExpand) {
-						// eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+
 						longName = token.longName!.toLowerCase();
 						if (longName[0] === "$") {
 							longName = "$" + longName[1].toUpperCase() + longName.substring(2);
@@ -1421,7 +1421,7 @@ class MumpsLineParser {
 			const savePosition = ++result.position;
 			try {
 				result = this._checkVar(line, result.position, false);
-			} catch (varResult) {
+			} catch {
 				if (line[savePosition] !== '$') {
 					result.text = "Local Variable or Aliascontainer expected";
 				} else {

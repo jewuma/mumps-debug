@@ -3,9 +3,9 @@ import { Position, Range } from "vscode";
 // Code adapted from the vscode-psl extension by ing-bank
 
 export function* getTokens(documentContents: string): IterableIterator<Token> {
-	let tokenizer: Tokenizer = new Tokenizer()
+	const tokenizer: Tokenizer = new Tokenizer()
 
-	for (let char of documentContents) {
+	for (const char of documentContents) {
 		tokenizer.charType = getType(char);
 		if (tokenizer.tokenType === 0) {
 			tokenizer.tokenType = tokenizer.charType;
@@ -37,8 +37,8 @@ export class Token {
 	}
 
 	getRange() {
-		let start: Position = this.position;
-		let end: Position = new Position(this.position.line, this.position.character + this.value.length);
+		const start: Position = this.position;
+		const end: Position = new Position(this.position.line, this.position.character + this.value.length);
 		return new Range(start, end);
 	}
 
@@ -202,7 +202,7 @@ class Tokenizer {
 }
 
 function getType(c: string): Type {
-	let charCode: number = c.charCodeAt(0);
+	const charCode: number = c.charCodeAt(0);
 	if (charCode >= 65 && charCode <= 90 || charCode >= 97 && charCode <= 122 || charCode === 37) {
 		return Type.Alphanumeric;
 	} else if (charCode >= 48 && charCode <= 57) {
