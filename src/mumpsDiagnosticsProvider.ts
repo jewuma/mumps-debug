@@ -487,14 +487,13 @@ export default class MumpsDiagnosticsProvider {
 		for (let i = level + 1; i < 32; i++) { this._isBehindQuit[i] = QuitState.noQuit }
 	}
 	private _generateLabelTable(): void {
-		this._labelTable.clear();
-		for (const lineTokens of this._linetokens) {
-			if (lineTokens.length > 0 && lineTokens[0].type === TokenType.label) {
-				const labelName = lineTokens[0].name.replace(":", "");
-				this._labelTable.add(labelName);
-			}
-		}
+		this._labelTable = new Set<string>(
+			this._linetokens
+				.filter(lineTokens => lineTokens[0]?.type === TokenType.label)
+				.map(lineTokens => lineTokens[0].name.replace(":", ""))
+		);
 	}
+
 	private _labelExists(name: string): labelExists {
 		if (name.startsWith("$$")) name = name.substring(2)
 		if (name.indexOf("^") > -1) {

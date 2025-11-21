@@ -1,4 +1,5 @@
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports, no-undef
 const fs = require('fs');
 const packageJson = JSON.parse(fs.readFileSync('./package.json', 'utf8'))
 let securityMd = fs.readFileSync('./security.md', 'utf8')

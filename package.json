@@ -178,7 +178,7 @@
 			{
 				"command": "mumps.autoSpaceTab",
 				"key": "tab",
-				"when": "editorLangId == mumps && !suggestWidgetVisible"
+				"when": "editorLangId == mumps && !inlineSuggestionVisible && !suggestWidgetVisible"
 			},
 			{
 				"command": "mumps.sortRoutine",
@@ -397,5 +397,5 @@
 		"webpack": "webpack --mode development",
 		"webpack-dev": "webpack --mode development --watch"
 	},
-	"version": "1.5.4"
+	"version": "1.5.5"
 }

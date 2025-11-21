@@ -29,9 +29,10 @@ async function autoSpaceEnter() {
 				newLine = renderLine(parsedLine);
 			}
 		}
-		editor.edit((editBuilder) => {
-			editBuilder.insert(pos, "\n" + newLine);
-		})
+			// perform edits sequentially to avoid race conditions
+			await editor.edit((editBuilder) => {
+				editBuilder.insert(pos, "\n" + newLine);
+			})
 	}
 }
 
@@ -58,15 +59,17 @@ async function autoSpaceTab() {
 			currentLine.indexOf(";") === -1 && parsed.lineIndentationArray !== undefined &&
 			parsed.lineIndentationArray.length > 0) {
 			parsed.lineIndentationArray.push(" ")
-			editor.edit((editBuilder) => {
-				if (currentLine.charAt(pos.character - 1) === " ") {
+			// guard access to previous char when cursor at column 0
+			const prevChar = pos.character > 0 ? currentLine.charAt(pos.character - 1) : '';
+			await editor.edit((editBuilder) => {
+				if (prevChar === " ") {
 					editBuilder.insert(pos.with(pos.line, pos.character), ". ")
 				} else {
 					editBuilder.insert(pos.with(pos.line, pos.character), " . ")
 				}
 			})
 		} else {
-			editor.edit((eb) => {
+			await editor.edit((eb) => {
 				eb.insert(pos, "\t")
 			})
 		}

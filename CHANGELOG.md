@@ -98,3 +98,5 @@
 * User can select options when scanning all files
 ## 1.5.4
 * Minor stability fixes
+## 1.5.5
+* Use of TAB-Key works with Copilot now
