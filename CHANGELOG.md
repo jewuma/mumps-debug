@@ -1,102 +1,203 @@
-
 ## 0.1.0
-* Initial Release
+
+- Initial Release
+
 ## 0.1.8
-* Small Fixes and Webpack config added
+
+- Small Fixes and Webpack config added
+
 ## 0.2.0
-* Better Hover-Handling for Variable Preview
+
+- Better Hover-Handling for Variable Preview
+
 ## 0.3.0
-* Improved Error-Handling
+
+- Improved Error-Handling
+
 ## 0.3.1
-* Change in MDEBUG.m because of Problems when a Program do a KILL without Arguments
+
+- Change in MDEBUG.m because of Problems when a Program do a KILL without Arguments
+
 ## 0.3.2
-* Change in README.md
+
+- Change in README.md
+
 ## 0.4.0
-* Added Routine-Syntax-Check, Restart (with RELINK)-Option, Bugfixes
+
+- Added Routine-Syntax-Check, Restart (with RELINK)-Option, Bugfixes
+
 ## 0.5.0
-* Included and improved Syntax-Highliting from Syntax-Highlighter by David Silin
+
+- Included and improved Syntax-Highliting from Syntax-Highlighter by David Silin
+
 ## 0.5.1
-* Fixed a Bug which stopped TAB from working
+
+- Fixed a Bug which stopped TAB from working
+
 ## 0.6.0
-* Added immediate syntax-check
+
+- Added immediate syntax-check
+
 ## 0.6.1
-* Updated some sub-packages
+
+- Updated some sub-packages
+
 ## 0.6.2
-* Language fix by Alexander Kozharsky and fixed Call of %-Routines
+
+- Language fix by Alexander Kozharsky and fixed Call of %-Routines
+
 ## 0.6.3
-* Minor Stability Fixes
+
+- Minor Stability Fixes
+
 ## 0.7.0
-* Fixed autocomplete-bug, Improved Syntax-Highlighting
+
+- Fixed autocomplete-bug, Improved Syntax-Highlighting
+
 ## 0.7.1
-* Small fixes
+
+- Small fixes
+
 ## 0.7.2
-* Stops Diagnostic of non-Mumps-Documents
+
+- Stops Diagnostic of non-Mumps-Documents
+
 ## 0.7.3
-* Fixed Argument Validation for $QL and $QS
+
+- Fixed Argument Validation for $QL and $QS
+
 ## 0.8.0
-* Added toggling between long and short M Commands
+
+- Added toggling between long and short M Commands
+
 ## 0.8.1
-* Improved Error-Handling
+
+- Improved Error-Handling
+
 ## 0.8.2
-* Code Improvements, better expression valuation
+
+- Code Improvements, better expression valuation
+
 ## 0.8.3
-* Fixed Syntax of $&-Functions
+
+- Fixed Syntax of $&-Functions
+
 ## 0.8.4
-* Fixed a Bug when opening File without a workspace
+
+- Fixed a Bug when opening File without a workspace
+
 ## 0.8.5
-* Fixed Bug when there's no Label at the first Line
+
+- Fixed Bug when there's no Label at the first Line
+
 ## 0.9.0
-* Added Reference-provider
+
+- Added Reference-provider
+
 ## 1.0.0
-* New Feature: Variables are checked for correct NEWing, some semantic checks added
+
+- New Feature: Variables are checked for correct NEWing, some semantic checks added
+
 ## 1.1.0
-* indentation Check, better completion items, code optimization
+
+- indentation Check, better completion items, code optimization
+
 ## 1.1.1
-* Fixed that ]]-Operator wasn't interpreted correctly
+
+- Fixed that ]]-Operator wasn't interpreted correctly
+
 ## 1.1.2
-* Some security fixes suggested by CodeQL
+
+- Some security fixes suggested by CodeQL
+
 ## 1.1.3
-* Added conditional Breakpoints
+
+- Added conditional Breakpoints
+
 ## 1.1.4
-* Fixed incorrect Editor-Line-jump
+
+- Fixed incorrect Editor-Line-jump
+
 ## 1.1.5
-* Better Variable-Display on hover, fixed ZBREAK-Error
+
+- Better Variable-Display on hover, fixed ZBREAK-Error
+
 ## 1.1.6
-* Minor Error-Fix, more strict linting, package updates
+
+- Minor Error-Fix, more strict linting, package updates
+
 ## 1.1.7
-* Syntax-check on TSTART and OPEN parameters didn't work correctly
+
+- Syntax-check on TSTART and OPEN parameters didn't work correctly
+
 ## 1.1.8
-* Syntax-check on SET *VAR=$$FUNC() didn't work correctly
+
+- Syntax-check on SET \*VAR=$$FUNC() didn't work correctly
+
 ## 1.1.9
-* Improved error-handling, some code-optimizations
+
+- Improved error-handling, some code-optimizations
+
 ## 1.1.10
-* Small fix in MDEBUG
+
+- Small fix in MDEBUG
+
 ## 1.2.0
-* Code optimization, added global-viewer
+
+- Code optimization, added global-viewer
+
 ## 1.3.0
-* Added routine-sorter for sorting subroutines
+
+- Added routine-sorter for sorting subroutines
+
 ## 1.3.1
-* Code clean and added advanced folding-provider
+
+- Code clean and added advanced folding-provider
+
 ## 1.4.0
-* Added Code-Actions to help NEWing variables
+
+- Added Code-Actions to help NEWing variables
 
 ## 1.4.1
-* Minor improvements of syntax-detection
+
+- Minor improvements of syntax-detection
+
 ## 1.4.2
-* Improvements of syntax-detection and small fixes
+
+- Improvements of syntax-detection and small fixes
+
 ## 1.4.3
-* Variable-display-bug fixed
+
+- Variable-display-bug fixed
+
 ## 1.4.4
-* $O-Loop generation added
+
+- $O-Loop generation added
+
 ## 1.4.5
-* $O-Loop generation improved
+
+- $O-Loop generation improved
+
 ## 1.5.0
-* Minor Bugfixes, Error Scan on all .m-files in Workspace added
+
+- Minor Bugfixes, Error Scan on all .m-files in Workspace added
+
 ## 1.5.2
-* Improved syntax detection, improved syntax highlighting
+
+- Improved syntax detection, improved syntax highlighting
+
 ## 1.5.3
-* User can select options when scanning all files
+
+- User can select options when scanning all files
+
 ## 1.5.4
-* Minor stability fixes
+
+- Minor stability fixes
+
 ## 1.5.5
-* Use of TAB-Key works with Copilot now
+
+- Use of TAB-Key works with Copilot now
+
+## 1.5.6
+
+- Related packages updated

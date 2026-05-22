@@ -1,401 +1,409 @@
 {
-	"author": {
-		"email": "jewu34@web.de",
-		"name": "Jens Wulf"
-	},
-	"bugs": {
-		"url": "https://github.com/jewuma/mumps-debug/issues"
-	},
-	"categories": [
-		"Debuggers",
-		"Programming Languages",
-		"Formatters"
-	],
-	"contributes": {
-		"breakpoints": [
-			{
-				"language": "mumps"
-			}
-		],
-		"commands": [
-			{
-				"command": "mumps.toggleExpandedCommands",
-				"title": "Toggles between Short- and Longversion of Mumps Commands"
-			},
-			{
-				"command": "mumps.sortRoutine",
-				"title": "Sorts subroutines inside Mumps routines"
-			},
-			{
-				"command": "mumps.documentFunction",
-				"title": "Creates comment for Mumps subroutine"
-			},
-			{
-				"command": "mumps.Globals.loadMore",
-				"title": "Show More"
-			},
-			{
-				"command": "mumps.Globals.refresh",
-				"icon": {
-					"dark": "images/dark/refresh.svg",
-					"light": "images/light/refresh.svg"
-				},
-				"title": "Refresh"
-			},
-			{
-				"command": "mumps.Globals.search",
-				"icon": "images/search.svg",
-				"title": "Search"
-			}
-		],
-		"configuration": {
-			"properties": {
-				"mumps.enableVariableCheck": {
-					"default": true,
-					"description": "Check if Variable are NEWed in subroutines",
-					"type": "boolean"
-				},
-				"mumps.variablesToBeIgnoredAtNewCheck": {
-					"default": "",
-					"description": "Variables (REGEX) separate by comma that can be ignored at subroutine check",
-					"type": "string"
-				},
-				"mumps.warnIfCodeIsUnreachable": {
-					"default": true,
-					"description": "Syntax-check generates warnings for unreachable code",
-					"type": "boolean"
-				}
-			},
-			"title": "mumps-debug"
-		},
-		"configurationDefaults": {
-			"[mumps]": {
-				"editor.formatOnSave": true,
-				"editor.insertSpaces": false
-			}
-		},
-		"debuggers": [
-			{
-				"configurationAttributes": {
-					"launch": {
-						"properties": {
-							"hostname": {
-								"default": "localhost",
-								"description": "The Host which runs MDEBUG",
-								"type": "string"
-							},
-							"localRoutinesPath": {
-								"description": "The Path to map .m Files to local Files",
-								"type": "string"
-							},
-							"port": {
-								"default": 9000,
-								"description": "The Communication-Port to MDEBUG",
-								"type": "number"
-							},
-							"program": {
-								"default": "${workspaceFolder}/${command:mumps.getEntryRef}",
-								"description": "Absolute path to a text file.",
-								"type": "string"
-							},
-							"stopOnEntry": {
-								"default": true,
-								"description": "Automatically stop after launch.",
-								"type": "boolean"
-							}
-						},
-						"required": [
-							"program",
-							"hostname",
-							"localRoutinesPath"
-						]
-					}
-				},
-				"configurationSnippets": [
-					{
-						"body": {
-							"hostname": "localhost",
-							"localRoutinesPath": "y:\\",
-							"name": "Active File",
-							"port": 9000,
-							"program": "${file}",
-							"request": "launch",
-							"stopOnEntry": true,
-							"type": "mumps"
-						},
-						"description": "Launch and debug active File",
-						"label": "Mumps Debug: Launch"
-					},
-					{
-						"body": {
-							"name": "Ask for Entryref",
-							"program": "${command:AskForProgramName}",
-							"request": "launch",
-							"stopOnEntry": true,
-							"type": "mumps"
-						},
-						"description": "Start at individual Entry-Ref.",
-						"label": "Mumps Debug: Launch"
-					}
-				],
-				"initialConfigurations": [
-					{
-						"hostname": "localhost",
-						"localRoutinesPath": "y:\\",
-						"name": "Active File",
-						"port": 9000,
-						"program": "${file}",
-						"request": "launch",
-						"stopOnEntry": true,
-						"type": "mumps"
-					}
-				],
-				"label": "Mumps Debugger",
-				"languages": [
-					"mumps"
-				],
-				"program": "./dist/extension",
-				"runtime": "node",
-				"type": "mumps"
-			}
-		],
-		"keybindings": [
-			{
-				"command": "mumps.documentFunction",
-				"key": "ctrl+d",
-				"when": "editorLangId == mumps"
-			},
-			{
-				"command": "mumps.toggleExpandedCommands",
-				"key": "ctrl+e",
-				"when": "editorLangId == mumps"
-			},
-			{
-				"command": "mumps.autoSpaceEnter",
-				"key": "enter",
-				"when": "editorLangId == mumps && editorTextFocus"
-			},
-			{
-				"command": "mumps.autoSpaceTab",
-				"key": "tab",
-				"when": "editorLangId == mumps && !inlineSuggestionVisible && !suggestWidgetVisible"
-			},
-			{
-				"command": "mumps.sortRoutine",
-				"key": "ctrl+alt+s",
-				"when": "editorLangId == mumps"
-			},
-			{
-				"command": "mumps.generateForLoop",
-				"key": "ctrl+alt+l",
-				"when": "editorLangId == mumps"
-			},
-			{
-				"command": "mumps.scanWorkspaceForErrors",
-				"key": "ctrl+alt+e",
-				"when": "editorLangId == mumps"
-			},
-			{
-				"command": "mumps.stopScan",
-				"key": "ctr+alt+q",
-				"title": "Stop Scan"
-			}
-		],
-		"languages": [
-			{
-				"aliases": [
-					"MUMPS",
-					"mumps"
-				],
-				"configuration": "./language-configuration.json",
-				"extensions": [
-					".int",
-					".m",
-					".mps"
-				],
-				"id": "mumps"
-			}
-		],
-		"menus": {
-			"commandPalette": [
-				{
-					"command": "mumps.Globals.refresh"
-				},
-				{
-					"command": "mumps.Globals.search"
-				}
-			],
-			"view/item/context": [
-				{
-					"command": "mumps.Globals.loadMore",
-					"group": "inline",
-					"when": "viewItem == moreToCome"
-				},
-				{
-					"command": "mumps.Globals.refresh",
-					"icon": {
-						"dark": "images/dark/refresh.svg",
-						"light": "images/light/refresh.svg"
-					},
-					"when": "view == mumpsGlobals && viewItem == GlobalNode"
-				},
-				{
-					"command": "mumps.Globals.search",
-					"group": "inline",
-					"icon": {
-						"dark": "images/dark/search.svg",
-						"light": "images/light/search.svg"
-					}
-				}
-			],
-			"view/title": [
-				{
-					"command": "mumps.Globals.refresh",
-					"group": "navigation",
-					"icon": {
-						"dark": "images/dark/refresh.svg",
-						"light": "images/light/refresh.svg"
-					},
-					"when": "view == mumpsGlobals"
-				},
-				{
-					"command": "mumps.Globals.search",
-					"group": "navigation",
-					"icon": {
-						"dark": "images/dark/search.svg",
-						"light": "images/light/search.svg"
-					},
-					"when": "view == mumpsGlobals"
-				}
-			]
-		},
-		"semanticTokenScopes": [
-			{
-				"language": "mumps",
-				"scopes": {
-					"comment": [
-						"comment.line"
-					],
-					"entryref": [
-						"entity.name.type.class"
-					],
-					"exfunction": [
-						"support.variable.property"
-					],
-					"global": [
-						"variable.other.constant"
-					],
-					"ifunction": [
-						"support.function.mumps"
-					],
-					"local": [
-						"variable.other.constant"
-					],
-					"nonMfunction": [
-						"support.function.user"
-					],
-					"number": [
-						"constant.numeric"
-					],
-					"operator": [
-						"keyword.operator"
-					],
-					"string": [
-						"string.quoted.double"
-					],
-					"sysvariable": [
-						"variable.language.local"
-					],
-					"unreachable": [
-						"comment"
-					]
-				}
-			}
-		],
-		"semanticTokenModifiers": [
-			{
-				"id": "standard",
-				"description": "Normal code"
-			},
-			{
-				"id": "unreachable",
-				"description": "Modifier for unreachable code"
-			}
-		],
-		"variables": {
-			"AskForProgramName": "extension.mumps-debug.getProgramName"
-		},
-		"views": {
-			"global-directory": [
-				{
-					"contextualTitle": "Global Directory",
-					"icon": "images/dep.svg",
-					"id": "mumpsGlobals",
-					"name": "Global Directory",
-					"when": "mumps.showGlobals"
-				}
-			]
-		},
-		"viewsContainers": {
-			"activitybar": [
-				{
-					"icon": "images/dep.svg",
-					"id": "global-directory",
-					"title": "Global Directory",
-					"when": "mumps.showGlobals"
-				}
-			]
-		}
-	},
-	"dependencies": {
-		"@vscode/debugadapter": "^1.59.0",
-		"await-notify": "^1.0.1",
-		"ts-loader": "^9.4.4"
-	},
-	"description": "Debugger for Mumps (M) , GT.M, YottaDB",
-	"devDependencies": {
-		"@eslint/js": "^9.24.0",
-		"@types/mocha": "^10.0.4",
-		"@types/node": "^18.18.0",
-		"@types/vscode": "^1.82.0",
-		"@vscode/vsce": "^3.0.0",
-		"eslint": "^9.24.0",
-		"typescript": "^5.8.3",
-		"typescript-eslint": "^8.29.1",
-		"webpack": "^5.88.2",
-		"webpack-cli": "^5.1.4"
-	},
-	"displayName": "Mumps Language-Pack",
-	"engines": {
-		"vscode": "^1.82.2"
-	},
-	"icon": "images/mumps-debug-icon.png",
-	"keywords": [
-		"mumps",
-		"gt.m",
-		"yottadb",
-		"debug"
-	],
-	"license": "LGPL",
-	"main": "./dist/extension",
-	"name": "mumps-debug",
-	"private": true,
-	"publisher": "jewuma",
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/jewuma/mumps-debug.git"
-	},
-	"scripts": {
-		"compile": "tsc -p ./src && node update-security-md.js",
-		"eslint": "npx eslint ./src/**/*.ts",
-		"package": "webpack --mode production && vsce package",
-		"publish": "vsce publish",
-		"test": "mocha --require ts-node/register src/**/*.test.ts",
-		"ts-loader": "^6.2.2",
-		"vscode:prepare": "webpack --mode production",
-		"watch": "tsc -w -p ./src",
-		"webpack": "webpack --mode development",
-		"webpack-dev": "webpack --mode development --watch"
-	},
-	"version": "1.5.5"
+  "author": {
+    "email": "jewu34@web.de",
+    "name": "Jens Wulf"
+  },
+  "bugs": {
+    "url": "https://github.com/jewuma/mumps-debug/issues"
+  },
+  "categories": [
+    "Debuggers",
+    "Programming Languages",
+    "Formatters"
+  ],
+  "contributes": {
+    "breakpoints": [
+      {
+        "language": "mumps"
+      }
+    ],
+    "commands": [
+      {
+        "command": "mumps.toggleExpandedCommands",
+        "title": "Toggles between Short- and Longversion of Mumps Commands"
+      },
+      {
+        "command": "mumps.sortRoutine",
+        "title": "Sorts subroutines inside Mumps routines"
+      },
+      {
+        "command": "mumps.documentFunction",
+        "title": "Creates comment for Mumps subroutine"
+      },
+      {
+        "command": "mumps.Globals.loadMore",
+        "title": "Show More"
+      },
+      {
+        "command": "mumps.Globals.refresh",
+        "icon": {
+          "dark": "images/dark/refresh.svg",
+          "light": "images/light/refresh.svg"
+        },
+        "title": "Refresh"
+      },
+      {
+        "command": "mumps.Globals.search",
+        "icon": "images/search.svg",
+        "title": "Search"
+      }
+    ],
+    "configuration": {
+      "properties": {
+        "mumps.enableVariableCheck": {
+          "default": true,
+          "description": "Check if Variable are NEWed in subroutines",
+          "type": "boolean"
+        },
+        "mumps.variablesToBeIgnoredAtNewCheck": {
+          "default": "",
+          "description": "Variables (REGEX) separate by comma that can be ignored at subroutine check",
+          "type": "string"
+        },
+        "mumps.warnIfCodeIsUnreachable": {
+          "default": true,
+          "description": "Syntax-check generates warnings for unreachable code",
+          "type": "boolean"
+        },
+        "mumps.hostname": {
+          "default": "localhost",
+          "description": "The Host which runs MDEBUG",
+          "type": "string"
+        },
+        "mumps.port": {
+          "default": 9000,
+          "description": "The Communication-Port to MDEBUG",
+          "type": "number"
+        }
+      },
+      "title": "mumps-debug"
+    },
+    "configurationDefaults": {
+      "[mumps]": {
+        "editor.formatOnSave": true,
+        "editor.insertSpaces": false
+      }
+    },
+    "debuggers": [
+      {
+        "configurationAttributes": {
+          "launch": {
+            "properties": {
+              "hostname": {
+                "default": "localhost",
+                "description": "The Host which runs MDEBUG",
+                "type": "string"
+              },
+              "localRoutinesPath": {
+                "description": "The Path to map .m Files to local Files",
+                "type": "string"
+              },
+              "port": {
+                "default": 9000,
+                "description": "The Communication-Port to MDEBUG",
+                "type": "number"
+              },
+              "program": {
+                "default": "${workspaceFolder}/${command:mumps.getEntryRef}",
+                "description": "Absolute path to a text file.",
+                "type": "string"
+              },
+              "stopOnEntry": {
+                "default": true,
+                "description": "Automatically stop after launch.",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "program",
+              "hostname",
+              "localRoutinesPath"
+            ]
+          }
+        },
+        "configurationSnippets": [
+          {
+            "body": {
+              "hostname": "localhost",
+              "localRoutinesPath": "y:\\",
+              "name": "Active File",
+              "port": 9000,
+              "program": "${file}",
+              "request": "launch",
+              "stopOnEntry": true,
+              "type": "mumps"
+            },
+            "description": "Launch and debug active File",
+            "label": "Mumps Debug: Launch"
+          },
+          {
+            "body": {
+              "name": "Ask for Entryref",
+              "program": "${command:AskForProgramName}",
+              "request": "launch",
+              "stopOnEntry": true,
+              "type": "mumps"
+            },
+            "description": "Start at individual Entry-Ref.",
+            "label": "Mumps Debug: Launch"
+          }
+        ],
+        "initialConfigurations": [
+          {
+            "hostname": "localhost",
+            "localRoutinesPath": "y:\\",
+            "name": "Active File",
+            "port": 9000,
+            "program": "${file}",
+            "request": "launch",
+            "stopOnEntry": true,
+            "type": "mumps"
+          }
+        ],
+        "label": "Mumps Debugger",
+        "languages": [
+          "mumps"
+        ],
+        "program": "./out/extension",
+        "runtime": "node",
+        "type": "mumps"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "mumps.documentFunction",
+        "key": "ctrl+d",
+        "when": "editorLangId == mumps"
+      },
+      {
+        "command": "mumps.toggleExpandedCommands",
+        "key": "ctrl+e",
+        "when": "editorLangId == mumps"
+      },
+      {
+        "command": "mumps.autoSpaceEnter",
+        "key": "enter",
+        "when": "editorLangId == mumps && editorTextFocus"
+      },
+      {
+        "command": "mumps.autoSpaceTab",
+        "key": "tab",
+        "when": "editorLangId == mumps && !inlineSuggestionVisible && !suggestWidgetVisible"
+      },
+      {
+        "command": "mumps.sortRoutine",
+        "key": "ctrl+alt+s",
+        "when": "editorLangId == mumps"
+      },
+      {
+        "command": "mumps.generateForLoop",
+        "key": "ctrl+alt+l",
+        "when": "editorLangId == mumps"
+      },
+      {
+        "command": "mumps.scanWorkspaceForErrors",
+        "key": "ctrl+alt+e",
+        "when": "editorLangId == mumps"
+      },
+      {
+        "command": "mumps.stopScan",
+        "key": "ctr+alt+q",
+        "title": "Stop Scan"
+      }
+    ],
+    "languages": [
+      {
+        "aliases": [
+          "MUMPS",
+          "mumps"
+        ],
+        "configuration": "./language-configuration.json",
+        "extensions": [
+          ".int",
+          ".m",
+          ".mps"
+        ],
+        "id": "mumps"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "mumps.Globals.refresh"
+        },
+        {
+          "command": "mumps.Globals.search"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "mumps.Globals.loadMore",
+          "group": "inline",
+          "when": "viewItem == moreToCome"
+        },
+        {
+          "command": "mumps.Globals.refresh",
+          "icon": {
+            "dark": "images/dark/refresh.svg",
+            "light": "images/light/refresh.svg"
+          },
+          "when": "view == mumpsGlobals && viewItem == GlobalNode"
+        },
+        {
+          "command": "mumps.Globals.search",
+          "group": "inline",
+          "icon": {
+            "dark": "images/dark/search.svg",
+            "light": "images/light/search.svg"
+          }
+        }
+      ],
+      "view/title": [
+        {
+          "command": "mumps.Globals.refresh",
+          "group": "navigation",
+          "icon": {
+            "dark": "images/dark/refresh.svg",
+            "light": "images/light/refresh.svg"
+          },
+          "when": "view == mumpsGlobals"
+        },
+        {
+          "command": "mumps.Globals.search",
+          "group": "navigation",
+          "icon": {
+            "dark": "images/dark/search.svg",
+            "light": "images/light/search.svg"
+          },
+          "when": "view == mumpsGlobals"
+        }
+      ]
+    },
+    "semanticTokenScopes": [
+      {
+        "language": "mumps",
+        "scopes": {
+          "comment": [
+            "comment.line"
+          ],
+          "entryref": [
+            "entity.name.type.class"
+          ],
+          "exfunction": [
+            "support.variable.property"
+          ],
+          "global": [
+            "variable.other.constant"
+          ],
+          "ifunction": [
+            "support.function.mumps"
+          ],
+          "local": [
+            "variable.other.constant"
+          ],
+          "nonMfunction": [
+            "support.function.user"
+          ],
+          "number": [
+            "constant.numeric"
+          ],
+          "operator": [
+            "keyword.operator"
+          ],
+          "string": [
+            "string.quoted.double"
+          ],
+          "sysvariable": [
+            "variable.language.local"
+          ],
+          "unreachable": [
+            "comment"
+          ]
+        }
+      }
+    ],
+    "semanticTokenModifiers": [
+      {
+        "id": "standard",
+        "description": "Normal code"
+      },
+      {
+        "id": "unreachable",
+        "description": "Modifier for unreachable code"
+      }
+    ],
+    "variables": {
+      "AskForProgramName": "extension.mumps-debug.getProgramName"
+    },
+    "views": {
+      "global-directory": [
+        {
+          "contextualTitle": "Global Directory",
+          "icon": "images/dep.svg",
+          "id": "mumpsGlobals",
+          "name": "Global Directory",
+          "when": "mumps.showGlobals"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "icon": "images/dep.svg",
+          "id": "global-directory",
+          "title": "Global Directory",
+          "when": "mumps.showGlobals"
+        }
+      ]
+    }
+  },
+  "dependencies": {
+    "@vscode/debugadapter": "^1.59.0",
+    "await-notify": "^1.0.1",
+    "ts-loader": "^9.4.4"
+  },
+  "description": "Debugger for Mumps (M) , GT.M, YottaDB",
+  "devDependencies": {
+    "@eslint/js": "^9.24.0",
+    "@types/mocha": "^10.0.4",
+    "@types/node": "^18.18.0",
+    "@types/vscode": "^1.82.0",
+    "@vscode/vsce": "^3.0.0",
+    "eslint": "^9.24.0",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.29.1",
+    "webpack": "^5.88.2",
+    "webpack-cli": "^5.1.4"
+  },
+  "displayName": "Mumps Language-Pack",
+  "engines": {
+    "vscode": "^1.82.2"
+  },
+  "icon": "images/mumps-debug-icon.png",
+  "keywords": [
+    "mumps",
+    "gt.m",
+    "yottadb",
+    "debug"
+  ],
+  "license": "LGPL",
+  "main": "./out/extension",
+  "name": "mumps-debug",
+  "private": false,
+  "publisher": "jewuma",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jewuma/mumps-debug.git"
+  },
+  "scripts": {
+    "compile": "tsc -p ./src && node update-security-md.js",
+    "eslint": "npx eslint ./src/**/*.ts",
+    "package": "webpack --mode production && vsce package",
+    "publish": "vsce publish",
+    "vscode:prepare": "webpack --mode production",
+    "watch": "tsc -w -p ./src",
+    "webpack": "webpack --mode development",
+    "webpack-dev": "webpack --mode development --watch"
+  },
+  "version": "1.5.6"
 }
