@@ -1,115 +1,127 @@
+/* eslint-disable class-methods-use-this */
 import * as vscode from 'vscode';
-import { MumpsConnect, MumpsGlobal } from './mumpsConnect';
+import { MumpsConnect } from './mumpsConnect';
 
 export class MumpsGlobalProvider implements vscode.TreeDataProvider<GlobalNode> {
-	private static instance: MumpsGlobalProvider;
-	private static _onDidChangeTreeData: vscode.EventEmitter<GlobalNode | undefined | void> = new vscode.EventEmitter<GlobalNode | undefined | void>();
-	readonly onDidChangeTreeData: vscode.Event<GlobalNode | undefined | void> = MumpsGlobalProvider._onDidChangeTreeData.event;
-	private static _mconnect: MumpsConnect | null = null;
-	private constructor() {
-	}
-	static getInstance() {
-		if (!MumpsGlobalProvider.instance) {
-			MumpsGlobalProvider.instance = new MumpsGlobalProvider();
-		}
-		return MumpsGlobalProvider.instance;
-	}
-	static refresh(): void {
-		this._onDidChangeTreeData.fire();
-	}
-	async search(node?: GlobalNode) {
-		let searchFor: string | undefined = undefined
-		if (node) {
-			const globalName = node.id?.split("(")[0] || ""
-			searchFor = await vscode.window.showInputBox({
-				title: "Search inside Global" + globalName,
-				placeHolder: 'Type the text to search'
-			});
-			if (searchFor) {
-				const searchNode = new GlobalNode(globalName, searchFor, vscode.TreeItemCollapsibleState.None, "search")
-				this.getChildren(searchNode)
-			}
-		} else {
-			searchFor = await vscode.window.showInputBox({
-				title: "Search for global key",
-				placeHolder: 'Type the global key to show'
-			});
-			if (searchFor) {
-				if (searchFor.length) {
-					if (searchFor[0] !== "^") searchFor = "^" + searchFor
-					if (searchFor.indexOf("(") !== -1) {
-						let trailingPara = false
-						if (searchFor.slice(-1) === ")") {
-							trailingPara = true
-							searchFor = searchFor.slice(0, -1)
-						}
-						const keys = searchFor.split("(")[1].split(",");
-						keys.forEach((key, index) => {
-							if (index === keys.length - 1 && key.slice(-1) === ")") key = key.slice(0, -1)
-							if (isNaN(parseFloat(key))) {
-								if (key[0] !== '"' || key.slice(-1) !== '"') {
-									key = '"' + key + '"'
-									keys[index] = key
-								}
-							}
-						})
-						const ending = trailingPara ? ")" : ""
-						searchFor = searchFor.split("(")[0] + "(" + keys.join(",") + ending
-					}
-				}
-				const node = new GlobalNode(searchFor, "", vscode.TreeItemCollapsibleState.Expanded, "")
-				this.getChildren(node);
-			}
-		}
-		MumpsGlobalProvider.refresh();
-	}
-	static setMconnect(mconnect: MumpsConnect) {
-		MumpsGlobalProvider._mconnect = mconnect
-	}
-	/*eslint class-methods-use-this: 0*/
-	getTreeItem(element: GlobalNode): vscode.TreeItem {
-		return element;
-	}
-	async getMoreNodes(node: GlobalNode) {
-		if (node !== undefined && node.id) {
-			node.id = node.id.slice(0, -1)
-			this.getChildren(node)
-			MumpsGlobalProvider.refresh();
-		}
-	}
-	async getChildren(element?: GlobalNode): Promise<GlobalNode[]> {
-		const globalNodes: GlobalNode[] = [];
-		let id = ""
-		if (element !== undefined && element.id) {
-			id = element.id
-		}
-		let nodes: MumpsGlobal | undefined = undefined
-		if (element?.contextValue === "search") {
-			const searchFor: string = element.description as string
-			nodes = await MumpsGlobalProvider._mconnect?.getGlobals(searchFor, id)
-		} else {
-			nodes = await MumpsGlobalProvider._mconnect?.getGlobals(id)
-		}
-		for (const key in nodes) {
-			const variable = nodes[key];
-			const value = variable.value;
-			const isCollapsed = variable.hasChildren ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None;
-			const context = variable.moreToFollow ? "moreToCome" : "";
-			globalNodes.push(new GlobalNode(key, value, isCollapsed, context))
-		}
-		return Promise.resolve(globalNodes);
-	}
+  private static _onDidChangeTreeData = new vscode.EventEmitter<GlobalNode | undefined | void>();
+
+  readonly onDidChangeTreeData = MumpsGlobalProvider._onDidChangeTreeData.event;
+
+  private static _mconnect: MumpsConnect | null = null;
+
+  private pendingSearch?: {
+    term: string;
+    global?: string;
+  };
+
+  public constructor() {}
+
+  static refresh(): void {
+    this._onDidChangeTreeData.fire();
+  }
+
+  static setMconnect(mconnect: MumpsConnect) {
+    MumpsGlobalProvider._mconnect = mconnect;
+  }
+
+  async search(node?: GlobalNode) {
+    const globalName = node?.id || '';
+
+    const input = await vscode.window.showInputBox({
+      title: node ? 'Search inside Global ' + globalName : 'Search for global key',
+      placeHolder: 'Type search text',
+    });
+
+    if (!input) return;
+
+    this.pendingSearch = {
+      term: input,
+      global: globalName || undefined,
+    };
+
+    MumpsGlobalProvider.refresh();
+  }
+
+  getTreeItem(element: GlobalNode): vscode.TreeItem {
+    return element;
+  }
+
+  async getChildren(element?: GlobalNode): Promise<GlobalNode[]> {
+    const conn = MumpsGlobalProvider._mconnect;
+
+    if (!conn) return [];
+
+    // LoadMore-Knoten lädt die nächste Seite
+    if (element?.nodeType === 'loadMore') {
+      return this.loadPage(element.startFrom ?? '');
+    }
+
+    const startFrom = element?.id ?? '';
+
+    return this.loadPage(startFrom);
+  }
+  private async loadPage(startFrom: string): Promise<GlobalNode[]> {
+    const conn = MumpsGlobalProvider._mconnect;
+
+    if (!conn) return [];
+
+    const nodes = this.pendingSearch
+      ? await conn.getGlobals(this.pendingSearch.term, this.pendingSearch.global || startFrom)
+      : await conn.getGlobals(startFrom);
+
+    this.pendingSearch = undefined;
+    const result: GlobalNode[] = [];
+
+    let lastKey: string | undefined;
+    let hasMore = false;
+
+    for (const key in nodes) {
+      const v = nodes[key];
+
+      lastKey = key;
+      hasMore = !!v.moreToFollow;
+
+      result.push(
+        new GlobalNode(
+          key,
+          v.value,
+          v.hasChildren ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None
+        )
+      );
+    }
+
+    // nächste Seite anhängen
+    if (hasMore && lastKey) {
+      result.push(
+        new GlobalNode('Load more...', '', vscode.TreeItemCollapsibleState.Collapsed, 'loadMore', lastKey.slice(0, -1))
+      );
+    }
+
+    return result;
+  }
 }
 
 export class GlobalNode extends vscode.TreeItem {
+  constructor(
+    public id: string,
+    public value: string,
+    collapsibleState: vscode.TreeItemCollapsibleState,
+    public nodeType: 'normal' | 'loadMore' = 'normal',
+    public startFrom?: string
+  ) {
+    super(id, collapsibleState);
 
-	constructor(id: string, value: string, collapsibleState: vscode.TreeItemCollapsibleState, context: string) {
-		super(value, collapsibleState);
-		this.id = id
-		this.label = id;
-		this.description = value;
-		if (context !== "") this.contextValue = context
-		return this;
-	}
-	contextValue = 'globalnode';
+    this.label = id;
+    this.description = value;
+
+    if (nodeType === 'loadMore') {
+      this.command = {
+        command: 'mumps.Globals.loadMore',
+        title: 'Load more',
+        arguments: [this],
+      };
+
+      this.contextValue = 'loadMore';
+    }
+  }
 }

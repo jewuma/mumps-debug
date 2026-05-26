@@ -2,13 +2,13 @@
 	Connector to MDEBUG-Server by Jens Wulf
 	License: LGPL
 */
-import { DebugProtocol } from "@vscode/debugprotocol";
-import { EventEmitter } from "events";
-import { existsSync, readFileSync } from "fs";
-import { Socket } from "net";
-import * as vscode from "vscode";
-import { MumpsLineParser, TokenType } from "./mumpsLineParser";
-import { getLocalRoutinesPath, getWorkspaceFolder } from "./extension";
+import { DebugProtocol } from '@vscode/debugprotocol';
+import { EventEmitter } from 'events';
+import { existsSync, readFileSync } from 'fs';
+import { Socket } from 'net';
+import * as vscode from 'vscode';
+import { MumpsLineParser, TokenType } from './mumpsLineParser';
+import { getLocalRoutinesPath, getWorkspaceFolder } from './extension';
 export interface MumpsBreakpoint {
   id: number;
   file: string;
@@ -21,6 +21,26 @@ export interface FilePosition {
   line: number;
   local: boolean;
 }
+export type MumpsJob = {
+  jobId: number;
+  user: string;
+  processorUsage: number;
+  memUsage: number;
+};
+export type LockRegion = {
+  name: string;
+  jobsWaiting?: number;
+  possibleJobs?: number;
+  usedLocks?: number;
+  lockSlots?: number;
+  lockEntries: LockEntry[];
+};
+export type LockEntry = {
+  region: string;
+  name: string;
+  jobId: number;
+};
+
 interface VarData {
   name: string;
   indexCount: number;
@@ -55,14 +75,16 @@ interface IVariables {
 }
 enum connectState {
   disconnected,
-  waitingforStart,
-  waitingForVars,
   waitingForBreakpoints,
+  waitingForErrorReport,
+  waitingForGlobals,
+  waitingForHints,
+  waitingForJobList,
+  waitingForLockList,
   waitingForSingleVar,
   waitingForSingleVarContent,
-  waitingForErrorReport,
-  waitingForHints,
-  waitingForGlobals,
+  waitingforStart,
+  waitingForVars,
 }
 
 export enum VariableType {
@@ -71,15 +93,17 @@ export enum VariableType {
 }
 
 export class MumpsConnect extends EventEmitter {
-  private _socket = new Socket();
+  private _socket: Socket = new Socket();
   private _connectState: connectState;
   private _readedData: string;
   private _mVars: MumpsVariable;
   private _globals: MumpsGlobal;
   private _mStack: Array<string>;
   private _activeBreakpoints: Array<string>;
-  private _event = new EventEmitter();
-  private _hostname: string = "";
+  private _hostname: string = '';
+  private _jobList: MumpsJob[] = [];
+  private _lockList: LockRegion[] = [];
+  private _lastLockRegion: string = '';
   private _port: number = 0;
   private _errorLines: string[];
   private _hints: string[];
@@ -87,14 +111,14 @@ export class MumpsConnect extends EventEmitter {
   private _breakpointId = 1;
   private _commandQueue: string[];
   private _logging = false;
-  private _singleVar = "";
-  private _singleVarContent = "";
-  private _lastError = "";
+  private _singleVar = '';
+  private _singleVarContent = '';
+  private _lastError = '';
   constructor() {
     super();
     this._commandQueue = [];
     this._connectState = connectState.disconnected;
-    this._readedData = "";
+    this._readedData = '';
     this._mVars = {
       [VariableType.system]: {},
       [VariableType.local]: {},
@@ -104,10 +128,12 @@ export class MumpsConnect extends EventEmitter {
     this._activeBreakpoints = [];
     this._breakPoints = [];
     this._errorLines = [];
-    this._singleVar = "";
-    this._singleVarContent = "";
+    this._singleVar = '';
+    this._singleVarContent = '';
     this._hints = [];
-    this._event.on("varsComplete", () => {
+    this._jobList = [];
+    this._lockList = [];
+    this.on('varsComplete', () => {
       if (Object.keys(this._mVars[VariableType.system]).length > 0) {
         const internals = this._mVars[VariableType.system];
         this.checkEvents(internals);
@@ -115,37 +141,33 @@ export class MumpsConnect extends EventEmitter {
     });
   }
 
-  public async init(hostname: string, port: number): Promise<Socket> {
+  public async init(hostname: string, port: number): Promise<void> {
     this._hostname = hostname;
     this._port = port;
 
     return new Promise((resolve, reject) => {
       this._socket.connect(this._port, this._hostname, () => {
-        this._log("Debug-Server connected\n");
-        vscode.commands.executeCommand("setContext", "mumps.showGlobals", true);
+        this._log('Debug-Server connected\n');
+        vscode.commands.executeCommand('setContext', 'mumps.connected', true);
         this._connectState = connectState.waitingforStart;
-        this._socket.on("data", (chunk) => {
+        this._socket!.on('data', (chunk) => {
           this._readedData += chunk.toString();
-          let n = this._readedData.indexOf("\n");
+          let n = this._readedData.indexOf('\n');
           while (n !== -1) {
             const data = this._readedData.substring(0, n);
             this.processLine(data);
             this._readedData = this._readedData.substring(n + 1);
-            n = this._readedData.indexOf("\n");
+            n = this._readedData.indexOf('\n');
           }
         });
-        resolve(this._socket);
+        resolve();
       });
-      this._socket.on("error", (error) => {
+      this._socket.on('error', (error) => {
         reject(error);
       });
-      this._socket.on("end", () => {
+      this._socket.on('end', () => {
         this._connectState = connectState.disconnected;
-        vscode.commands.executeCommand(
-          "setContext",
-          "mumps.showGlobals",
-          false,
-        );
+        vscode.commands.executeCommand('setContext', 'mumps.connected', false);
       });
     });
   }
@@ -155,14 +177,14 @@ export class MumpsConnect extends EventEmitter {
     }
   }
   private processLine(line: string): void {
-    this._log("Line:  " + line);
+    this._log('Line:  ' + line);
 
     let varname: string;
     let value: string;
     let vartype: string;
     switch (this._connectState) {
       case connectState.waitingforStart: {
-        if (line === "***STARTVAR") {
+        if (line === '***STARTVAR') {
           this._connectState = connectState.waitingForVars;
           this._mStack = [];
           this._mVars = {
@@ -171,68 +193,77 @@ export class MumpsConnect extends EventEmitter {
           };
           break;
         }
-        if (line === "***STARTBP") {
+        if (line === '***STARTBP') {
           this._connectState = connectState.waitingForBreakpoints;
           this._activeBreakpoints = [];
           this._log(line);
           break;
         }
-        if (line === "***SINGLEVAR") {
+        if (line === '***SINGLEVAR') {
           this._connectState = connectState.waitingForSingleVar;
-          this._singleVar = "";
-          this._singleVarContent = "";
+          this._singleVar = '';
+          this._singleVarContent = '';
           break;
         }
-        if (line === "***ENDPROGRAM") {
-          this.sendEvent("end");
-          this._socket.end();
+        if (line === '***ENDPROGRAM') {
+          this.emit('end');
+          this._socket!.end();
           break;
         }
-        if (line === "***BEGINERRCHK") {
+        if (line === '***BEGINERRCHK') {
           this._connectState = connectState.waitingForErrorReport;
           this._errorLines = [];
           break;
         }
-        if (line === "***STARTHINTS") {
+        if (line === '***STARTHINTS') {
           this._connectState = connectState.waitingForHints;
           this._hints = [];
           break;
         }
-        if (line === "***STARTGBL") {
+        if (line === '***STARTGBL') {
           this._connectState = connectState.waitingForGlobals;
           this._globals = {};
+          break;
+        }
+        if (line === '***STARTJOBLIST') {
+          this._connectState = connectState.waitingForJobList;
+          this._jobList = [];
+          break;
+        }
+        if (line === '***STARTLOCKLIST') {
+          this._connectState = connectState.waitingForLockList;
+          this._lockList = [];
           break;
         }
         break;
       }
       case connectState.waitingForVars: {
-        if (line === "***ENDVAR") {
+        if (line === '***ENDVAR') {
           this._connectState = connectState.waitingforStart;
-          delete this._mVars[VariableType.local]["%STEP"]; //Remove internal debugger variables
-          delete this._mVars[VariableType.local]["%PROGNAME"];
-          this._event.emit("varsComplete");
+          delete this._mVars[VariableType.local]['%STEP']; //Remove internal debugger variables
+          delete this._mVars[VariableType.local]['%PROGNAME'];
+          this.emit('varsComplete');
         } else {
           vartype = line.substring(0, 1); //I=internal,V=local Variable,S=Stackframe
-          if (vartype === "S") {
+          if (vartype === 'S') {
             this._mStack.push(line.substring(2));
             break;
           }
-          varname = line.substring(2, line.indexOf("="));
+          varname = line.substring(2, line.indexOf('='));
           while ((varname.split('"').length - 1) % 2 !== 0) {
-            varname = line.substring(0, line.indexOf("=", varname.length + 1));
+            varname = line.substring(0, line.indexOf('=', varname.length + 1));
           }
           value = line
             .substring(varname.length + 3)
-            .replace(/^"/, "")
-            .replace(/"$/, "");
-          const variableType =
-            vartype === "V" ? VariableType.local : VariableType.system;
+            .replace(/^"/, '')
+            .replace(/"$/, '');
+          const variableType = vartype === 'V' ? VariableType.local : VariableType.system;
           this._mVars[variableType][varname] = value;
         }
         break;
       }
       case connectState.waitingForBreakpoints: {
-        if (line === "***ENDBP") {
+        if (line === '***ENDBP') {
           this._log(line);
           this._connectState = connectState.waitingforStart;
           this.verifyBreakpoints();
@@ -243,15 +274,10 @@ export class MumpsConnect extends EventEmitter {
         break;
       }
       case connectState.waitingForSingleVar: {
-        if (line === "***SINGLEEND") {
+        if (line === '***SINGLEEND') {
           this._connectState = connectState.waitingforStart;
-          this._event.emit(
-            "SingleVarReceived",
-            this._event,
-            this._singleVar,
-            this._singleVarContent,
-          );
-        } else if (line === "***SINGLEVARCONTENT") {
+          this.emit('SingleVarReceived', this._singleVar, this._singleVarContent);
+        } else if (line === '***SINGLEVARCONTENT') {
           this._connectState = connectState.waitingForSingleVarContent;
         } else {
           this._singleVar += line;
@@ -259,36 +285,27 @@ export class MumpsConnect extends EventEmitter {
         break;
       }
       case connectState.waitingForSingleVarContent: {
-        if (line === "***SINGLEEND") {
+        if (line === '***SINGLEEND') {
           this._connectState = connectState.waitingforStart;
-          this._event.emit(
-            "SingleVarReceived",
-            this._event,
-            this._singleVar,
-            this._singleVarContent,
-          );
+          this.emit('SingleVarReceived', this._singleVar, this._singleVarContent);
         } else {
           this._singleVarContent += line;
         }
         break;
       }
       case connectState.waitingForErrorReport: {
-        if (line === "***ENDERRCHK") {
+        if (line === '***ENDERRCHK') {
           this._connectState = connectState.waitingforStart;
-          this._event.emit(
-            "ErrorreportReceived",
-            this._event,
-            this._errorLines,
-          );
+          this.emit('ErrorreportReceived', this._errorLines);
         } else {
           this._errorLines.push(line);
         }
         break;
       }
       case connectState.waitingForGlobals: {
-        if (line === "***ENDGBL") {
+        if (line === '***ENDGBL') {
           this._connectState = connectState.waitingforStart;
-          this._event.emit("gblsComplete");
+          this.emit('gblsComplete');
         } else {
           let moreToFollow = false;
           let indicator = parseInt(line[0]);
@@ -297,15 +314,15 @@ export class MumpsConnect extends EventEmitter {
             indicator -= 4;
           }
           const hasChildren = indicator === 2;
-          const isDefined = line[1] === "1";
-          varname = line.substring(2, line.indexOf("="));
+          const isDefined = line[1] === '1';
+          varname = line.substring(2, line.indexOf('='));
           while ((varname.split('"').length - 1) % 2 !== 0) {
-            varname = line.substring(2, line.indexOf("=", varname.length + 1));
+            varname = line.substring(2, line.indexOf('=', varname.length + 1));
           }
           value = line
             .substring(varname.length + 3)
-            .replace(/^"/, "")
-            .replace(/"$/, "");
+            .replace(/^"/, '')
+            .replace(/"$/, '');
           this._globals[varname] = {
             value,
             hasChildren,
@@ -316,30 +333,57 @@ export class MumpsConnect extends EventEmitter {
         break;
       }
       case connectState.waitingForHints: {
-        if (line === "***ENDHINTS") {
+        if (line === '***ENDHINTS') {
           this._connectState = connectState.waitingforStart;
-          this._event.emit("HintsReceived", this._event, this._hints);
+          this.emit('HintsReceived', this._hints);
         } else {
           this._hints.push(line);
         }
         break;
       }
+      case connectState.waitingForJobList: {
+        if (line === '***ENDJOBLIST') {
+          this._connectState = connectState.waitingforStart;
+          this.emit('jobsComplete', this._jobList);
+        } else {
+          if (line.trim() !== '') {
+            const parts = line.trim().split(/\s+/);
+            if (parts.length === 5) {
+              const jobId = parseInt(parts[0]);
+              const user = parts[1];
+              const processorUsage = parseFloat(parts[2]);
+              const memUsage = parseFloat(parts[3]);
+              this._jobList.push({ jobId, user, processorUsage, memUsage });
+            }
+          }
+        }
+        break;
+      }
+      case connectState.waitingForLockList: {
+        if (line === '***ENDLOCKLIST') {
+          this._connectState = connectState.waitingforStart;
+          this.emit('locksComplete', this._lockList);
+        } else {
+          this.processLockListLine(line);
+        }
+        break;
+      }
       default: {
-        console.error("Unexpected Message: " + line);
+        console.error('Unexpected Message: ' + line);
       }
     }
   }
   private writeln(message: string): void {
     this._commandQueue.push(message);
     if (this._commandQueue.length > 1000) {
-      console.error("Too many Commands in Queue: Check Debugger Connection");
+      console.error('Too many Commands in Queue: Check Debugger Connection');
       throw new Error();
     }
     if (this._connectState !== connectState.disconnected) {
       while (this._commandQueue.length) {
         message = this._commandQueue.shift()!;
         try {
-          this._socket.write(message + "\n");
+          this._socket!.write(message + '\n');
         } catch {
           this._commandQueue.unshift(message);
           break;
@@ -347,48 +391,43 @@ export class MumpsConnect extends EventEmitter {
       }
     }
   }
-  private sendBreakpoint(
-    file: string,
-    line: number,
-    onOff: boolean,
-    condition?: string,
-  ): void {
+  private sendBreakpoint(file: string, line: number, onOff: boolean, condition?: string): void {
     if (condition === undefined) {
-      condition = "";
+      condition = '';
     }
     if (onOff) {
-      this.writeln("SETBP;" + file + ";" + line + ";" + condition);
+      this.writeln('SETBP;' + file + ';' + line + ';' + condition);
     } else {
-      this.writeln("CLEARBP;" + file + ";" + line);
+      this.writeln('CLEARBP;' + file + ';' + line);
     }
   }
   public start(file: string, stopAtStart: boolean): void {
     if (stopAtStart) {
-      if (file.indexOf("^")) {
+      if (file.indexOf('^')) {
         //Stop direct at given Label not at first line
-        this.sendBreakpoint(file, 0, true, "");
+        this.sendBreakpoint(file, 0, true, '');
       } else {
-        this.sendBreakpoint(file, 1, true, "");
+        this.sendBreakpoint(file, 1, true, '');
       }
     }
     this.requestBreakpoints();
-    this.writeln("START;" + file);
+    this.writeln('START;' + file);
   }
   public step(type: string): void {
     this.writeln(type);
   }
   public continue(): void {
-    this.writeln("CONTINUE");
+    this.writeln('CONTINUE');
   }
   public disconnect(): void {
-    this.writeln("RESET");
-    this._socket.end();
+    this.writeln('RESET');
+    this._socket!.end();
   }
   public requestBreakpoints(): void {
-    this.writeln("REQUESTBP");
+    this.writeln('REQUESTBP');
   }
   public restart(file: string): void {
-    this.writeln("RESTART;" + file);
+    this.writeln('RESTART;' + file);
   }
 
   /**
@@ -399,7 +438,7 @@ export class MumpsConnect extends EventEmitter {
 
     for (let i = startFrame; i < this._mStack.length; i++) {
       const position = this._mStack[i];
-      if (position.indexOf("^") !== -1) {
+      if (position.indexOf('^') !== -1) {
         const fileposition = convertMumpsPosition(position);
         frames.push({
           index: i,
@@ -420,10 +459,10 @@ export class MumpsConnect extends EventEmitter {
    */
   public setBreakPoint(
     file: string,
-    breakpoints: DebugProtocol.SourceBreakpoint[] | undefined,
+    breakpoints: DebugProtocol.SourceBreakpoint[] | undefined
   ): DebugProtocol.Breakpoint[] {
     const confirmedBreakpoints: DebugProtocol.Breakpoint[] = [];
-    file = file.replace(/\\/g, "/");
+    file = file.replace(/\\/g, '/');
     if (breakpoints) {
       for (let i = 0; i < breakpoints.length; i++) {
         const breakpoint = breakpoints[i];
@@ -435,9 +474,7 @@ export class MumpsConnect extends EventEmitter {
           line,
           id: this._breakpointId++,
         };
-        const existingBreakpoint = this._breakPoints.find(
-          (bp) => bp.file === file && bp.line === line,
-        );
+        const existingBreakpoint = this._breakPoints.find((bp) => bp.file === file && bp.line === line);
         if (!existingBreakpoint) {
           this._breakPoints.push(newBreakpoint);
         } else {
@@ -452,10 +489,7 @@ export class MumpsConnect extends EventEmitter {
   /*
    * Clear breakpoint in file with given line.
    */
-  public clearBreakPoint(
-    file: string,
-    line: number,
-  ): MumpsBreakpoint | undefined {
+  public clearBreakPoint(file: string, line: number): MumpsBreakpoint | undefined {
     const bps = this._breakPoints;
     if (bps) {
       const index = bps.findIndex((bp) => bp.file === file && bp.line === line);
@@ -473,7 +507,7 @@ export class MumpsConnect extends EventEmitter {
    * Clear all breakpoints
    */
   public clearBreakpoints(file: string): void {
-    this.writeln("CLEARBP;" + file);
+    this.writeln('CLEARBP;' + file);
   }
 
   private verifyBreakpoints(): void {
@@ -482,19 +516,17 @@ export class MumpsConnect extends EventEmitter {
       bp.verified = false;
       for (let i = 0; i < this._activeBreakpoints.length; i++) {
         const internalBp = convertMumpsPosition(this._activeBreakpoints[i]);
-        internalBp.file = MumpsConnect.normalizeDrive(
-          internalBp.file.replace(/\\/g, "/"),
-        );
-        bp.file = MumpsConnect.normalizeDrive(bp.file.replace(/\\/g, "/"));
+        internalBp.file = MumpsConnect.normalizeDrive(internalBp.file.replace(/\\/g, '/'));
+        bp.file = MumpsConnect.normalizeDrive(bp.file.replace(/\\/g, '/'));
         if (internalBp.file === bp.file && bp.line === internalBp.line + 1) {
           bp.verified = true;
-          this.sendEvent("breakpointValidated", bp);
+          this.emit('breakpointValidated', bp);
           merk[i] = true;
           break;
         }
       }
       if (!bp.verified) {
-        this.sendEvent("breakpointValidated", bp);
+        this.emit('breakpointValidated', bp);
       }
     });
     for (let i = 0; i < this._activeBreakpoints.length; i++) {
@@ -506,41 +538,104 @@ export class MumpsConnect extends EventEmitter {
           line: internalBp.line + 1,
           id: this._breakpointId++,
         };
-        this.sendEvent("breakpointValidated", bp);
+        this.emit('breakpointValidated', bp);
       }
     }
   }
   private static normalizeDrive(path: string): string {
-    const parts = path.split(":");
+    const parts = path.split(':');
     if (parts.length === 2) {
-      return parts[0].toLowerCase() + ":" + parts[1];
+      return parts[0].toLowerCase() + ':' + parts[1];
     } else {
       return path;
     }
   }
-  public async getGlobals(
-    keys: string,
-    searchInGlobal?: string,
-  ): Promise<MumpsGlobal> {
-    if (searchInGlobal !== undefined) {
-      this.writeln("SEARCHGBL;" + searchInGlobal + ";" + keys);
-    } else {
-      this.writeln("GETGBL;" + keys);
-    }
+  public async getGlobals(keys: string, searchInGlobal?: string): Promise<MumpsGlobal> {
+    this.writeln(searchInGlobal ? `SEARCHGBL;${searchInGlobal};${keys}` : `GETGBL;${keys}`);
     return new Promise((resolve) => {
-      // Listen for the "gblsComplete" event.
-      const gblsCompleteListener = () => {
-        // Unsubscribe from the event to avoid memory leaks.
-        this._event.removeListener("gblsComplete", gblsCompleteListener);
-
-        // Resolve the Promise with the received value.
+      this.once('gblsComplete', () => {
         resolve(this._globals);
-      };
-
-      // Subscribe to the "gblsComplete" event.
-      this._event.on("gblsComplete", gblsCompleteListener);
+      });
     });
   }
+  public async getJobs(): Promise<{ [jobId: number]: MumpsJob }> {
+    this.writeln('JOBLIST');
+    return new Promise((resolve) => {
+      this.once('jobsComplete', () => {
+        resolve(this._jobList);
+      });
+    });
+  }
+  public async getLocks(): Promise<LockRegion[]> {
+    this.writeln('LOCKLIST');
+    return new Promise((resolve) => {
+      this.once('locksComplete', () => {
+        resolve(this._lockList);
+      });
+    });
+  }
+  private processLockListLine(line: string): void {
+    if (line.trim() === '') {
+      return;
+    }
+    const parts = line.trim().split(/\s+/);
+    if (parts.length === 1) {
+      this._lastLockRegion = parts[0];
+      this._lockList.push({
+        name: this._lastLockRegion,
+        lockEntries: [],
+      });
+      return;
+    }
+    const info = parts[0];
+    if (info === '%YDB-I-LOCKSPACEINFO,') {
+      const regexp =
+        /Region:\s+(\S+):\s+processes on queue:\s+(\d+)\/(\d+);\s+LOCK slots in use:\s+(\d+)\/(\d+);\s+SUBSCRIPT slot bytes in use:\s+(\d+)\/(\d+)/;
+
+      const match = line.match(regexp);
+
+      if (match) {
+        const details = {
+          name: match[1],
+
+          queueUsed: Number(match[2]),
+          queueMax: Number(match[3]),
+
+          lockUsed: Number(match[4]),
+          lockMax: Number(match[5]),
+        };
+        const existingRegion = this._lockList.find((region) => region.name === details.name);
+        if (existingRegion) {
+          existingRegion.jobsWaiting = details.queueUsed;
+          existingRegion.possibleJobs = details.queueMax;
+          existingRegion.usedLocks = details.lockUsed;
+          existingRegion.lockSlots = details.lockMax;
+        } else {
+          this._lockList.push({
+            name: details.name,
+            possibleJobs: details.queueMax,
+            usedLocks: details.lockUsed,
+            lockSlots: details.lockMax,
+            lockEntries: [],
+          });
+        }
+      }
+    } else if (parts[1] === 'Owned' && parts[2] === 'by') {
+      const regionName = this._lastLockRegion;
+      const jobId = Number(parts[4]);
+      const lockName = parts[0];
+      const lockEntry: LockEntry = {
+        region: regionName,
+        name: lockName,
+        jobId: jobId,
+      };
+      const existingRegion = this._lockList.find((region) => region.name === regionName);
+      if (existingRegion) {
+        existingRegion.lockEntries.push(lockEntry);
+      }
+    }
+  }
+
   public getVariables(type: VariableType): { [variableName: string]: string } {
     return this._mVars[type];
   }
@@ -551,39 +646,22 @@ export class MumpsConnect extends EventEmitter {
    */
   public async checkRoutine(lines: string[]): Promise<string[]> {
     return new Promise((resolve) => {
-      this._event.on(
-        "ErrorreportReceived",
-        function ErrorreportReceived(
-          event: EventEmitter,
-          errorLines: string[],
-        ) {
-          event.removeListener("ErrorreportReceived", ErrorreportReceived);
-          errorLines = errorLines.filter((line) => !line.includes("I-SRCNAM"));
-          for (let i = 0; i < errorLines.length; i++) {
-            if (errorLines[i].indexOf("E-LABELMISSING")) {
-              const label = errorLines[i].match(/: ([A-Za-z%0-9][A-Za-z0-9]*)/);
-              if (label !== null && label.length > 1) {
-                const searchLabel = label[1];
-                for (let j = 0; j < lines.length; j++) {
-                  if (lines[j].indexOf(searchLabel) !== -1) {
-                    const lineInfo = new MumpsLineParser().analyzeLine(
-                      lines[j],
-                    );
-                    if (lineInfo.tokens.length > 0) {
-                      for (let k = 0; k < lineInfo.tokens.length; k++) {
-                        if (
-                          lineInfo.tokens[k].type === TokenType.entryref &&
-                          lineInfo.tokens[k].name === searchLabel
-                        ) {
-                          errorLines[i] =
-                            lineInfo.tokens[k].position +
-                            1 +
-                            ";" +
-                            (j + 1) +
-                            ";" +
-                            errorLines[i].substring(3);
-                          break;
-                        }
+      const handleErrorReport = (errorLines: string[]) => {
+        errorLines = errorLines.filter((line) => !line.includes('I-SRCNAM'));
+        for (let i = 0; i < errorLines.length; i++) {
+          if (errorLines[i].indexOf('E-LABELMISSING')) {
+            const label = errorLines[i].match(/: ([A-Za-z%0-9][A-Za-z0-9]*)/);
+            if (label !== null && label.length > 1) {
+              const searchLabel = label[1];
+              for (let j = 0; j < lines.length; j++) {
+                if (lines[j].indexOf(searchLabel) !== -1) {
+                  const lineInfo = new MumpsLineParser().analyzeLine(lines[j]);
+                  if (lineInfo.tokens.length > 0) {
+                    for (let k = 0; k < lineInfo.tokens.length; k++) {
+                      if (lineInfo.tokens[k].type === TokenType.entryref && lineInfo.tokens[k].name === searchLabel) {
+                        errorLines[i] =
+                          lineInfo.tokens[k].position + 1 + ';' + (j + 1) + ';' + errorLines[i].substring(3);
+                        break;
                       }
                     }
                   }
@@ -591,14 +669,15 @@ export class MumpsConnect extends EventEmitter {
               }
             }
           }
-          resolve(errorLines);
-        },
-      );
-      this.writeln("ERRCHK");
+        }
+        resolve(errorLines);
+      };
+      this.once('ErrorreportReceived', handleErrorReport);
+      this.writeln('ERRCHK');
       for (let i = 0; i < lines.length; i++) {
         this.writeln(lines[i]);
       }
-      this.writeln("***ENDPROGRAM");
+      this.writeln('***ENDPROGRAM');
     });
   }
   /**
@@ -611,25 +690,20 @@ export class MumpsConnect extends EventEmitter {
       const reply: VarData = {
         name: expression,
         indexCount: 0,
-        content: "undefined",
+        content: 'undefined',
         bases: [],
       };
-      const varType =
-        expression.charAt(0) === "$" ? VariableType.system : VariableType.local;
+      const varType = expression.charAt(0) === '$' ? VariableType.system : VariableType.local;
       if (this._mVars[varType][expression] !== undefined) {
         reply.content = this._mVars[varType][expression];
         resolve(reply);
       } else {
-        this._event.on(
-          "SingleVarReceived",
-          function SingleVarReceived(event, singleVar, singleVarContent) {
-            event.removeListener("SingleVarReceived", SingleVarReceived);
-            reply.name = singleVar;
-            reply.content = singleVarContent;
-            resolve(reply);
-          },
-        );
-        this.writeln("GETVAR;" + expression);
+        this.once('SingleVarReceived', (singleVar: string, singleVarContent: string) => {
+          reply.name = singleVar;
+          reply.content = singleVarContent;
+          resolve(reply);
+        });
+        this.writeln('GETVAR;' + expression);
       }
     });
   }
@@ -638,89 +712,72 @@ export class MumpsConnect extends EventEmitter {
    * Fire events if line has a breakpoint or hs stopped beacause of a different reason
    */
   private checkEvents(internals: IVariables): void {
-    const mumpsposition = internals["$ZPOSITION"];
-    const mumpsstatus = internals["$ZSTATUS"];
+    const mumpsposition = internals['$ZPOSITION'];
+    const mumpsstatus = internals['$ZSTATUS'];
     const filePosition = convertMumpsPosition(mumpsposition);
-    if (mumpsstatus !== "") {
-      if (
-        mumpsstatus === this._lastError &&
-        internals["$ETRAP"] === internals["$ZSTEP"]
-      ) {
-        this.sendEvent("end");
+    if (mumpsstatus !== '') {
+      if (mumpsstatus === this._lastError && internals['$ETRAP'] === internals['$ZSTEP']) {
+        this.emit('end');
         return;
       } else {
         if (mumpsstatus !== this._lastError) {
           this._lastError = mumpsstatus;
-          const parts = mumpsstatus.split(",");
-          this.sendEvent(
-            "stopOnException",
-            mumpsstatus,
-            convertMumpsPosition(parts[1]),
-          );
+          const parts = mumpsstatus.split(',');
+          this.emit('stopOnException', mumpsstatus, convertMumpsPosition(parts[1]));
           this._log(mumpsstatus);
           return;
         }
       }
     }
-    const bps = this._breakPoints.filter(
-      (bp) =>
-        bp.file === filePosition.file && bp.line === filePosition.line + 1,
-    );
+    const bps = this._breakPoints.filter((bp) => bp.file === filePosition.file && bp.line === filePosition.line + 1);
     if (bps.length > 0) {
-      this.sendEvent("stopOnBreakpoint");
+      this.emit('stopOnBreakpoint');
     } else {
-      this.sendEvent("stopOnStep");
+      this.emit('stopOnStep');
     }
   }
-
-  private sendEvent(event: string, ...args: unknown[]): void {
-    this.emit(event, ...args);
-  }
 }
-export function convertMumpsPosition(
-  positionstring: string,
-  showNotFound?: boolean | undefined,
-): FilePosition {
+export function convertMumpsPosition(positionstring: string, showNotFound?: boolean | undefined): FilePosition {
   if (showNotFound === undefined) {
     showNotFound = true;
   }
   let local = false;
-  const parts = positionstring.split("^");
+  const parts = positionstring.split('^');
   const position = parts[0];
   if (parts[1] !== undefined) {
-    const program = parts[1].split(" ", 1)[0].replace(/%/g, "_") + ".m";
+    const program = parts[1].split(' ', 1)[0].replace(/%/g, '_') + '.m';
     let path = getLocalRoutinesPath();
-    if (!path.endsWith("/") && !path.endsWith("\\")) path += "/";
+    if (!path.endsWith('/') && !path.endsWith('\\')) path += '/';
     let file = path + program;
     if (!existsSync(file)) {
       if (getWorkspaceFolder() !== undefined) {
         path = getWorkspaceFolder()!;
-        if (!path.endsWith("/") && !path.endsWith("\\")) path += "/";
+        if (!path.endsWith('/') && !path.endsWith('\\')) path += '/';
         file = path + program;
       }
     }
     if (!existsSync(file)) {
       if (showNotFound) {
-        vscode.window.showErrorMessage("Could not find Routine " + program);
+        vscode.window.showErrorMessage('Could not find Routine ' + program);
       }
-      return { file: "", line: 1, local: false };
+      return { file: '', line: 1, local: false };
     }
 
     try {
-      const filecontent = readFileSync(file).toString().split("\n");
-      const startlabel = position.split("+")[0];
-      const labelRegexp = new RegExp("^" + startlabel + "([(\\s;:]|$)");
-      const localLabelRegexp = new RegExp("^" + startlabel + ":");
+      const filecontent = readFileSync(file).toString().split('\n');
+      const startlabel = position.split('+')[0];
+      const labelRegexp = new RegExp('^' + startlabel + '([(\\s;:]|$)');
+      const localLabelRegexp = new RegExp('^' + startlabel + ':');
       let offset = 0;
-      if (position.split("+")[1] !== undefined) {
-        offset = parseInt(position.split("+")[1]);
-        if (startlabel === "") {
+      if (position.split('+')[1] !== undefined) {
+        offset = parseInt(position.split('+')[1]);
+        if (startlabel === '') {
           offset--;
         } //If there's no startlabel M reports +1^XXX
       }
       let line = 0;
       let labelFound = false;
-      if (startlabel !== "") {
+      if (startlabel !== '') {
         for (let ln = 0; ln < filecontent.length; ln++) {
           if (filecontent[ln].match(labelRegexp)) {
             if (filecontent[ln].match(localLabelRegexp)) local = true;
@@ -730,16 +787,15 @@ export function convertMumpsPosition(
             break;
           }
         }
-        if (!labelFound) return { file: "", line: 1, local };
+        if (!labelFound) return { file: '', line: 1, local };
       }
-      if (line + offset >= filecontent.length)
-        return { file: "", line: 1, local };
+      if (line + offset >= filecontent.length) return { file: '', line: 1, local };
       return { file: file, line: line + offset, local };
     } catch {
       //console.log("Could not read Sourcefile " + file)
-      return { file: "", line: 1, local };
+      return { file: '', line: 1, local };
     }
   } else {
-    return { file: "", line: 1, local };
+    return { file: '', line: 1, local };
   }
 }

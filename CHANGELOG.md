@@ -201,3 +201,10 @@
 ## 1.5.6
 
 - Related packages updated
+
+## 1.6.0
+
+- Code cleaned
+- Joblist added
+- Locklist added
+- New Yottadb commands and functions added

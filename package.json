@@ -46,6 +46,34 @@
         "command": "mumps.Globals.search",
         "icon": "images/search.svg",
         "title": "Search"
+      },
+      {
+        "command": "mumps.Jobs.refresh",
+        "title": "Refresh Jobs",
+        "icon": {
+          "dark": "images/dark/refresh.svg",
+          "light": "images/light/refresh.svg"
+        }
+      },
+      {
+        "command": "mumps.Locks.refresh",
+        "title": "Refresh Locks",
+        "icon": {
+          "dark": "images/dark/refresh.svg",
+          "light": "images/light/refresh.svg"
+        }
+      },
+      {
+        "command": "mumps.generateForLoop",
+        "title": "Generate For-Loop for Mumps"
+      },
+      {
+        "command": "mumps.scanWorkspaceForErrors",
+        "title": "Scan all mumps routines in Workspace for Errors"
+      },
+      {
+        "command": "mumps.stopScan",
+        "title": "Stop Scan"
       }
     ],
     "configuration": {
@@ -229,18 +257,12 @@
     "menus": {
       "commandPalette": [
         {
-          "command": "mumps.Globals.refresh"
-        },
-        {
-          "command": "mumps.Globals.search"
+          "command": "mumps.scanWorkspaceForErrors",
+          "when": "editorLangId == mumps",
+          "description": "Scan Workspace for Errors"
         }
       ],
       "view/item/context": [
-        {
-          "command": "mumps.Globals.loadMore",
-          "group": "inline",
-          "when": "viewItem == moreToCome"
-        },
         {
           "command": "mumps.Globals.refresh",
           "icon": {
@@ -255,7 +277,8 @@
           "icon": {
             "dark": "images/dark/search.svg",
             "light": "images/light/search.svg"
-          }
+          },
+          "when": "view == mumpsGlobals"
         }
       ],
       "view/title": [
@@ -276,6 +299,24 @@
             "light": "images/light/search.svg"
           },
           "when": "view == mumpsGlobals"
+        },
+        {
+          "command": "mumps.Locks.refresh",
+          "group": "navigation",
+          "icon": {
+            "dark": "images/dark/refresh.svg",
+            "light": "images/light/refresh.svg"
+          },
+          "when": "view == mumpsLocks"
+        },
+        {
+          "command": "mumps.Jobs.refresh",
+          "group": "navigation",
+          "icon": {
+            "dark": "images/dark/refresh.svg",
+            "light": "images/light/refresh.svg"
+          },
+          "when": "view == mumpsJobs"
         }
       ]
     },
@@ -338,11 +379,23 @@
     "views": {
       "global-directory": [
         {
+          "id": "mumpsJobs",
+          "name": "Jobs",
+          "icon": "images/jobs.svg",
+          "when": "mumps.connected"
+        },
+        {
+          "id": "mumpsLocks",
+          "name": "Locks",
+          "icon": "images/locks.svg",
+          "when": "mumps.connected"
+        },
+        {
           "contextualTitle": "Global Directory",
           "icon": "images/dep.svg",
           "id": "mumpsGlobals",
-          "name": "Global Directory",
-          "when": "mumps.showGlobals"
+          "name": "Globals",
+          "when": "mumps.connected"
         }
       ]
     },
@@ -351,8 +404,8 @@
         {
           "icon": "images/dep.svg",
           "id": "global-directory",
-          "title": "Global Directory",
-          "when": "mumps.showGlobals"
+          "title": "Globals, Jobs and Locks",
+          "when": "mumps.connected"
         }
       ]
     }
@@ -395,6 +448,13 @@
     "type": "git",
     "url": "https://github.com/jewuma/mumps-debug.git"
   },
+  "prettier": {
+    "printWidth": 120,
+    "semi": true,
+    "singleQuote": true,
+    "tabWidth": 2,
+    "trailingComma": "es5"
+  },
   "scripts": {
     "compile": "tsc -p ./src && node update-security-md.js",
     "eslint": "npx eslint ./src/**/*.ts",
@@ -405,5 +465,5 @@
     "webpack": "webpack --mode development",
     "webpack-dev": "webpack --mode development --watch"
   },
-  "version": "1.5.6"
+  "version": "1.6.0"
 }
