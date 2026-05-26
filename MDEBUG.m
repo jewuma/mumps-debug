@@ -1,12 +1,12 @@
-MDEBUG  			;Debugging Routine for GT.M/YottaDB by Jens Wulf
-				;Version 0.9.8
-				;2023-11-01
-				;License: LGPL
-				;Usage on your own Risk - No guaranties
-				;
-				;
-				;Do Initialization and start Loop to Wait	 for Debugger-Commands
-				;ignoreVars:%PROGNAME
+MDEBUG  	;Debugging Routine for GT.M/YottaDB by Jens Wulf
+		;Version 0.9.9
+		;2026-05-22
+		;License: LGPL
+		;Usage on your own Risk - No guaranties
+		;
+		;
+		;Do Initialization and start Loop to Wait	 for Debugger-Commands
+		;ignoreVars:%PROGNAME
 	S $ZSTEP="ZSHOW ""VIS"":^%MDEBUG($J,""VARS"") S %STEP=$$WAIT^MDEBUG($ZPOS) ZST:%STEP=""I"" INTO ZST:%STEP=""O"" OVER ZST:%STEP=""F"" OUTOF ZC:%STEP=""C"""
 	D INIT
 	F  S %STEP=$$WAIT("") Q:%STEP["^"
@@ -51,7 +51,7 @@ INIT    			;Open TCP-Communication-Port
 WAIT(%ZPOS)   			;Wait for next command from editor
 	N %DEV,%IO,%CMD,%CMDS,%CMDLINE,%SOCKET,%I,%VAR,%MI
 	;possible debugger-commands
-	S %CMDS="START;QUIT;EXIT;INTO;OUTOF;OVER;CONTINUE;SETBP;VARS;INTERNALS;CLEARBP;REQUESTBP;RESET;GETGBL;GETVAR;ERRCHK;RESTART;SEARCHGBL"
+	S %CMDS="START;QUIT;EXIT;INTO;OUTOF;OVER;CONTINUE;SETBP;VARS;INTERNALS;CLEARBP;REQUESTBP;RESET;GETGBL;GETVAR;ERRCHK;RESTART;SEARCHGBL;JOBLIST;LOCKLIST"
 	S %IO=$I
 	S %DEV=^%MDEBUG($J,"DEV"),%SOCKET=^%MDEBUG($J,"SOCKET")
 	U %DEV:(SOCKET=%SOCKET:DELIM=$C(10):EXCEPTION="HALT")
@@ -82,6 +82,8 @@ READLOOP			;Wait for next Command from Editor
 	I %CMD="CLEARBP" D CLEARBP($P(%CMDLINE,";",2),$P(%CMDLINE,";",3)) G READLOOP	;Clear a Breakpoint
 	I %CMD="RESET" G RESET						; Reset States and wait for a new Connection
 	I %CMD="ERRCHK" D ERRCHK G READLOOP				; Check following Lines if it's legal Mumps-Code
+	I %CMD="JOBLIST" D JOBLIST G READLOOP				; List running jobs
+	I %CMD="LOCKLIST" D LOCKLIST G READLOOP				; List Locks
 	U %IO
 	I %CMD="INTO" Q:$D(^%MDEBUG($J,"BP",$$POSCONV(%ZPOS))) "O" Q "I"	;Prevent Double-Stop if it's ZSTEP INTO and Breakpoint
 	Q:%CMD="INTO" "I"
@@ -159,6 +161,12 @@ GETGBL(EXPRESSION)		;Get Global-Content an pass it to Editor
 GETGBL1				;Continue-Label if something fails
 	W "***ENDGBL",!
 	S $ZSTATUS=""
+	Q
+JOBLIST				;Get Joblist and transmit it to Debugger
+	D SYSUTIL("ps -eo pid,user,%cpu,%mem,comm | grep -Ei 'mumps|yottadb|ydb' | grep -v grep","JOBLIST")
+	Q
+LOCKLIST			;Get Locklist and transmit it to Debugger
+	D SYSUTIL("lke show -all","LOCKLIST")
 	Q
 SEARCHGBL(GLOBAL,SEARCH)	;Search for global-entries that contain the search string
 	N $ZT,I,VALUE,VAR
@@ -265,6 +273,21 @@ LINECOMPILE(LINES,RESULT)	;Create temporary Mumps-File from given lines
 	D TESTCOMPILE(DEV,.RESULT)
 	O DEV C DEV:DELETE
 	U IO
+	Q
+SYSUTIL(CMD,HEADER)		;Run Systemcommand and transmit Output to Debugger
+	N IO,PIPEDEV,LINE
+	S IO=$I
+	S PIPEDEV="CMDPIPE"
+	W "***START"_HEADER,!
+	O PIPEDEV:(shell="/bin/bash":command=CMD:readonly)::"PIPE"
+	U PIPEDEV
+	F  Q:$ZEOF  R LINE D
+	. U IO
+	. W LINE,!
+	. U PIPEDEV
+	C PIPEDEV
+	U IO
+	W "***END"_HEADER,!
 	Q
 TESTCOMPILE(FILE,RESULT)       	;Compile FILE (no Object File created and return possible Errors in .RESULT
 	N IO,PIPE,I,LINE

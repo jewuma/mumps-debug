@@ -192,7 +192,7 @@
         "languages": [
           "mumps"
         ],
-        "program": "./out/extension",
+        "program": "./dist/extension",
         "runtime": "node",
         "type": "mumps"
       }
@@ -440,7 +440,7 @@
     "debug"
   ],
   "license": "LGPL",
-  "main": "./out/extension",
+  "main": "./dist/extension",
   "name": "mumps-debug",
   "private": false,
   "publisher": "jewuma",
