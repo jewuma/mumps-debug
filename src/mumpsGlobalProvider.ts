@@ -1,4 +1,3 @@
-/* eslint-disable class-methods-use-this */
 import * as vscode from 'vscode';
 import { MumpsConnect } from './mumpsConnect';
 

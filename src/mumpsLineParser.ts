@@ -2237,7 +2237,6 @@ class MumpsLineParser {
 
     return result;
   }
-  // eslint-disable-next-line class-methods-use-this
   private _cutBeforeClosingBrace(line: string, position: number): string {
     let insideString = false;
     for (let i = position; i < line.length; i++) {

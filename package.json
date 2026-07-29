@@ -417,14 +417,15 @@
   },
   "description": "Debugger for Mumps (M) , GT.M, YottaDB",
   "devDependencies": {
-    "@eslint/js": "^9.24.0",
+    "@eslint/js": "^9.39.5",
     "@types/mocha": "^10.0.4",
     "@types/node": "^18.18.0",
     "@types/vscode": "^1.82.0",
     "@vscode/vsce": "^3.0.0",
-    "eslint": "^9.24.0",
-    "typescript": "^5.8.3",
-    "typescript-eslint": "^8.29.1",
+    "eslint": "^10.8.0",
+    "globals": "^17.8.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.65.0",
     "webpack": "^5.88.2",
     "webpack-cli": "^5.1.4"
   },
@@ -465,5 +466,9 @@
     "webpack": "webpack --mode development",
     "webpack-dev": "webpack --mode development --watch"
   },
-  "version": "1.6.0"
+  "version": "1.6.1",
+  "allowScripts": {
+    "keytar@7.9.0": true,
+    "@vscode/vsce-sign@2.0.9": true
+  }
 }

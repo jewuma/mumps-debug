@@ -208,3 +208,7 @@
 - Joblist added
 - Locklist added
 - New Yottadb commands and functions added
+
+## 1.6.1
+
+- packag4es updated
